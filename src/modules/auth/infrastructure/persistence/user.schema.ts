@@ -1,8 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Schema as MongooseSchema } from 'mongoose';
 
-@Schema({ timestamps: true, collection: 'users' })
-export class UserDocument extends Document {
+@Schema({
+  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+  collection: 'users',
+})
+export class UserDocument extends Document<string> {
+  @Prop({ type: String, required: true })
+  declare _id: string;
+
   @Prop({ required: true, unique: true, index: true })
   email: string;
 
@@ -12,8 +18,18 @@ export class UserDocument extends Document {
   @Prop({ required: true })
   name: string;
 
+  @Prop()
+  full_name?: string;
+
+  @Prop()
+  avatar_url?: string;
+
+  @Prop()
+  location?: string;
+
   @Prop({ required: true, default: 'user' })
   role: string;
 }
 
-export const UserSchema = SchemaFactory.createForClass(UserDocument);
+export const UserSchema: MongooseSchema =
+  SchemaFactory.createForClass(UserDocument);

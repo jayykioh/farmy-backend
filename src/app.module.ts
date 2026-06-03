@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
+import { DbModule } from './db/db.module';
 
 @Module({
   imports: [
@@ -18,11 +19,12 @@ import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>(
           'MONGO_URI',
-          'mongodb://127.0.0.1:27018/farmy',
+          'mongodb+srv://adnparr_db_user:Dong1234@farmdiaries.ytxyxvl.mongodb.net/?appName=FarmDiaries',
         ),
       }),
       inject: [ConfigService],
     }),
+    DbModule,
     AuthModule,
   ],
   controllers: [AppController],
