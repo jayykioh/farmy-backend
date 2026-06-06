@@ -8,6 +8,7 @@ import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
 import { DbModule } from './db/db.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { DbModule } from './db/db.module';
     }),
     DbModule,
     AuthModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [
