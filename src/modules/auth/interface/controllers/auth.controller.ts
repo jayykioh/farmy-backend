@@ -6,6 +6,7 @@ import { LoginDto } from '../dtos/login.dto';
 import { RegisterUserCommand } from '../../application/commands/register-user.command';
 import { LoginUserCommand } from '../../application/commands/login-user.command';
 import { RefreshTokenCommand } from '../../application/commands/refresh-token.command';
+import { LogoutCommand } from '../../application/commands/logout.command';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { User } from '../../domain/user.aggregate';
 
@@ -122,7 +123,18 @@ export class AuthController {
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) response: Response) {
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = request.cookies?.['refresh_token'] as
+      | string
+      | undefined;
+
+    if (refreshToken) {
+      await this.commandBus.execute(new LogoutCommand(refreshToken));
+    }
+
     // Clear cookies
     response.clearCookie('refresh_token', {
       path: '/api/v1/auth',

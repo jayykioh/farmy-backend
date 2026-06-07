@@ -5,6 +5,9 @@ import type { IUserRepository } from '../../domain/repositories/user-repository.
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { ITokenService } from '../services/token-service.interface';
 import { ITokenServiceToken } from '../services/token-service.interface';
+import type { IRefreshTokenRepository } from '../../domain/repositories/refresh-token-repository.interface';
+import { IRefreshTokenRepositoryToken } from '../../domain/repositories/refresh-token-repository.interface';
+import { RefreshToken } from '../../domain/refresh-token.aggregate';
 import { User } from '../../domain/user.aggregate';
 import { Email } from '../../domain/value-objects/email.value-object';
 import { Password } from '../../domain/value-objects/password.value-object';
@@ -18,6 +21,8 @@ export class RegisterUserHandler implements ICommandHandler<RegisterUserCommand>
     private readonly userRepository: IUserRepository,
     @Inject(ITokenServiceToken)
     private readonly tokenService: ITokenService,
+    @Inject(IRefreshTokenRepositoryToken)
+    private readonly refreshTokenRepository: IRefreshTokenRepository,
   ) {}
 
   async execute(command: RegisterUserCommand) {
@@ -58,6 +63,24 @@ export class RegisterUserHandler implements ICommandHandler<RegisterUserCommand>
     };
     const accessToken = this.tokenService.generateAccessToken(payload);
     const refreshToken = this.tokenService.generateRefreshToken(payload);
+
+    // Persist refresh token in DB
+    const decoded = this.tokenService.verifyRefreshToken(refreshToken);
+    const expiresAt = new Date(
+      decoded.exp ? decoded.exp * 1000 : Date.now() + 30 * 24 * 60 * 60 * 1000,
+    );
+    const familyId = decoded.jti || crypto.randomUUID();
+
+    const refreshTokenEntity = new RefreshToken(
+      crypto.randomUUID(),
+      refreshToken,
+      user.getId(),
+      familyId,
+      false, // isUsed
+      false, // isRevoked
+      expiresAt,
+    );
+    await this.refreshTokenRepository.create(refreshTokenEntity);
 
     return {
       user,
