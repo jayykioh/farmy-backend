@@ -8,6 +8,7 @@ import { ITokenServiceToken } from '../services/token-service.interface';
 import type { IRefreshTokenRepository } from '../../domain/repositories/refresh-token-repository.interface';
 import { IRefreshTokenRepositoryToken } from '../../domain/repositories/refresh-token-repository.interface';
 import { RefreshToken } from '../../domain/refresh-token.aggregate';
+import { createAuthError } from '../../../../common/auth/auth-errors';
 import * as crypto from 'crypto';
 
 @CommandHandler(RefreshTokenCommand)
@@ -25,38 +26,32 @@ export class RefreshTokenHandler implements ICommandHandler<RefreshTokenCommand>
     const { refreshToken } = command;
 
     if (!refreshToken) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_MISSING_TOKEN',
-        message: 'Không tìm thấy Refresh Token!',
-      });
+      throw createAuthError('AUTH_MISSING_REFRESH_TOKEN');
     }
 
     // Find the token in the database
     const tokenDoc =
       await this.refreshTokenRepository.findByToken(refreshToken);
     if (!tokenDoc) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_REFRESH_FAILED',
-        message: 'Refresh Token không tồn tại!',
-      });
+      throw createAuthError(
+        'AUTH_REFRESH_FAILED',
+        'Refresh Token không tồn tại!',
+      );
     }
 
     // Check if the token's family has been revoked
     if (tokenDoc.getIsRevoked()) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_REFRESH_FAILED',
-        message: 'Refresh Token đã bị thu hồi!',
-      });
+      throw createAuthError(
+        'AUTH_REFRESH_FAILED',
+        'Refresh Token đã bị thu hồi!',
+      );
     }
 
     // Token reuse detection
     if (tokenDoc.getIsUsed()) {
       // Theft detected! Revoke all tokens in this family
       await this.refreshTokenRepository.revokeFamily(tokenDoc.getFamilyId());
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_TOKEN_REUSED',
-        message: 'Refresh Token đã được sử dụng trước đó!',
-      });
+      throw createAuthError('AUTH_TOKEN_REUSED');
     }
 
     try {
@@ -65,10 +60,10 @@ export class RefreshTokenHandler implements ICommandHandler<RefreshTokenCommand>
       const user = await this.userRepository.findById(decoded.sub);
 
       if (!user) {
-        throw new UnauthorizedException({
-          errorCode: 'AUTH_REFRESH_FAILED',
-          message: 'Tài khoản không tồn tại hoặc đã bị xóa!',
-        });
+        throw createAuthError(
+          'AUTH_REFRESH_FAILED',
+          'Tài khoản không tồn tại hoặc đã bị xóa!',
+        );
       }
 
       // Mark the current token as used
@@ -115,10 +110,7 @@ export class RefreshTokenHandler implements ICommandHandler<RefreshTokenCommand>
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_REFRESH_FAILED',
-        message: 'Refresh Token không hợp lệ hoặc đã hết hạn!',
-      });
+      throw createAuthError('AUTH_REFRESH_FAILED');
     }
   }
 }

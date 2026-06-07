@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { RegisterUserCommand } from './register-user.command';
-import { Inject, ConflictException } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { ITokenService } from '../services/token-service.interface';
@@ -11,6 +11,7 @@ import { RefreshToken } from '../../domain/refresh-token.aggregate';
 import { User } from '../../domain/user.aggregate';
 import { Email } from '../../domain/value-objects/email.value-object';
 import { Password } from '../../domain/value-objects/password.value-object';
+import { createAuthError } from '../../../../common/auth/auth-errors';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -37,10 +38,7 @@ export class RegisterUserHandler implements ICommandHandler<RegisterUserCommand>
       emailVO.getValue(),
     );
     if (existingUser) {
-      throw new ConflictException({
-        errorCode: 'AUTH_EMAIL_EXISTS',
-        message: 'Email đã tồn tại trong hệ thống!',
-      });
+      throw createAuthError('AUTH_EMAIL_EXISTS');
     }
 
     // Securely hash password

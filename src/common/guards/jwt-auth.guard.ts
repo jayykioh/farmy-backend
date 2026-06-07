@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  ExecutionContext,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { createAuthError } from '../auth/auth-errors';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -32,36 +29,21 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (err || !user) {
       if (info instanceof Error) {
         if (info.name === 'TokenExpiredError') {
-          throw new UnauthorizedException({
-            errorCode: 'AUTH_TOKEN_EXPIRED',
-            message: 'Access Token đã hết hạn!',
-          });
+          throw createAuthError('AUTH_TOKEN_EXPIRED');
         }
         if (info.message === 'No auth token') {
-          throw new UnauthorizedException({
-            errorCode: 'AUTH_MISSING_TOKEN',
-            message: 'Không đính kèm Bearer token ở header!',
-          });
+          throw createAuthError('AUTH_MISSING_ACCESS_TOKEN');
         }
       } else if (info && typeof info === 'object') {
         const record = info as Record<string, unknown>;
         if (record.name === 'TokenExpiredError') {
-          throw new UnauthorizedException({
-            errorCode: 'AUTH_TOKEN_EXPIRED',
-            message: 'Access Token đã hết hạn!',
-          });
+          throw createAuthError('AUTH_TOKEN_EXPIRED');
         }
         if (record.message === 'No auth token') {
-          throw new UnauthorizedException({
-            errorCode: 'AUTH_MISSING_TOKEN',
-            message: 'Không đính kèm Bearer token ở header!',
-          });
+          throw createAuthError('AUTH_MISSING_ACCESS_TOKEN');
         }
       }
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_INVALID_TOKEN',
-        message: 'Token bị sai chữ ký hoặc sai cấu trúc!',
-      });
+      throw createAuthError('AUTH_INVALID_TOKEN');
     }
     return user;
   }
