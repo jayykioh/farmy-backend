@@ -1,28 +1,25 @@
 import { NestFactory } from '@nestjs/core';
-import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { appConfig } from './config/app.config';
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cookieParser = require('cookie-parser') as () => any;
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const cfg = appConfig();
 
-  // Enable CORS for local frontend dev
+  // CORS — origins are loaded from ALLOWED_ORIGINS env variable
   app.enableCors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:5174',
-    ],
+    origin: cfg.allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
+    credentials: true, // Required for HttpOnly cookie (refresh_token)
   });
 
-  // Enable cookie parsing
+  // Enable cookie parsing (refresh_token cookie)
   app.use(cookieParser());
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(cfg.port);
 }
 void bootstrap();

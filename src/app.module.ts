@@ -15,12 +15,14 @@ import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
 import { HealthService } from './common/health/health.service';
 import { DbModule } from './db/db.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { appConfig } from './config/app.config';
 
 @Module({
   imports: [
     // Config (global)
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [appConfig],
     }),
 
     // MongoDB
@@ -36,13 +38,20 @@ import { StorageModule } from './modules/storage/storage.module';
     }),
 
     // BullMQ — kết nối Redis (dùng cho reminder queue)
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        ...(process.env.REDIS_PASSWORD
-          ? { password: process.env.REDIS_PASSWORD }
-          : {}),
+    BullModule.forRootAsync({
+      useFactory: () => {
+        const cfg = appConfig();
+        const redisUrl = cfg.redis.url;
+        if (redisUrl) {
+          return { connection: { url: redisUrl } };
+        }
+        return {
+          connection: {
+            host: cfg.redis.host,
+            port: cfg.redis.port,
+            ...(cfg.redis.password ? { password: cfg.redis.password } : {}),
+          },
+        };
       },
     }),
 
