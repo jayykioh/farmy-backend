@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
 import { DbModule } from './db/db.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -35,6 +36,10 @@ import { StorageModule } from './modules/storage/storage.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
     {
       provide: APP_FILTER,

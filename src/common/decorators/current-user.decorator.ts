@@ -7,15 +7,26 @@ export interface AuthenticatedUser {
   name: string;
 }
 
+type CurrentUserKey = keyof AuthenticatedUser;
+
 export const CurrentUser = createParamDecorator(
-  (data: keyof AuthenticatedUser | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest<Record<string, unknown>>();
+  <TKey extends CurrentUserKey | undefined>(
+    data: TKey,
+    ctx: ExecutionContext,
+  ): TKey extends CurrentUserKey
+    ? AuthenticatedUser[TKey]
+    : AuthenticatedUser => {
+    const request = ctx.switchToHttp().getRequest<{
+      user?: AuthenticatedUser;
+    }>();
     const user = request.user as AuthenticatedUser | undefined;
 
     if (!data) {
-      return user;
+      return user as TKey extends CurrentUserKey ? never : AuthenticatedUser;
     }
 
-    return user?.[data];
+    return user?.[data] as TKey extends CurrentUserKey
+      ? AuthenticatedUser[TKey]
+      : never;
   },
 );

@@ -10,6 +10,7 @@ import { LogoutCommand } from '../../application/commands/logout.command';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../common/decorators/current-user.decorator';
+import { Roles } from '../../../../common/decorators/roles.decorator';
 import { User } from '../../domain/user.aggregate';
 
 interface AuthCommandResult {
@@ -133,6 +134,21 @@ export class AuthController {
         email: user.email,
         name: user.name,
         role: user.role,
+      },
+    };
+  }
+
+  @Roles('admin')
+  @Get('admin')
+  getAdminArea(@CurrentUser() user: AuthenticatedUser) {
+    return {
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        message: 'Admin access granted',
       },
     };
   }
