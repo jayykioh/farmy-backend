@@ -4,11 +4,15 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
+import * as Sentry from '@sentry/nestjs';
 
 @Catch()
-export class HttpExceptionFilter implements ExceptionFilter {
+export class GlobalExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -47,11 +51,23 @@ export class HttpExceptionFilter implements ExceptionFilter {
         }
       } else if (typeof resContent === 'string') {
         message = resContent;
+        errorCode = HttpStatus[status] || 'BAD_REQUEST';
       }
     }
 
     if (status === 401 && errorCode === 'BAD_REQUEST') {
       errorCode = 'AUTH_INVALID_TOKEN';
+    }
+
+    // Log the error and report to Sentry if it's a server error (5xx)
+    if (status >= 500) {
+      this.logger.error(
+        `Unhandled server error: ${message}`,
+        exception instanceof Error ? exception.stack : String(exception),
+      );
+      Sentry.captureException(exception);
+    } else {
+      this.logger.warn(`Client error [${status}]: ${message}`);
     }
 
     response.status(status).json({

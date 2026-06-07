@@ -6,7 +6,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { DbModule } from './db/db.module';
 
 @Module({
@@ -36,7 +36,7 @@ import { DbModule } from './db/db.module';
     },
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter,
+      useClass: GlobalExceptionFilter,
     },
   ],
 })
