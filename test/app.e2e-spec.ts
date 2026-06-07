@@ -1,3 +1,9 @@
+import { webcrypto } from 'crypto';
+if (!global.crypto) {
+  Object.defineProperty(global, 'crypto', {
+    value: webcrypto,
+  });
+}
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';

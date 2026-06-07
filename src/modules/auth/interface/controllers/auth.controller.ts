@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, Req } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, Get } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
 import { RegisterDto } from '../dtos/register.dto';
@@ -8,6 +8,8 @@ import { LoginUserCommand } from '../../application/commands/login-user.command'
 import { RefreshTokenCommand } from '../../application/commands/refresh-token.command';
 import { LogoutCommand } from '../../application/commands/logout.command';
 import { Public } from '../../../../common/decorators/public.decorator';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../../../common/decorators/current-user.decorator';
 import { User } from '../../domain/user.aggregate';
 
 interface AuthCommandResult {
@@ -122,6 +124,20 @@ export class AuthController {
     };
   }
 
+  @Get('me')
+  getMe(@CurrentUser() user: AuthenticatedUser) {
+    return {
+      success: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
+  }
+
+  @Public()
   @Post('logout')
   async logout(
     @Req() request: Request,
