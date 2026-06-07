@@ -1,6 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { LoginUserCommand } from './login-user.command';
-import { Inject, UnauthorizedException } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { ITokenService } from '../services/token-service.interface';
@@ -8,6 +8,7 @@ import { ITokenServiceToken } from '../services/token-service.interface';
 import type { IRefreshTokenRepository } from '../../domain/repositories/refresh-token-repository.interface';
 import { IRefreshTokenRepositoryToken } from '../../domain/repositories/refresh-token-repository.interface';
 import { RefreshToken } from '../../domain/refresh-token.aggregate';
+import { createAuthError } from '../../../../common/auth/auth-errors';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -27,10 +28,7 @@ export class LoginUserHandler implements ICommandHandler<LoginUserCommand> {
 
     const user = await this.userRepository.findByEmail(dto.email);
     if (!user) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_INVALID_CREDENTIALS',
-        message: 'Email hoặc mật khẩu không chính xác!',
-      });
+      throw createAuthError('AUTH_INVALID_CREDENTIALS');
     }
 
     const isPasswordValid = await bcrypt.compare(
@@ -38,10 +36,7 @@ export class LoginUserHandler implements ICommandHandler<LoginUserCommand> {
       user.getPasswordHash(),
     );
     if (!isPasswordValid) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_INVALID_CREDENTIALS',
-        message: 'Email hoặc mật khẩu không chính xác!',
-      });
+      throw createAuthError('AUTH_INVALID_CREDENTIALS');
     }
 
     const payload = {

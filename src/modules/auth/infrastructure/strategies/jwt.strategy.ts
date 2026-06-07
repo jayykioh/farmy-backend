@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
@@ -7,6 +7,7 @@ import { TokenPayload } from '../../application/services/token-service.interface
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import { AuthenticatedUser } from '../../../../common/decorators/current-user.decorator';
+import { createAuthError } from '../../../../common/auth/auth-errors';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -31,10 +32,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.userRepository.findById(payload.sub);
 
     if (!user) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_INVALID_TOKEN',
-        message: 'Người dùng không tồn tại hoặc token không hợp lệ!',
-      });
+      throw createAuthError(
+        'AUTH_INVALID_SESSION',
+        'Người dùng không tồn tại hoặc token không hợp lệ!',
+      );
     }
 
     return {
