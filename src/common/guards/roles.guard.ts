@@ -1,11 +1,6 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { createAuthError } from '../auth/auth-errors';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { AuthenticatedUser } from '../decorators/current-user.decorator';
 
@@ -29,17 +24,11 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      throw new UnauthorizedException({
-        errorCode: 'AUTH_UNAUTHENTICATED',
-        message: 'Bạn cần đăng nhập để thực hiện thao tác này!',
-      });
+      throw createAuthError('AUTH_UNAUTHENTICATED');
     }
 
     if (!requiredRoles.includes(user.role)) {
-      throw new ForbiddenException({
-        errorCode: 'AUTH_FORBIDDEN',
-        message: 'Bạn không có quyền truy cập tài nguyên này!',
-      });
+      throw createAuthError('AUTH_FORBIDDEN');
     }
 
     return true;
