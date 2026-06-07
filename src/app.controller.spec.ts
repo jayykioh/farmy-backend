@@ -1,14 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { HealthService } from './common/health/health.service';
+import { ServiceUnavailableException } from '@nestjs/common';
 
 describe('AppController', () => {
   let appController: AppController;
+  const healthServiceMock = {
+    check: jest.fn(),
+  };
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        AppService,
+        {
+          provide: HealthService,
+          useValue: healthServiceMock,
+        },
+      ],
     }).compile();
 
     appController = app.get<AppController>(AppController);
@@ -17,6 +28,40 @@ describe('AppController', () => {
   describe('root', () => {
     it('should return "Hello World!"', () => {
       expect(appController.getHello()).toBe('Hello World!');
+    });
+  });
+
+  describe('health', () => {
+    it('should return health data when dependencies are up', async () => {
+      healthServiceMock.check.mockResolvedValue({
+        healthy: true,
+        db: { status: 'up' },
+        mongo: { status: 'up' },
+        redis: { status: 'up' },
+      });
+
+      await expect(appController.getHealth()).resolves.toEqual({
+        success: true,
+        data: {
+          healthy: true,
+          db: { status: 'up' },
+          mongo: { status: 'up' },
+          redis: { status: 'up' },
+        },
+      });
+    });
+
+    it('should surface service unavailable when dependencies are down', async () => {
+      healthServiceMock.check.mockRejectedValue(
+        new ServiceUnavailableException({
+          errorCode: 'HEALTH_CHECK_FAILED',
+          message: 'Một hoặc nhiều dịch vụ phụ thuộc không khả dụng!',
+        }),
+      );
+
+      await expect(appController.getHealth()).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
     });
   });
 });
