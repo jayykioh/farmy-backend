@@ -2,7 +2,37 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
-import { PetStateDocument, PetMood } from '../../infrastructure/persistence/pet-state.schema';
+import {
+  PetStateDocument,
+  PetMood,
+  PetMoodReason,
+} from '../../infrastructure/persistence/pet-state.schema';
+
+// ─── DTOs / Response Shape ────────────────────────────────────────────────────
+
+export interface CalculateMoodInput {
+  /** Whether the user has already logged a diary today */
+  loggedToday: boolean;
+  streakCount: number;
+  missedDays: number;
+  /** Current hour in VN local time (0-23) */
+  currentHourVN: number;
+}
+
+export interface PetStatusResponse {
+  mood: PetMood;
+  previousMood?: PetMood;
+  streakCount: number;
+  level: number;
+  exp: number;
+  lastDiaryDate?: string;
+  missedDays: number;
+  moodReason: PetMoodReason | string;
+  bubbleMessage: string;
+  updatedAt?: Date;
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
 
 @Injectable()
 export class PetService {
@@ -13,165 +43,303 @@ export class PetService {
     private readonly petModel: Model<PetStateDocument>,
   ) {}
 
+  // ── Mood Calculation Engine (source of truth) ─────────────────────────────
+
   /**
-   * Lấy trạng thái thú ảo của user, nếu chưa có thì khởi tạo mặc định
+   * Pure function — no DB access, fully testable.
+   * Priority order matches the approved spec:
+   *  1. Logged today + streak >= 7  → excited
+   *  2. Logged today                → happy
+   *  3. missedDays >= 2             → sad
+   *  4. missedDays == 1             → worried
+   *  5. No diary today + hour >= 20 → sleepy
+   *  6. No diary today              → hungry
+   *  7. Default                     → neutral
    */
-  async getPetState(userId: string): Promise<PetStateDocument & { bubble_message: string }> {
-    let pet = await this.petModel.findOne({ user_id: userId }).exec();
-    if (!pet) {
-      this.logger.log(`Initializing pet state for user ${userId}`);
-      pet = new this.petModel({
-        _id: crypto.randomUUID(),
-        user_id: userId,
-        mood: 'happy',
-        streak_count: 0,
-        level: 1,
-        xp: 0,
-        mood_reason: 'Chào mừng bạn đến với Farm-Diary!',
-      });
-      await pet.save();
+  calculateMood(input: CalculateMoodInput): { mood: PetMood; reason: PetMoodReason } {
+    const { loggedToday, streakCount, missedDays, currentHourVN } = input;
+
+    if (loggedToday && streakCount >= 7) {
+      return { mood: PetMood.EXCITED, reason: PetMoodReason.STREAK_MILESTONE };
     }
 
-    const bubbleMessage = this.generateBubbleMessage(pet.mood, pet.streak_count);
-    
-    // Return object with bubble message attached
-    const res = pet.toObject() as any;
-    res.bubble_message = bubbleMessage;
-    return res;
+    if (loggedToday) {
+      return { mood: PetMood.HAPPY, reason: PetMoodReason.USER_LOGGED_DIARY_TODAY };
+    }
+
+    if (missedDays >= 2) {
+      return { mood: PetMood.SAD, reason: PetMoodReason.MISSED_MULTIPLE_DAYS };
+    }
+
+    if (missedDays === 1) {
+      return { mood: PetMood.WORRIED, reason: PetMoodReason.MISSED_ONE_DAY };
+    }
+
+    if (currentHourVN >= 20) {
+      return { mood: PetMood.SLEEPY, reason: PetMoodReason.LATE_DAY_NO_DIARY };
+    }
+
+    if (!loggedToday) {
+      return { mood: PetMood.HUNGRY, reason: PetMoodReason.NEEDS_DAILY_DIARY };
+    }
+
+    return { mood: PetMood.NEUTRAL, reason: PetMoodReason.DEFAULT_STATE };
   }
 
-  /**
-   * Cộng XP và xử lý tăng cấp (Level Up)
-   */
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Returns "YYYY-MM-DD" in Vietnam local time (UTC+7) */
+  private getTodayVN(): string {
+    const now = new Date();
+    const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    return vnTime.toISOString().slice(0, 10);
+  }
+
+  /** Returns current hour (0-23) in Vietnam local time */
+  private getCurrentHourVN(): number {
+    const now = new Date();
+    const vnTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    return vnTime.getUTCHours();
+  }
+
+  /** XP → Level progression: level N requires N * 100 XP */
   private addXp(pet: PetStateDocument, amount: number): void {
     pet.xp += amount;
-    let xpNeeded = pet.level * 100; // Cấp 1 cần 100XP, cấp 2 cần 200XP...
+    let xpNeeded = pet.level * 100;
     while (pet.xp >= xpNeeded) {
       pet.xp -= xpNeeded;
       pet.level += 1;
-      pet.mood = 'excited';
-      pet.mood_reason = `Chúc mừng bạn đã đạt Cấp ${pet.level}!`;
       xpNeeded = pet.level * 100;
+      this.logger.log(`User ${pet.user_id} leveled up to ${pet.level}`);
     }
   }
 
-  /**
-   * Tính toán khoảng cách số ngày (Local Time offset UTC+7)
-   */
-  private getStartOfDayLocal(date: Date): Date {
-    const localTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
-    return new Date(
-      Date.UTC(
-        localTime.getUTCFullYear(),
-        localTime.getUTCMonth(),
-        localTime.getUTCDate(),
-      ),
-    );
+  /** Bubble message shown in the speech bubble overlay */
+  generateBubbleMessage(mood: PetMood, streak: number): string {
+    switch (mood) {
+      case PetMood.EXCITED:
+        return `🎉 ${streak} ngày liên tiếp! Bé Thóc cực kỳ tự hào về bạn!`;
+      case PetMood.HAPPY:
+        return `🌱 Tuyệt vời! Bé Thóc vui lắm vì bạn đã ghi nhật ký hôm nay!`;
+      case PetMood.SAD:
+        return `💧 Bé Thóc nhớ bạn quá... Hãy quay lại viết nhật ký nhé!`;
+      case PetMood.WORRIED:
+        return `😟 Hôm qua bạn bỏ quên nhật ký rồi, hôm nay đừng bỏ nữa nhé!`;
+      case PetMood.SLEEPY:
+        return `💤 Muộn rồi... Nhưng vẫn còn kịp ghi nhật ký cho hôm nay đấy!`;
+      case PetMood.HUNGRY:
+        return `🍚 Bé Thóc đói bụng rồi! Ghi nhật ký để cho Thóc ăn nào!`;
+      case PetMood.NEUTRAL:
+      default:
+        return `🍃 Chào chủ vườn! Chúc bạn một ngày chăm vườn vui vẻ!`;
+    }
+  }
+
+  // ── Core Service Methods ──────────────────────────────────────────────────
+
+  /** Ensure pet record exists for user, create if needed */
+  private async ensurePet(userId: string): Promise<PetStateDocument> {
+    let pet = await this.petModel.findOne({ user_id: userId }).exec();
+    if (!pet) {
+      this.logger.log(`Creating initial pet state for user ${userId}`);
+      const todayVN = this.getTodayVN();
+      const { mood, reason } = this.calculateMood({
+        loggedToday: false,
+        streakCount: 0,
+        missedDays: 0,
+        currentHourVN: this.getCurrentHourVN(),
+      });
+      pet = new this.petModel({
+        _id: crypto.randomUUID(),
+        user_id: userId,
+        mood,
+        previous_mood: undefined,
+        streak_count: 0,
+        missed_days: 0,
+        last_diary_date: undefined,
+        level: 1,
+        xp: 0,
+        mood_reason: reason,
+      });
+      await pet.save();
+    }
+    return pet;
   }
 
   /**
-   * Cập nhật Streak và Mood khi người dùng ghi nhật ký
+   * GET /pet/status — primary endpoint, returns full PetStatusResponse.
+   * Also recalculates mood based on current time / missedDays each call.
    */
-  async updateStreakAndMoodOnDiaryCreated(userId: string, diaryDate: Date = new Date()): Promise<PetStateDocument | null> {
-    // Đảm bảo petState tồn tại
-    await this.getPetState(userId);
-    const pet = await this.petModel.findOne({ user_id: userId }).exec();
-    if (!pet) return null;
+  async getStatus(userId: string): Promise<PetStatusResponse> {
+    const pet = await this.ensurePet(userId);
+    const todayVN = this.getTodayVN();
+    const loggedToday = pet.last_diary_date === todayVN;
 
-    const todayStart = this.getStartOfDayLocal(diaryDate);
-    this.addXp(pet, 30); // Ghi nhật ký được 30 XP
+    // Recalculate missedDays on the fly
+    let missedDays = pet.missed_days;
+    if (!loggedToday && pet.last_diary_date) {
+      const lastDate = new Date(pet.last_diary_date + 'T00:00:00Z');
+      const todayDate = new Date(todayVN + 'T00:00:00Z');
+      const diffMs = todayDate.getTime() - lastDate.getTime();
+      missedDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)) - 1);
+    }
 
-    if (!pet.last_diary_at) {
-      // Ghi lần đầu tiên
+    const { mood, reason } = this.calculateMood({
+      loggedToday,
+      streakCount: pet.streak_count,
+      missedDays,
+      currentHourVN: this.getCurrentHourVN(),
+    });
+
+    // Persist mood change if it differs
+    if (pet.mood !== mood) {
+      pet.previous_mood = pet.mood;
+      pet.mood = mood;
+      pet.mood_reason = reason;
+      pet.missed_days = missedDays;
+      await pet.save();
+    }
+
+    return {
+      mood: pet.mood,
+      previousMood: pet.previous_mood,
+      streakCount: pet.streak_count,
+      level: pet.level,
+      exp: pet.xp,
+      lastDiaryDate: pet.last_diary_date,
+      missedDays: pet.missed_days,
+      moodReason: pet.mood_reason ?? reason,
+      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      updatedAt: (pet as any).updated_at,
+    };
+  }
+
+  /**
+   * Called by DiaryService after a successful diary log creation.
+   * Updates streak, XP, previousMood, mood.
+   */
+  async updateAfterDiaryCreated(
+    userId: string,
+    diaryDate: Date = new Date(),
+  ): Promise<PetStatusResponse> {
+    const pet = await this.ensurePet(userId);
+    const todayVN = this.getTodayVN();
+
+    // Add XP regardless
+    this.addXp(pet, 30);
+
+    // Streak logic
+    const diaryDateVN = (() => {
+      const d = new Date(diaryDate.getTime() + 7 * 60 * 60 * 1000);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    if (!pet.last_diary_date) {
+      // First diary ever
       pet.streak_count = 1;
-      pet.mood = 'happy';
-      pet.mood_reason = 'Hoàn thành ghi nhật ký đầu tiên!';
+    } else if (pet.last_diary_date === diaryDateVN) {
+      // Same day — don't change streak
     } else {
-      const lastStart = this.getStartOfDayLocal(pet.last_diary_at);
-      const diffMs = todayStart.getTime() - lastStart.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
+      const lastDate = new Date(pet.last_diary_date + 'T00:00:00Z');
+      const thisDate = new Date(diaryDateVN + 'T00:00:00Z');
+      const diffDays = Math.round(
+        (thisDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
       if (diffDays === 1) {
-        // Ngày liên tiếp tiếp theo -> Tăng streak
         pet.streak_count += 1;
-        
-        // Kiểm tra milestone streak
-        if ([7, 14, 30].includes(pet.streak_count)) {
-          pet.mood = 'excited';
-          pet.mood_reason = `Đạt mốc ${pet.streak_count} ngày chăm chỉ liên tiếp! 🎉`;
-        } else {
-          pet.mood = 'happy';
-          pet.mood_reason = `Cập nhật streak ${pet.streak_count} ngày liên tiếp!`;
-        }
-      } else if (diffDays > 1) {
-        // Đứt streak -> reset về 1
-        pet.streak_count = 1;
-        pet.mood = 'happy';
-        pet.mood_reason = 'Đặt lại streak do quên ghi nhật ký.';
       } else {
-        // diffDays === 0 (Ghi nhiều lần trong ngày) -> Giữ nguyên streak và mood
-        pet.mood_reason = 'Ghi thêm nhật ký trong ngày.';
+        pet.streak_count = 1; // broken streak, restart
       }
     }
 
+    // Reset missedDays since user just logged
+    pet.missed_days = 0;
+    pet.last_diary_date = diaryDateVN;
+    // Also keep backward-compat field
     pet.last_diary_at = diaryDate;
-    return pet.save();
-  }
 
-  /**
-   * Cập nhật mood khi hoàn thành nhắc nhở sớm
-   */
-  async updateMoodOnReminderCompleted(userId: string): Promise<PetStateDocument | null> {
-    const pet = await this.petModel.findOne({ user_id: userId }).exec();
-    if (!pet) return null;
+    // Recalculate mood
+    const { mood, reason } = this.calculateMood({
+      loggedToday: true,
+      streakCount: pet.streak_count,
+      missedDays: 0,
+      currentHourVN: this.getCurrentHourVN(),
+    });
 
-    this.addXp(pet, 10); // Hoàn thành nhắc nhở được 10 XP
-    pet.mood = 'happy';
-    pet.mood_reason = 'Hoàn thành tốt công việc vườn tược!';
-    return pet.save();
-  }
-
-  /**
-   * Cập nhật mood khi bỏ lỡ nhắc nhở (để quá giờ)
-   */
-  async updateMoodOnReminderFailed(userId: string): Promise<PetStateDocument | null> {
-    const pet = await this.petModel.findOne({ user_id: userId }).exec();
-    if (!pet) return null;
-
-    pet.mood = 'sad';
-    pet.mood_reason = 'Bỏ lỡ hoạt động vườn tược chăm sóc cây!';
-    return pet.save();
-  }
-
-  /**
-   * Cập nhật mood trực tiếp (ví dụ khi bị sâu bệnh rầy nâu nặng)
-   */
-  async updateMood(userId: string, mood: PetMood, reason: string): Promise<PetStateDocument | null> {
-    const pet = await this.petModel.findOne({ user_id: userId }).exec();
-    if (!pet) return null;
-
+    // Store previous mood before update
+    if (pet.mood !== mood) {
+      pet.previous_mood = pet.mood;
+    }
     pet.mood = mood;
     pet.mood_reason = reason;
-    return pet.save();
+
+    await pet.save();
+    this.logger.log(
+      `Pet updated for user ${userId}: mood=${mood}, streak=${pet.streak_count}, xp=${pet.xp}`,
+    );
+
+    return {
+      mood: pet.mood,
+      previousMood: pet.previous_mood,
+      streakCount: pet.streak_count,
+      level: pet.level,
+      exp: pet.xp,
+      lastDiaryDate: pet.last_diary_date,
+      missedDays: pet.missed_days,
+      moodReason: reason,
+      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      updatedAt: (pet as any).updated_at,
+    };
   }
 
-  /**
-   * Phát sinh tin nhắn bong bóng lời thoại động cho Thú ảo
-   */
-  private generateBubbleMessage(mood: PetMood, streak: number): string {
-    switch (mood) {
-      case 'excited':
-        return `Bé Thóc hào hứng quá chủ vườn ơi! Chuỗi ${streak} ngày chăm sóc liên tục thật xuất sắc! Tiếp tục duy trì nhé! 🎉`;
-      case 'happy':
-        return `Chào chủ vườn! Hôm nay thời tiết rất đẹp, bạn đã hoàn thành công việc vườn tược nào chưa? 🌱`;
-      case 'neutral':
-        return `Bạn ơi, đã đến giờ kiểm tra vườn rồi đấy. Hãy cập nhật nhật ký vụ mùa hôm nay nhé!`;
-      case 'sad':
-        return `Bé Thóc buồn ghê... Đã lâu bạn không ghé thăm Thóc và viết nhật ký vụ mùa rồi. 😢`;
-      case 'worried':
-        return `Cảnh báo! Có dấu hiệu sâu bệnh bất thường trong vườn cần xử lý ngay! Bé Thóc lo lắm đấy! 😰`;
-      default:
-        return `Chào chủ vườn! Chúc bạn một ngày làm vườn thật nhiều niềm vui!`;
-    }
+  // ── Legacy / Backward-Compat Methods ─────────────────────────────────────
+
+  /** @deprecated Use getStatus() instead. Kept for /pet/state backward compat. */
+  async getPetState(userId: string): Promise<PetStatusResponse & { bubble_message: string }> {
+    const status = await this.getStatus(userId);
+    return { ...status, bubble_message: status.bubbleMessage };
+  }
+
+  /** @deprecated Use updateAfterDiaryCreated() instead. */
+  async updateStreakAndMoodOnDiaryCreated(
+    userId: string,
+    diaryDate: Date = new Date(),
+  ): Promise<PetStatusResponse> {
+    return this.updateAfterDiaryCreated(userId, diaryDate);
+  }
+
+  /** Update mood on completed reminder */
+  async updateMoodOnReminderCompleted(userId: string): Promise<void> {
+    const pet = await this.petModel.findOne({ user_id: userId }).exec();
+    if (!pet) return;
+    this.addXp(pet, 10);
+    pet.previous_mood = pet.mood;
+    pet.mood = PetMood.HAPPY;
+    pet.mood_reason = PetMoodReason.USER_LOGGED_DIARY_TODAY;
+    await pet.save();
+  }
+
+  /** Update mood on failed/missed reminder */
+  async updateMoodOnReminderFailed(userId: string): Promise<void> {
+    const pet = await this.petModel.findOne({ user_id: userId }).exec();
+    if (!pet) return;
+    pet.previous_mood = pet.mood;
+    pet.mood = PetMood.WORRIED;
+    pet.mood_reason = PetMoodReason.MISSED_ONE_DAY;
+    await pet.save();
+  }
+
+  /** Force-set mood (admin / test use) */
+  async updateMood(
+    userId: string,
+    mood: PetMood,
+    reason: string,
+  ): Promise<void> {
+    const pet = await this.petModel.findOne({ user_id: userId }).exec();
+    if (!pet) return;
+    pet.previous_mood = pet.mood;
+    pet.mood = mood;
+    pet.mood_reason = reason;
+    await pet.save();
   }
 }
