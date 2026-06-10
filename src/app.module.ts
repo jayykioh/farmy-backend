@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bullmq';
@@ -19,6 +20,22 @@ import { appConfig } from './config/app.config';
 
 @Module({
   imports: [
+    // nestjs-pino Logger
+    LoggerModule.forRoot({
+      pinoHttp: {
+        autoLogging: true,
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? {
+                target: 'pino-pretty',
+                options: {
+                  singleLine: true,
+                },
+              }
+            : undefined,
+      },
+    }),
+
     // Config (global)
     ConfigModule.forRoot({
       isGlobal: true,
