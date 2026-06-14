@@ -1,0 +1,32 @@
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import type { Request, Response, NextFunction } from 'express';
+import csurf from 'csurf';
+
+@Injectable()
+export class CsrfMiddleware implements NestMiddleware {
+  private csurfInstance = csurf({
+    cookie: {
+      key: 'XSRF-TOKEN',
+      httpOnly: false, // Must be false so frontend can read it
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    },
+    value: (req: Request) => req.headers['x-xsrf-token'] as string,
+  });
+
+  use(req: Request, res: Response, next: NextFunction) {
+    // Exclude login, register, and refresh from CSRF verification
+    const ignoredPaths = [
+      '/api/v1/auth/login',
+      '/api/v1/auth/register',
+      '/api/v1/auth/refresh',
+    ];
+
+    if (ignoredPaths.includes(req.path)) {
+      return next();
+    }
+
+    this.csurfInstance(req, res, next);
+  }
+}
