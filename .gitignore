@@ -66,3 +66,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /AGENTS.md
 /AGENTS.md.bak
 # END Ruler Generated Files
+
+# User local specifications
+/openspecs
+/openspec
+/.agent
+
+

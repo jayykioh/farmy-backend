@@ -70,6 +70,14 @@ export const appConfig = () => ({
     /** Public CDN URL for reading files (optional) */
     publicUrl: process.env.R2_PUBLIC_URL ?? '',
   },
+
+  /** Gemini AI */
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY ?? '',
+    chatModel: process.env.GEMINI_CHAT_MODEL ?? 'gemini-1.5-flash',
+    visionModel: process.env.GEMINI_VISION_MODEL ?? 'gemini-1.5-flash',
+    embedModel: process.env.GEMINI_EMBED_MODEL ?? 'text-embedding-004',
+  },
 });
 
 export type AppConfig = ReturnType<typeof appConfig>;
