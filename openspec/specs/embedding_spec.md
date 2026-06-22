@@ -40,11 +40,17 @@ CREATE TABLE embeddings (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_id   TEXT NOT NULL,        -- MongoDB _id (ObjectId as string)
   source_type TEXT NOT NULL,        -- 'diary_entry' | 'knowledge_chunk'
+  chunk_index INT NOT NULL DEFAULT 0, -- index of chunk in document
   embedding   vector(768) NOT NULL, -- text-embedding-004 output
   metadata    JSONB,                -- minimal: { cropType, userId, chunkIndex }
   is_active   BOOLEAN NOT NULL DEFAULT TRUE,
   created_at  TIMESTAMPTZ DEFAULT now()
 );
+
+-- UNIQUE index for multi-chunking per document
+CREATE UNIQUE INDEX uq_embeddings_source_chunk
+  ON embeddings (source_id, source_type, chunk_index);
+
 
 -- HNSW index for fast ANN search (< 10ms p99)
 CREATE INDEX ON embeddings
@@ -345,14 +351,14 @@ export class PgvectorRepository {
 
   async upsert(data: EmbeddingUpsert): Promise<void> {
     await this.ds.query(`
-      INSERT INTO embeddings (source_id, source_type, embedding, metadata, is_active)
-      VALUES ($1, $2, $3::vector, $4, $5)
-      ON CONFLICT (source_id, source_type)
+      INSERT INTO embeddings (source_id, source_type, chunk_index, embedding, metadata, is_active)
+      VALUES ($1, $2, $3, $4::vector, $5, $6)
+      ON CONFLICT (source_id, source_type, chunk_index)
         DO UPDATE SET embedding = EXCLUDED.embedding,
                       metadata = EXCLUDED.metadata,
                       is_active = EXCLUDED.is_active,
                       created_at = now()
-    `, [data.sourceId, data.sourceType, JSON.stringify(data.embedding), data.metadata, data.isActive]);
+    `, [data.sourceId, data.sourceType, data.chunkIndex, JSON.stringify(data.embedding), data.metadata, data.isActive]);
   }
 
   async deactivateBySourceId(sourceId: string): Promise<void> {
