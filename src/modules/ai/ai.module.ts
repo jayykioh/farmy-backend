@@ -5,6 +5,7 @@ import { RateLimiterModule } from '../../common/rate-limiter/rate-limiter.module
 import { LLMService } from './application/services/llm.service';
 import { PromptService } from './application/services/prompt.service';
 import { ChunkingService } from './application/services/chunking.service';
+import { RAGService } from './application/services/rag.service';
 import { ChatService } from './application/services/chat.service';
 import { PlantScanService } from './application/services/plant-scan.service';
 import { ChatController } from './interface/controllers/chat.controller';
@@ -54,6 +55,7 @@ import { EmbeddingProcessor } from './application/processors/embedding.processor
     ChunkingService,
     EmbeddingRepository,
     EmbeddingProcessor,
+    RAGService,
     ChatService,
     PlantScanService,
     {
@@ -69,6 +71,7 @@ import { EmbeddingProcessor } from './application/processors/embedding.processor
     'IEmbeddingProvider',
     MongooseModule,
     BullModule,
+    RAGService,
     ChatService,
     PlantScanService,
   ],
