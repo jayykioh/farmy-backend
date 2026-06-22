@@ -29,11 +29,12 @@ import {
   LLMEmbedResult,
   VisionCompleteOptions,
 } from '../../domain/llm.types';
+import { IEmbeddingProvider } from '../../domain/embedding.types';
 
 type GeminiClient = InstanceType<typeof GoogleGenAI>;
 
 @Injectable()
-export class LLMService {
+export class LLMService implements IEmbeddingProvider {
   private readonly logger = new Logger(LLMService.name);
   private client?: GeminiClient;
 
