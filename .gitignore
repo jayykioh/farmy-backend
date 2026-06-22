@@ -68,8 +68,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # END Ruler Generated Files
 
 # User local specifications
-/openspecs
-/openspec
 /.agent
 
 
