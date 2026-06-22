@@ -117,24 +117,23 @@ export class DiaryService {
   ): Promise<DiaryLogDocument> {
     await this.verifyDiaryOwner(userId, diaryId);
 
-    // Create 1536-dimensional mock embedding array
-    const mockEmbedding = Array(1536)
-      .fill(0)
-      .map(() => Math.random() * 0.1);
-
     const log = new this.diaryLogModel({
       _id: crypto.randomUUID(),
       diary_id: diaryId,
       activity_type: dto.activity_type,
       content: dto.content,
       image_url: dto.image_url,
-      content_embedding: mockEmbedding,
     });
     
     // Tăng streak và cập nhật trạng thái thú ảo
     await this.petService.updateStreakAndMoodOnDiaryCreated(userId);
 
-    return log.save();
+    const savedLog = await log.save();
+
+    // TODO: Enqueue embedding job via BullMQ
+    // e.g., await this.embedQueue.add('embed_diary', { diaryId: savedLog._id.toString(), userId }, { priority: 3 });
+
+    return savedLog;
   }
 
   async findAllLogs(

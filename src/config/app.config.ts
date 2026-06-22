@@ -71,6 +71,11 @@ export const appConfig = () => ({
     publicUrl: process.env.R2_PUBLIC_URL ?? '',
   },
 
+  /** Supabase / PostgreSQL */
+  supabase: {
+    dbUrl: process.env.SUPABASE_DB_URL,
+  },
+
   /** Gemini AI */
   gemini: {
     apiKey: process.env.GEMINI_API_KEY ?? '',

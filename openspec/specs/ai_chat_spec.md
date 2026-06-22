@@ -1,5 +1,5 @@
 # FarmDiaries AI — AI Chat & RAG System Specification
-### Google Gemini Flash · MongoDB Atlas Vector Search · Mongoose Session Cache · Rate Limiting
+### Google Gemini Flash · pgvector HNSW Search Index · Mongoose Session Cache · Rate Limiting
 
 | Thuộc tính | Giá trị |
 |---|---|

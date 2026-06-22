@@ -5,6 +5,7 @@ import { RateLimiterModule } from '../../common/rate-limiter/rate-limiter.module
 import { LLMService } from './application/services/llm.service';
 import { PromptService } from './application/services/prompt.service';
 import { ChunkingService } from './application/services/chunking.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   AiChatMemoryDocument,
   AiChatMemorySchema,
