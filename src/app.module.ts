@@ -15,11 +15,13 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
 import { HealthService } from './common/health/health.service';
 import { DbModule } from './db/db.module';
+import { PgModule } from './db/pg.module';
 import { RedisModule } from './common/redis/redis.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -79,12 +81,14 @@ import { AiModule } from './modules/ai/ai.module';
     ScheduleModule.forRoot(),
 
     DbModule,
+    PgModule,
     // Redis global client (REDIS_CLIENT token) — phải import ở root để @Global() hoạt động đúng
     RedisModule,
     AuthModule,
     FarmModule,
     PetModule,
     AiModule,
+    KnowledgeModule,
   ],
   controllers: [AppController],
   providers: [
