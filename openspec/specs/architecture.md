@@ -77,8 +77,8 @@ graph TD
     Chat --> RAG
     RAG -->|1. ANN search - returns IDs only| PGVector
     RAG -->|2. Fetch full docs by ID| MongoDB
-    RAG --> Embed
-    Embed -->|text-embedding-004| GeminiAPI
+    RAG -->|IEmbeddingProvider| Embed
+    Embed -->|IEmbeddingProvider token| LLM
     Embed -->|Write embedding + source_id| PGVector
     Chat --> LLM
     LLM -->|Redis Counter Check| Redis
@@ -110,7 +110,7 @@ sequenceDiagram
     actor User as Nông dân (Client)
     participant Nest as NestJS Backend (AuthModule)
     participant Supa as Supabase Auth Service
-    participant DB as PostgreSQL (refresh_tokens)
+    participant DB as MongoDB (refresh_tokens)
 
     User->>Nest: POST /auth/login (Credentials / OIDC Token)
     Nest->>Supa: Verify user credentials
@@ -127,7 +127,7 @@ sequenceDiagram
     Note over User, Nest: Access Token hết hạn (sau 15 phút)
     
     User->>Nest: Request API bất kỳ mang Access Token (Expired)
-    Nest-->>User: Trả lỗi 401 + errorCode: AUTH_TOKEN_EXPIRED
+    Nest-->>User: Trả lỗi 401 + error_code: AUTH_TOKEN_EXPIRED
     
     User->>Nest: POST /auth/refresh (Gửi HTTP-Only Refresh Token tự động)
     Nest->>DB: Truy vấn & verify hash(Refresh Token) còn hạn & chưa revoke
@@ -156,6 +156,7 @@ sequenceDiagram
     participant Nest as NestJS (PlantScanModule)
     participant Sharp as Sharp.js Image Processor
     participant R2 as Cloudflare R2 Store
+    participant LLM as LLMModule
     participant Gemini as Gemini Vision API
     participant Mongo as MongoDB Atlas (plant_scans)
 
@@ -192,9 +193,11 @@ sequenceDiagram
     else Ảnh mới hoàn toàn
         Nest->>R2: Stream buffer lên Cloudflare R2 (Signed URL)
         R2-->>Nest: Trả về safe Key / Image URL
-        Nest->>Gemini: Gọi Gemini Vision với custom System Prompt & Image Buffer
+        Nest->>LLM: completeVision(image, prompt)
+        LLM->>Gemini: Gọi Gemini Vision với custom System Prompt & Image Buffer
         Note over Gemini: Phân tích đốm lá, độ vàng, đề xuất thuốc điều trị (PHI warning)
-        Gemini-->>Nest: Trả JSON Kết quả chẩn đoán bệnh
+        Gemini-->>LLM: Trả JSON Kết quả chẩn đoán bệnh
+        LLM-->>Nest: Diagnosis result
         Nest->>Mongo: Lưu bản ghi plant_scans mới (bao gồm pHash, chẩn đoán, imageUrl)
         Nest-->>User: Trả về Kết quả chẩn đoán bệnh chi tiết
     end
@@ -213,18 +216,17 @@ sequenceDiagram
     participant Redis as Redis Quota Counter
     participant RAG as RAGModule
     participant Embed as EmbeddingModule
+    participant LLM as LLMModule
     participant PGVector as pgvector (Search Index)
     participant Mongo as MongoDB Atlas (PRIMARY DB)
-    participant Bull as BullMQ Delay Queue
     participant Gemini as Gemini Flash API
 
     User->>Nest: Gửi tin nhắn chat ("Lúa bị rầy nâu phun gì?")
     Nest->>Redis: Increment & Get Counter "llm:rpm:limit" (TTL 60s)
     
     alt Counter > 14 (Chạm ngưỡng giới hạn)
-        Nest->>Bull: Đưa request vào llm_queue (High priority)
-        Bull-->>Nest: Enqueued (User nhận: "AI đang bận, sẽ trả lời sau giây lát...")
-        Note over Nest, Bull: Chờ worker trống để xử lý tiếp
+        Nest-->>User: Trả fallback ngay với rate_limited=true hoặc HTTP 429
+        Note over Nest: Chat realtime không được đưa vào queue kéo dài
     else Counter <= 14 (Hoạt động bình thường)
         Redis-->>Nest: OK
     end
@@ -232,8 +234,10 @@ sequenceDiagram
     Nest->>RAG: Truy vấn tài liệu bổ trợ (Context Retrieval)
     
     RAG->>Embed: Embed tin nhắn người dùng (text-embedding-004)
-    Embed->>Gemini: Gọi API sinh vector 768 chiều
-    Gemini-->>Embed: vector[768]
+    Embed->>LLM: embed() qua IEmbeddingProvider
+    LLM->>Gemini: Gọi API sinh vector 768 chiều
+    Gemini-->>LLM: vector[768]
+    LLM-->>Embed: vector[768]
     
     RAG->>PGVector: ANN search — ORDER BY embedding <=> $queryVector LIMIT 10
     Note over PGVector: Chỉ trả về source_id, source_type, score (NO content)
@@ -244,8 +248,10 @@ sequenceDiagram
     Mongo-->>RAG: Full documents (notes, chunkText, metadata)
     
     RAG->>Nest: Kết hợp [System Prompt] + [User message] + [Context từ MongoDB]
-    Nest->>Gemini: Gọi Gemini Flash sinh câu trả lời
-    Gemini-->>Nest: Trả về text câu trả lời
+    Nest->>LLM: complete(prompt)
+    LLM->>Gemini: Gọi Gemini Flash sinh câu trả lời
+    Gemini-->>LLM: Trả về text câu trả lời
+    LLM-->>Nest: Completion result
     
     Nest->>Mongo: Lưu lượt chat vào chat_sessions (MongoDB)
     Nest-->>User: Trả về câu trả lời hướng dẫn chuẩn kỹ thuật nông nghiệp 🌱
@@ -261,23 +267,22 @@ All business data lives in MongoDB. See `openspec/specs/mongodb_stack_analysis.m
 
 | Collection | Stores | Key indexes |
 |---|---|---|
-| `users` | User profile, Zalo/push prefs, role, soft-delete | `email`, `zaloUserId` |
-| `refresh_tokens` | Token hash, family lineage, expiry, device | `tokenHash` unique, `expiresAt` TTL |
-| `diary_entries` | Crop log, notes, photos, weather, location, flags | `userId+createdAt`, `userId+cropType` |
-| `pet_states` | Current mood, streak, last diary timestamp | `userId` unique |
-| `pet_events` | Mood change history, milestones | `userId+createdAt` |
-| `plant_scans` | Image metadata, pHash, AI diagnosis JSON | `userId+createdAt`, `pHash` |
-| `chat_sessions` | Message array, citations, AI metadata, TTL 90d | `userId+updatedAt`, `sessionId` unique |
-| `knowledge_chunks` | Technical content chunks, crop tags, quality score | `cropType+qualityScore`, vector search |
-| `memory_embeddings` | (legacy name) — if using pure MongoDB RAG, store here | `userId+sourceId` |
-| `reminders` | Scheduled jobs, status, retry, channel | `status+scheduledAt`, `userId` |
-| `notification_subscriptions` | Push/Zalo/email destinations | `userId` |
-| `notification_logs` | Delivery outcomes | `userId+createdAt` |
-| `weekly_insights` | Generated insight, delivery state, user feedback | `userId+weekStartDate` |
-| `audit_logs` | Compliance records (append-only) | `userId+createdAt`, `action+createdAt` |
-| `user_events` | Product analytics events, TTL 30d | `userId+createdAt`, `eventType` |
-| `farm_snaps` | Photo share, condition, reactions, XP | `userId+createdAt`, `isPublic+createdAt` |
-| `ai_feedback` | Chat ratings, A/B test data | `userId+createdAt` |
+| `users` | User profile, Zalo/push prefs, role, soft-delete | `email`, `zalo_user_id` |
+| `refresh_tokens` | Token hash, family lineage, expiry, device | `token_hash` unique, `expires_at` TTL |
+| `diary_entries` | Crop log, notes, photos, weather, location, flags | `user_id+created_at`, `user_id+crop_type` |
+| `pet_states` | Current mood, streak, last diary timestamp | `user_id` unique |
+| `pet_events` | Mood change history, milestones | `user_id+created_at` |
+| `plant_scans` | Image metadata, pHash, AI diagnosis JSON | `user_id+created_at`, `p_hash` |
+| `chat_sessions` | Message array, citations, AI metadata, TTL 90d | `user_id+updated_at`, `session_id` unique |
+| `knowledge_chunks` | Technical content chunks, crop tags, quality score | `crop_type+quality_score` |
+| `reminders` | Scheduled jobs, status, retry, channel | `status+scheduled_at`, `user_id` |
+| `notification_subscriptions` | Push/Zalo/email destinations | `user_id` |
+| `notification_logs` | Delivery outcomes | `user_id+created_at` |
+| `weekly_insights` | Generated insight, delivery state, user feedback | `user_id+week_start_date` |
+| `audit_logs` | Compliance records (append-only) | `user_id+created_at`, `action+created_at` |
+| `user_events` | Product analytics events, TTL 30d | `user_id+created_at`, `event_type` |
+| `farm_snaps` | Photo share, condition, reactions, XP | `user_id+created_at`, `is_public+created_at` |
+| `ai_feedback` | Chat ratings, A/B test data | `user_id+created_at` |
 
 ### 3.2 pgvector — Search Index Only
 
@@ -306,12 +311,12 @@ erDiagram
 
 Tách biệt các dạng dữ liệu tần suất ghi cực cao, schema linh động và có thể lưu trữ ngắn hạn:
 
-#### 1. Collection `ai_chats` (Lưu lịch sử hội thoại có TTL 90 ngày)
+#### 1. Collection `chat_sessions` (Lưu lịch sử hội thoại có TTL 90 ngày)
 *   **Mục đích:** Lưu tin nhắn dạng mảng lồng nhau, phục vụ giao diện chat dạng thread/session.
 *   **Index đề xuất:**
-    *   `{ userId: 1, createdAt: -1 }` (Hiển thị danh sách hội thoại của người dùng)
-    *   `{ sessionId: 1 }` (Độc nhất, phục vụ lấy chi tiết cuộc hội thoại)
-    *   `{ createdAt: 1 }` với thuộc tính `expireAfterSeconds: 7776000` (Tự động xóa tin nhắn cũ sau 90 ngày để tránh làm phình to đĩa).
+    *   `{ user_id: 1, updated_at: -1 }` (Hiển thị danh sách hội thoại của người dùng)
+    *   `{ session_id: 1 }` (Độc nhất, phục vụ lấy chi tiết cuộc hội thoại)
+    *   `{ expires_at: 1 }` với thuộc tính `expireAfterSeconds: 0` (TTL tuyệt đối 90 ngày, được tính khi tạo/cập nhật retention).
 
 #### 2. Collection `user_events` (Nhật ký hành vi nông dân với TTL 30 ngày)
 *   **Mục đích:** Thu thập dữ liệu phục vụ nghiên cứu hành vi nông dân và cải tiến sản phẩm.
@@ -386,14 +391,13 @@ Kẻ tấn công có thể đổi đuôi file `.exe` hay `.sh` thành `.jpg` hò
 
 ### 5.3 Ngăn ngừa Tấn công chiếm dụng phiên (Token Theft Detection)
 Nếu kẻ tấn công đánh cắp được `Refresh Token` từ máy người dùng:
-*   Mỗi khi một Refresh Token được sử dụng để lấy Access Token mới, backend tạo token mới và đặt `replaced_by = new_token.id` trên token cũ, sau đó đánh dấu token cũ là `revoked_at = now()`.
-*   **Token Theft Detection Logic:** Nếu backend phát hiện một Refresh Token cũ (có `revoked_at IS NOT NULL` hoặc đã có `replaced_by`) đột ngột được gửi lại hệ thống, đây là dấu hiệu chắc chắn bị đánh cắp. Backend kích hoạt **Token Theft Alarm** thông qua `family_id`:
-    ```sql
-    -- Tìm và revoke toàn bộ token cùng lineage (cùng family_id)
-    UPDATE refresh_tokens
-    SET revoked_at = NOW()
-    WHERE family_id = :compromised_family_id
-      AND revoked_at IS NULL;
+*   Mỗi khi một Refresh Token được sử dụng, backend đánh dấu token cũ là `is_used=true` và tạo token mới trong cùng `family_id`.
+*   **Token Theft Detection Logic:** Nếu backend phát hiện token đã dùng hoặc đã revoke được gửi lại, backend thu hồi toàn bộ token cùng family trong MongoDB:
+    ```javascript
+    await refreshTokens.updateMany(
+      { family_id: compromisedFamilyId },
+      { $set: { is_revoked: true } },
+    );
     ```
 *   Kết quả: Thu hồi ngay lập tức **toàn bộ các token cùng family** (không revoke token của các phiên khác), bắt buộc đăng nhập lại trên mọi thiết bị trong cùng chuỗi đó.
 
@@ -413,14 +417,19 @@ $$\text{Delay}_i = i \times \left( \frac{14400 \times 1000}{N} \right) \text{ mi
 *   Công thức này giúp đảm bảo tần suất gọi API Gemini Flash luôn giữ ở mức an toàn dưới **10 RPM**, loại bỏ hoàn toàn khả năng chạm ngưỡng giới hạn của Free Tier (15 RPM).
 
 ### 6.2 Cấu hình Hàng đợi Phân cấp Ưu tiên (BullMQ Priority Queue)
-Sử dụng BullMQ để phân tầng ưu tiên xử lý các request gọi LLM:
+BullMQ chỉ điều phối tác vụ nền; request tương tác realtime không chờ queue:
 
 | Thứ hạng | Tác vụ | Ưu tiên (Priority) | Queue | Trải nghiệm người dùng |
 |---|---|---|---|---|
-| **1** | Trò chuyện trực tiếp (AI Chat) | 1 (High) | `llm_queue` | Xử lý ngay lập tức (< 3s) |
-| **2** | Quét chẩn đoán bệnh (Plant Scan) | 2 (Medium) | `llm_queue` | Phản hồi trong vòng 5-10s |
-| **3** | Nhắc nhở công việc (Reminder) | 5 (Low) | `reminder_queue` | Chấp nhận độ trễ vài phút |
-| **4** | Tổng hợp insight tuần (Weekly Cron) | 10 (Lowest) | `insight_queue` | Chạy nền phân tán trong 4 giờ |
+| **1** | Tạo/cập nhật embedding | 3 | `embedding_queue` | Tác vụ nền, retry an toàn |
+| **2** | Nhắc nhở công việc | 5 | `reminder_queue` | Chấp nhận độ trễ vài phút |
+| **3** | Tổng hợp insight tuần | 10 | `insight_queue` | Chạy nền phân tán trong 4 giờ |
+
+AI Chat và Plant Scan gọi `LLMModule` đồng bộ. Khi quota cạn, service retry ngắn theo policy rồi trả fallback hoặc HTTP 429; không tạo `llm_queue`.
+
+### 6.3 AI Provider Abstraction
+
+`LLMModule` là gateway duy nhất được phép gọi Gemini SDK. `LLMService` implement `IEmbeddingProvider`; `EmbeddingModule` và `RAGModule` chỉ inject token `IEmbeddingProvider` và không phụ thuộc concrete provider. DI phải dùng `useExisting: LLMService` để chat, vision và embedding dùng chung một gateway/rate-limit state.
 
 ---
 

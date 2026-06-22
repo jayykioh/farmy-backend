@@ -257,7 +257,7 @@ Specs xong rồi. Bạn duyệt để mình bắt đầu implement không? 🚀
 ```
 1. Caller (ChatModule, InsightModule, PlantScanModule) gọi llmService.complete(options)
 2. LLMModule check Redis counter: RPM < 14? (buffer 1 dưới 15 RPM limit)
-3. Nếu gần limit → push vào llm_queue (BullMQ) với priority — không reject user
+3. Nếu gần limit → chat realtime trả fallback ngay với `rate_limited: true`; endpoint không hỗ trợ fallback trả HTTP 429. Không push vào queue.
 4. Nếu còn quota → gọi Gemini API, increment Redis counter (TTL 60s)
 5. Gemini trả về → LLMModule log: model, latency_ms, prompt_tokens, completion_tokens, prompt_version
 6. Trả kết quả về caller. Nếu 429 từ Gemini → retry exponential backoff (1s, 2s, 4s, max 3 lần)
@@ -354,8 +354,8 @@ db.chat_sessions.createIndex(
 );
 
 // Index tìm kiếm session của user
-db.chat_sessions.createIndex({ userId: 1, updatedAt: -1 });
-db.chat_sessions.createIndex({ sessionId: 1 }, { unique: true });
+db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
+db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
 ```
 
 ### Archive Strategy (MongoDB)
@@ -393,12 +393,12 @@ db.archived_chat_metadata.createIndex({ userId: 1, archivedAt: -1 });
 
 | Config | Giá trị | Lý do |
 |---|---|---|
-| Queue name | insight_queue | Tách riêng với llm_queue — không block AI chat |
+| Queue name | insight_queue | Tách khỏi request AI realtime |
 | Concurrency | 2 workers | An toàn với 15 RPM Gemini |
 | Job attempts | 3 | Retry nếu Gemini fail |
 | Backoff | exponential, 2s base | Tránh thundering herd |
 | Remove on complete | true, after 24h | Giữ log nhẹ |
-| Priority | low (10) | AI chat (priority 1) luôn ưu tiên hơn |
+| Priority | low (10) | Tách biệt khỏi request chat realtime |
 
 ---
 
@@ -620,12 +620,12 @@ CREATE TABLE reactions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id U
 
 ### MongoDB — Primary Database (All Application Data)
 
-**ai_chats:**
+**chat_sessions:**
 ```json
 {
   "_id": "ObjectId",
-  "userId": "UUID string",
-  "sessionId": "UUID string",
+  "user_id": "UUID string",
+  "session_id": "UUID string",
   "messages": [
     {
       "role": "user | assistant",
@@ -683,10 +683,10 @@ CREATE TABLE reactions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id U
 **MongoDB indexes:**
 
 ```javascript
-// ai_chats
-db.ai_chats.createIndex({ userId: 1, createdAt: -1 });
-db.ai_chats.createIndex({ sessionId: 1 }, { unique: true });
-db.ai_chats.createIndex({ createdAt: 1 }, { expireAfterSeconds: 7776000 }); // TTL 90 ngày
+// chat_sessions
+db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
+db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
+db.chat_sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }); // TTL tuyệt đối 90 ngày
 
 // user_events
 db.user_events.createIndex({ userId: 1, createdAt: -1 });
@@ -716,7 +716,7 @@ db.plant_scans.createIndex({ pHash: 1 });
 
 // JWT Refresh Token — stored in MongoDB `refresh_tokens` collection
 // See mongodb_stack_analysis.md for the full index plan.
-// Fields: userId, tokenHash (unique), familyId, replacedBy, deviceInfo, ipAddress, expiresAt, revokedAt, createdAt
+// Fields: user_id, token_hash (unique), family_id, is_used, is_revoked, expires_at, created_at, updated_at
 ```
 
 **RBAC — Role-Based Access Control:**
@@ -874,16 +874,15 @@ export class AuditService {
     metadata?: Record<string, unknown>;
     req?: Request;
   }) {
-    await this.db.auditLog.create({
-      data: {
-        userId: params.userId,
+    await this.mongo.audit_logs.insertOne({
+        user_id: params.userId,
         action: params.action,
-        resourceType: params.resourceType,
-        resourceId: params.resourceId,
-        ipAddress: params.req?.ip,
-        userAgent: params.req?.headers['user-agent'],
+        resource_type: params.resourceType,
+        resource_id: params.resourceId,
+        ip_address: params.req?.ip,
+        user_agent: params.req?.headers['user-agent'],
         metadata: params.metadata,
-      }
+        created_at: new Date(),
     });
   }
 }
@@ -1382,49 +1381,27 @@ hotfix/*      → PR vào main (bypass develop khi emergency)
 
 > **Nguyên tắc:** Schema thay đổi phải được version control. Không chạy ALTER TABLE thủ công trên production.
 
-### 16.1 Migration Strategy (TypeORM)
+### 16.1 Migration Strategy (MongoDB + pgvector)
 
 ```typescript
-// typeorm.config.ts
-export default new DataSource({
-  type: 'postgres',
-  url: process.env.DATABASE_URL,
-  migrations: ['dist/migrations/*.js'],
-  migrationsTableName: 'schema_migrations',
-  migrationsRun: false, // KHÔNG auto-run — chạy explicit trong deploy
-});
+// Business schema/data migrations chạy qua MongoDB migration runner của project.
+// Migration state được lưu trong MongoDB collection `migrations`.
+npm run migration:run
 
-// Tạo migration
-npx typeorm migration:generate src/migrations/AddUserZaloFields -d src/config/typeorm.config.ts
-
-// Chạy migration
-npx typeorm migration:run -d src/config/typeorm.config.ts
-
-// Rollback 1 migration
-npx typeorm migration:revert -d src/config/typeorm.config.ts
+// TypeORM migrations chỉ được dùng cho pgvector extension và bảng `embeddings`.
+npm run migration:pgvector
 ```
 
 **Quy tắc migration:**
 
 ```typescript
-// ĐÚNG: Backward-compatible migrations
-export class AddZaloFieldsToUsers1700000000000 implements MigrationInterface {
-  async up(queryRunner: QueryRunner) {
-    // Thêm column có DEFAULT hoặc nullable — không break existing data
-    await queryRunner.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zalo_user_id TEXT`);
-    await queryRunner.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zalo_notification_enabled BOOLEAN DEFAULT false`);
-  }
-  async down(queryRunner: QueryRunner) {
-    await queryRunner.query(`ALTER TABLE users DROP COLUMN IF EXISTS zalo_user_id`);
-    await queryRunner.query(`ALTER TABLE users DROP COLUMN IF EXISTS zalo_notification_enabled`);
-  }
-}
+// MongoDB migrations phải idempotent và dùng expand-contract khi đổi field.
+await users.updateMany(
+  { zalo_notification_enabled: { $exists: false } },
+  { $set: { zalo_notification_enabled: false } },
+);
 
-// SAI: Rename hoặc drop column trực tiếp (sẽ break production)
-// Thay vào đó: expand-contract pattern
-// Step 1: Add new_column (nullable)
-// Step 2: Migrate data
-// Step 3: Drop old_column (bước separate, sau khi confirm ok)
+// Không tạo PostgreSQL table/column cho users hoặc business entities.
 ```
 
 ### 16.2 Seed Strategy
@@ -1528,20 +1505,15 @@ mongorestore --uri $MONGODB_URI_NEW --archive=/tmp/mongo_backup.gz --gzip
 // 3. Consent nhận notification (Zalo ZNS / email / push)
 // 4. Consent chia sẻ public nếu user bật tính năng social
 
-// Lưu consent với timestamp + version của policy
-CREATE TABLE user_consents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  consent_type consent_type_enum NOT NULL,
-  granted BOOLEAN NOT NULL,
-  policy_version VARCHAR(20) NOT NULL,
-  ip_address INET,
-  granted_at TIMESTAMPTZ DEFAULT now()
-);
-CREATE TYPE consent_type_enum AS ENUM (
-  'data_storage', 'ai_analysis', 'notification_zalo',
-  'notification_email', 'notification_push', 'social_sharing'
-);
+// MongoDB user_consents document
+await this.mongo.user_consents.insertOne({
+  user_id: userId,
+  consent_type: 'data_storage',
+  granted: true,
+  policy_version: 'v1.0',
+  ip_address: request.ip,
+  granted_at: new Date(),
+});
 
 // Không gửi bất kỳ notification nào khi chưa có consent
 // Không chạy AI analysis khi user opt-out
@@ -1553,19 +1525,19 @@ CREATE TYPE consent_type_enum AS ENUM (
 // DELETE /users/me — GDPR-style right to erasure
 async deleteAccount(userId: string) {
   // 1. Soft delete user record (giữ 30 ngày để undo nếu cần)
-  await this.db.users.update({
-    where: { id: userId },
-    data: { is_deleted: true, deleted_at: new Date(), email: `deleted_${userId}@deleted.invalid` }
-  });
+  await this.mongo.users.updateOne(
+    { _id: userId },
+    { $set: { is_deleted: true, deleted_at: new Date(), email: `deleted_${userId}@deleted.invalid` } },
+  );
 
   // 2. Queue: xóa data liên quan sau 30 ngày
   await this.queue.add('delete-user-data', { userId }, { delay: 30 * 24 * 60 * 60 * 1000 });
 
   // 3. Revoke tất cả tokens ngay lập tức
-  await this.db.refreshTokens.updateMany({
-    where: { user_id: userId },
-    data: { revoked_at: new Date() }
-  });
+  await this.mongo.refresh_tokens.updateMany(
+    { user_id: userId },
+    { $set: { is_revoked: true } },
+  );
 
   // 4. Audit log
   await this.auditService.log({ userId, action: 'user.delete_account' });
@@ -1574,31 +1546,33 @@ async deleteAccount(userId: string) {
 // Worker: hard delete sau 30 ngày
 async hardDeleteUserData(userId: string) {
   // Xóa ảnh trên R2
-  const photos = await this.db.diaryEntries.findMany({ where: { user_id: userId }, select: { photo_urls: true } });
+  const photos = await this.mongo.diary_entries.find({ user_id: userId }, { projection: { photo_urls: 1 } }).toArray();
   for (const entry of photos) {
     for (const url of entry.photo_urls) await this.r2.delete(url);
   }
 
   // Xóa plant scan ảnh trên R2
   // Xóa chat history trên MongoDB
-  await this.mongo.ai_chats.deleteMany({ userId });
-  await this.mongo.user_events.deleteMany({ userId });
-  await this.mongo.plant_scans.deleteMany({ userId });
+  await this.mongo.chat_sessions.deleteMany({ user_id: userId });
+  await this.mongo.user_events.deleteMany({ user_id: userId });
+  await this.mongo.plant_scans.deleteMany({ user_id: userId });
 
-  // Xóa PostgreSQL data (CASCADE sẽ xóa related records)
-  await this.db.users.delete({ where: { id: userId } });
+  // Xóa business data trong MongoDB; pgvector embeddings là derived index.
+  await this.mongo.diary_entries.deleteMany({ user_id: userId });
+  await this.mongo.refresh_tokens.deleteMany({ user_id: userId });
+  await this.mongo.users.deleteOne({ _id: userId });
 }
 
 // GET /users/me/export — right to data portability
 async exportUserData(userId: string): Promise<Buffer> {
   const [user, diaries, chats, scans] = await Promise.all([
-    this.db.users.findUnique({ where: { id: userId } }),
-    this.db.diaryEntries.findMany({ where: { user_id: userId } }),
-    this.mongo.ai_chats.find({ userId }).toArray(),
-    this.mongo.plant_scans.find({ userId }).toArray(),
+    this.mongo.users.findOne({ _id: userId }),
+    this.mongo.diary_entries.find({ user_id: userId }).toArray(),
+    this.mongo.chat_sessions.find({ user_id: userId }).toArray(),
+    this.mongo.plant_scans.find({ user_id: userId }).toArray(),
   ]);
 
-  const exportData = { user, diaries, chats, scans, exportedAt: new Date() };
+  const exportData = { user, diaries, chats, scans, exported_at: new Date() };
   return Buffer.from(JSON.stringify(exportData, null, 2));
 }
 ```
@@ -1771,7 +1745,7 @@ async getUserProfile(userId: string) {
   const cached = await this.redis.get(cacheKey);
   if (cached) return JSON.parse(cached);
 
-  const user = await this.db.users.findUnique({ where: { id: userId } });
+  const user = await this.mongo.users.findOne({ _id: userId });
   await this.redis.setex(cacheKey, 300, JSON.stringify(user)); // TTL 5 phút
   return user;
 }
@@ -1782,7 +1756,11 @@ async getUserProfile(userId: string) {
 
 // Cache invalidation — luôn invalidate khi data thay đổi
 async updateUser(userId: string, data: Partial<User>) {
-  const user = await this.db.users.update({ where: { id: userId }, data });
+  const user = await this.mongo.users.findOneAndUpdate(
+    { _id: userId },
+    { $set: data },
+    { returnDocument: 'after' },
+  );
   await this.redis.del(`user:profile:${userId}`); // invalidate cache
   return user;
 }

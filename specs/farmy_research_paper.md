@@ -204,7 +204,7 @@ This design was chosen over MongoDB Atlas Vector Search after analysis of latenc
 
 ### 4.3 Caching and Queue Architecture
 
-Redis serves three roles: (1) rate limit counters for Gemini API quota enforcement (two independent keys — `llm:rpm:flash` for Gemini Flash at 15 RPM and `llm:rpm:embed` for text-embedding-004 at 100 RPM); (2) plant scan result caching keyed on perceptual hash; and (3) BullMQ broker state. BullMQ manages four priority queues: `llm_queue` (priority 1 for interactive chat, priority 2 for plant scans), `embed_queue` (priority 3), `reminder_queue` (priority 5), and `insight_queue` (priority 10, lowest). This priority hierarchy ensures interactive user-facing requests are never blocked by background batch operations.
+Redis serves three roles: (1) rate limit counters for Gemini API quota enforcement (two independent keys — `llm:rpm:flash` for Gemini Flash and `llm:rpm:embed` for embeddings); (2) short-lived cache state; and (3) BullMQ broker state. BullMQ is reserved for background work: `embedding_queue`, `reminder_queue`, and `insight_queue`. Interactive chat and plant scans use short retries and then return a fallback or HTTP 429; they are never held in a long-running queue.
 
 ### 4.4 Object Storage
 
@@ -388,8 +388,10 @@ sequenceDiagram
         R2-->>Nest: Image URL
         Nest->>Prompt: buildVisionPrompt(cropType)
         Prompt-->>Nest: BuiltPrompt (vision_v1.0)
-        Nest->>Gemini: completeVision(imageBuffer, prompt)
-        Gemini-->>Nest: Diagnosis JSON
+        Nest->>LLM: completeVision(imageBuffer, prompt)
+        LLM->>Gemini: Gemini Vision request
+        Gemini-->>LLM: Diagnosis JSON
+        LLM-->>Nest: Diagnosis result
         Nest->>Mongo: Persist plant_scan record
         Nest-->>Farmer: Structured diagnosis with treatment + PHI warning
     end
@@ -437,7 +439,7 @@ The backend is built on NestJS 10 with TypeScript strict mode. The module system
 
 ### 8.3 Database Layer
 
-MongoDB Atlas serves as the primary datastore with Mongoose as the ODM. Collections relevant to the AI pipeline include: `ai_chats` (conversation sessions with TTL index at 90 days), `diary_entries` (farm records), `knowledge_chunks` (admin-curated agricultural content), `plant_scans` (diagnosis records), `weekly_insights` (generated summaries), and `ai_feedback` (retained indefinitely for research value).
+MongoDB Atlas serves as the primary datastore with Mongoose as the ODM. Collections relevant to the AI pipeline include: `chat_sessions` (conversation sessions with TTL index at 90 days), `diary_entries` (farm records), `knowledge_chunks` (admin-curated agricultural content), `plant_scans` (diagnosis records), `weekly_insights` (generated summaries), and `ai_feedback` (retained indefinitely for research value).
 
 pgvector is deployed as a PostgreSQL extension within the same infrastructure container, accessed via TypeORM's raw query interface. The HNSW index parameters (m=16, ef_construction=64) balance recall quality against index build time and query latency, achieving sub-10ms p99 for the target collection size.
 

@@ -39,7 +39,7 @@ import { EmbeddingProcessor } from './application/processors/embedding.processor
     EmbeddingProcessor,
     {
       provide: 'IEmbeddingProvider',
-      useClass: LLMService,
+      useExisting: LLMService,
     },
   ],
   exports: [

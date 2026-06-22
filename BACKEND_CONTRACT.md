@@ -31,7 +31,7 @@ VITE_API_URL=http://localhost:3000/api/v1
 { success: true, message: string }
 
 // Lỗi
-{ errorCode: string, message: string }
+{ error_code: string, message: string }
 ```
 
 ---
@@ -69,7 +69,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       try {
         const res = await apiClient.post('/auth/refresh'); // cookie tự gửi
-        const newToken = res.data.data.accessToken;        // ← camelCase
+        const newToken = res.data.data.access_token;
         setAccessToken(newToken);
         error.config.headers.Authorization = `Bearer ${newToken}`;
         return apiClient.request(error.config);
@@ -87,7 +87,7 @@ apiClient.interceptors.response.use(
 
 | Item | Vị trí | Ghi chú |
 |------|--------|---------|
-| `accessToken` | Response body → memory (JS variable) | **Không** lưu localStorage |
+| `access_token` | Response body → memory (JS variable) | **Không** lưu localStorage |
 | `refreshToken` | HttpOnly Cookie `refresh_token` | Browser tự quản lý |
 | Cookie path | `/api/v1/auth` | Cookie chỉ gửi với auth routes |
 
@@ -107,10 +107,10 @@ apiClient.interceptors.response.use(
   success: true,
   message: "Đăng ký tài khoản thành công...",
   data: {
-    userId: string,
+    user_id: string,
     email: string,
     name: string,
-    accessToken: string  // ← camelCase
+    access_token: string
   }
 }
 ```
@@ -124,8 +124,8 @@ apiClient.interceptors.response.use(
 {
   success: true,
   data: {
-    accessToken: string,   // ← camelCase (lưu vào memory)
-    expiresIn: 900,        // 15 phút
+    access_token: string,  // lưu vào memory
+    expires_in: 900,       // 15 phút
     user: { id, email, name, role }
   }
 }
@@ -140,8 +140,8 @@ apiClient.interceptors.response.use(
 {
   success: true,
   data: {
-    accessToken: string,
-    expiresIn: 900,
+    access_token: string,
+    expires_in: 900,
     user: { id, email, name, role }
   }
 }
@@ -283,7 +283,7 @@ apiClient.interceptors.response.use(
 
 ## Error Codes (Auth)
 
-| errorCode | HTTP | Tình huống |
+| error_code | HTTP | Tình huống |
 |-----------|------|-----------|
 | `AUTH_MISSING_ACCESS_TOKEN` | 401 | Không có Bearer token |
 | `AUTH_TOKEN_EXPIRED` | 401 | Access token hết hạn |

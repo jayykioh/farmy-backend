@@ -7,7 +7,7 @@
 - **API Base URL**: Được quản lý qua `import.meta.env.VITE_API_URL`. Khi chạy local: `http://localhost:3000/api/v1`.
 - **Axios Client (`src/api/client.ts`)**: 
   - Bắt buộc phải có `withCredentials: true` trên mọi request để đảm bảo Refresh Token (được lưu trong HttpOnly Cookie) có thể gửi đi và nhận về.
-  - Tự động gắn Bearer Token (`accessToken`) vào header `Authorization`.
+  - Tự động gắn Bearer Token (`access_token`) vào header `Authorization`.
   - Tự động bắt lỗi HTTP 401 để gọi `POST /auth/refresh`, rotate token, và thực hiện lại các request đang pending.
 
 ## 2. Response Standard
@@ -22,11 +22,11 @@ type ApiResponse<T> = {
 
 ## 3. Data Mapping & Conventions
 
-> **Quan Trọng**: Backend của Farmy sử dụng chuẩn `snake_case` cho hầu hết các field name (do map trực tiếp từ MongoDB Document và DTO).
+> **Quan Trọng**: Backend của Farmy sử dụng chuẩn `snake_case` cho toàn bộ field name trên HTTP wire contract (request body, query và response JSON).
 > Để tránh lộn xộn, Frontend API interfaces/types cũng sẽ sử dụng `snake_case` tại tầng giao tiếp API. 
 
 ### 3.1. Auth Module (`/auth`)
-- **Login**: `POST /auth/login` - Payload: `{ email, password }` -> Returns `accessToken` (đây là ngoại lệ dùng camelCase từ Backend).
+- **Login**: `POST /auth/login` - Payload: `{ email, password }` -> Returns `{ access_token, expires_in, user }`.
 - **Register**: `POST /auth/register` - Payload: `{ name, email, password }`.
 - **Me**: `GET /auth/me` -> Returns `{ id, email, name, role }`.
 
