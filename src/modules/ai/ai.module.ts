@@ -55,8 +55,7 @@ import { KnowledgeSourceDocument, KnowledgeSourceSchema } from '../knowledge/inf
       },
     }),
   ],
-  controllers: [ChatController, PlantScanController],
-  controllers: [AiAdminController],
+  controllers: [ChatController, PlantScanController, AiAdminController],
   providers: [
     LLMService,
     PromptService,
