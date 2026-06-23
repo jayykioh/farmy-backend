@@ -36,7 +36,7 @@ export class HealthService {
 
     if (!healthy) {
       throw new ServiceUnavailableException({
-        errorCode: 'HEALTH_CHECK_FAILED',
+        error_code: 'HEALTH_CHECK_FAILED',
         message: 'Một hoặc nhiều dịch vụ phụ thuộc không khả dụng!',
         data: { db, mongo, redis },
       });

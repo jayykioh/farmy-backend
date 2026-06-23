@@ -163,7 +163,7 @@ export type BuiltPrompt = {
 };
 ```
 
-> **Lý do metadata:** Cho phép ChatModule log `promptChars` vào `ai_chats` collection mà không cần re-compute. Hỗ trợ future prompt analytics (prompt token estimate trước khi gửi Gemini).
+> **Lý do metadata:** Cho phép ChatModule log `promptChars` vào `chat_sessions` collection mà không cần re-compute. Hỗ trợ future prompt analytics (prompt token estimate trước khi gửi Gemini).
 
 ### 4.2 Builder Method Signatures
 
@@ -470,7 +470,7 @@ describe('PromptService', () => {
 ```
 TC-PROMPT-INT-01: ChatModule.sendMessage() → PromptService.buildChatPrompt() nhận đúng args
 TC-PROMPT-INT-02: LLMService.complete() nhận prompt từ BuiltPrompt.prompt
-TC-PROMPT-INT-03: prompt_version được lưu trong ai_chats MongoDB document
+TC-PROMPT-INT-03: prompt_version được lưu trong chat_sessions MongoDB document
 TC-PROMPT-INT-04: Full flow: injection attempt trong userMessage → bị blocked → Gemini không nhận injection
 ```
 

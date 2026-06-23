@@ -5,6 +5,7 @@ import { RateLimiterModule } from '../../common/rate-limiter/rate-limiter.module
 import { LLMService } from './application/services/llm.service';
 import { PromptService } from './application/services/prompt.service';
 import { ChunkingService } from './application/services/chunking.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   AiChatMemoryDocument,
   AiChatMemorySchema,
@@ -12,12 +13,17 @@ import {
 
 import { EmbeddingRepository } from './infrastructure/persistence/embedding.repository';
 import { EmbeddingProcessor } from './application/processors/embedding.processor';
+import { AiAdminController } from './application/controllers/ai-admin.controller';
+import { DiaryLogDocument, DiaryLogSchema } from '../farm/infrastructure/persistence/diary-log.schema';
+import { KnowledgeSourceDocument, KnowledgeSourceSchema } from '../knowledge/infrastructure/persistence/knowledge-source.schema';
 
 @Module({
   imports: [
     RateLimiterModule,
     MongooseModule.forFeature([
       { name: AiChatMemoryDocument.name, schema: AiChatMemorySchema },
+      { name: DiaryLogDocument.name, schema: DiaryLogSchema },
+      { name: KnowledgeSourceDocument.name, schema: KnowledgeSourceSchema },
     ]),
     BullModule.registerQueue({
       name: 'embedding_queue',
@@ -27,9 +33,11 @@ import { EmbeddingProcessor } from './application/processors/embedding.processor
           type: 'exponential',
           delay: 2000,
         },
+        removeOnComplete: true,
       },
     }),
   ],
+  controllers: [AiAdminController],
   providers: [
     LLMService,
     PromptService,
@@ -38,7 +46,7 @@ import { EmbeddingProcessor } from './application/processors/embedding.processor
     EmbeddingProcessor,
     {
       provide: 'IEmbeddingProvider',
-      useClass: LLMService,
+      useExisting: LLMService,
     },
   ],
   exports: [

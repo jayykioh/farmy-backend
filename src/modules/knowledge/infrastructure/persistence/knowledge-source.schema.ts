@@ -18,9 +18,6 @@ export class KnowledgeSourceDocument extends Document<string> {
   @Prop({ required: true })
   category: string;
 
-  @Prop({ type: [Number], required: true })
-  embedding: number[];
-
   @Prop()
   source_url?: string;
 

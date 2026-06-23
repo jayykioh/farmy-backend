@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-
-export interface ChunkingOptions {
-  windowSize: number;
-  stepSize: number;
-}
+import { ChunkingOptions } from '../../domain/chunking.constants';
 
 @Injectable()
 export class ChunkingService {
@@ -12,7 +8,7 @@ export class ChunkingService {
    * Ensures no chunk exceeds the window size and adjacent chunks overlap by the specified step size.
    */
   chunkText(text: string, options: ChunkingOptions): string[] {
-    const { windowSize, stepSize } = options;
+    const { windowSize, stepSize, maxChunks = Infinity, minLength = 0 } = options;
     if (windowSize <= 0) {
       throw new Error('windowSize must be greater than 0');
     }
@@ -30,9 +26,13 @@ export class ChunkingService {
     const chunks: string[] = [];
     let currentIndex = 0;
 
-    while (currentIndex < text.length) {
+    while (currentIndex < text.length && chunks.length < maxChunks) {
       const end = Math.min(currentIndex + windowSize, text.length);
-      chunks.push(text.slice(currentIndex, end));
+      const chunk = text.slice(currentIndex, end);
+      
+      if (chunk.length >= minLength) {
+        chunks.push(chunk);
+      }
 
       if (end >= text.length) {
         break;

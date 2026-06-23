@@ -45,7 +45,7 @@
 ```
 ChatModule
   ├── depends on: LLMModule, RAGModule, PromptModule, PetModule
-  └── saves to: MongoDB (ai_chats)
+  └── saves to: MongoDB (chat_sessions)
 
 RAGModule
   ├── depends on: EmbeddingModule (for query vector), PgvectorRepository (Supabase)
@@ -76,7 +76,7 @@ WeeklyInsightModule
   └── saves to: MongoDB (weekly_insights)
 ```
 
-**Rule:** Không module nào được gọi Gemini trực tiếp ngoài `LLMModule`. Mọi Gemini call phải đi qua `LLMModule`.
+**Rule:** Không module nào được gọi Gemini trực tiếp ngoài `LLMModule`. `LLMService` implement `IEmbeddingProvider`; `EmbeddingModule` và `RAGModule` inject interface token này, được bind bằng `useExisting: LLMService`, thay vì phụ thuộc concrete service hoặc Gemini SDK.
 
 ---
 
@@ -862,7 +862,7 @@ Nếu `rate_limited: true`: content = `LLM_FALLBACK_MESSAGE`, HTTP vẫn 200. FE
 }
 ```
 
-#### GET /api/v1/chat/sessions/:sessionId
+#### GET /api/v1/chat/sessions/:session_id
 
 **Response 200:**
 ```json
@@ -951,7 +951,7 @@ Cho phép FE stream response thay vì wait full response:
 > **[FIX #4] MVP Queue Decision:** For MVP, realtime chat does NOT queue on Flash RPM limit.
 > - **Reason:** Queuing a response back to a live SSE connection adds significant complexity (need WebSocket or polling fallback).
 > - **Behavior:** Return fallback response immediately with `rate_limited: true`. FE shows toast.
-> - **Override:** This decision overrides the `BullMQ queuing on rate-limit` behavior described in `ai_chat_spec.md` (TC-CHAT-04). That test case is deprecated for MVP.
+> - **Canonical rule:** This matches `ai_chat_spec.md`: realtime chat never waits in BullMQ.
 > - **Future:** Chat queue / polling / WebSocket can be added post-MVP.
 
 > 📝 **SSE Contract & Rate Limit Note:**
@@ -1285,7 +1285,7 @@ petService.updateMood(userId, 'happy', 'Chủ vườn đã xử lý sâu bệnh!
 
 ## 11. MongoDB Collections
 
-### ai_chats
+### chat_sessions
 
 ```javascript
 {
@@ -1311,9 +1311,9 @@ petService.updateMood(userId, 'happy', 'Chủ vườn đã xử lý sâu bệnh!
 }
 
 // Indexes:
-db.ai_chats.createIndex({ user_id: 1, updated_at: -1 });
-db.ai_chats.createIndex({ session_id: 1 }, { unique: true });
-db.ai_chats.createIndex(             // TTL 90 ngày
+db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
+db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
+db.chat_sessions.createIndex(        // TTL 90 ngày
   { created_at: 1 },
   { expireAfterSeconds: 7776000 }
 );
@@ -1322,13 +1322,13 @@ db.ai_chats.createIndex(             // TTL 90 ngày
 ### ai_feedback
 
 > **[FIX #5]** `mongo_chat_id` renamed to `message_id` + `session_id` pair.
-> Since messages are subdocuments inside `ai_chats`, we reference by `(session_id, message_id)` for clarity.
-> This also overrides the `mongoChatId` camelCase field in `ai_chat_spec.md` — see API Casing note below.
+> Since messages are subdocuments inside `chat_sessions`, we reference by `(session_id, message_id)` for clarity.
+> This matches the canonical `ai_chat_spec.md` wire contract.
 
 ```javascript
 {
   _id:            ObjectId,
-  session_id:     String,   // ai_chats.session_id — which session contains the rated message
+  session_id:     String,   // chat_sessions.session_id — which session contains the rated message
   message_id:     String,   // message subdocument's message_id — which specific message was rated
   user_id:        String,
   rating:         Number,   // 1–5
@@ -1443,14 +1443,14 @@ Nhất quán với `auth_spec.md` error format:
 ```json
 {
   "success":    false,
-  "statusCode": 429,
-  "errorCode":  "SCAN_QUOTA_EXCEEDED",
+  "status_code": 429,
+  "error_code":  "SCAN_QUOTA_EXCEEDED",
   "message":    "Đã dùng hết 3 lượt quét hôm nay.",
   "timestamp":  "2026-06-10T08:00:00Z"
 }
 ```
 
-| HTTP | errorCode | Nguyên nhân | FE xử lý |
+| HTTP | error_code | Nguyên nhân | FE xử lý |
 |---|---|---|---|
 | 429 | `SCAN_QUOTA_EXCEEDED` | Vượt scan limit ngày | Bottom sheet "Hết lượt hôm nay" |
 | 422 | `SCAN_IMAGE_BLURRY` | Laplacian < 100 | Bottom sheet "Ảnh mờ, chụp lại" |
@@ -1469,9 +1469,9 @@ Nhất quán với `auth_spec.md` error format:
 > |---|---|
 > | **All external REST API payloads** | Use `snake_case` (request body, response body) |
 > | **Internal TypeScript interfaces** | May use `camelCase` (services, repositories) |
-> | **Overridden fields** | `sessionId` → `session_id`, `mongoChatId` → `message_id` + `session_id`, `createdAt` → `created_at` |
+> | **Canonical fields** | `session_id`, `message_id`, `created_at`, `access_token`, `error_code` |
 >
-> Agent implementors: if you see `sessionId` or `mongoChatId` in old spec examples, use the `snake_case` version defined here.
+> Agent implementors: wire payloads are always `snake_case`; camelCase is allowed only inside application/domain code.
 
 ---
 

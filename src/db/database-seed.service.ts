@@ -169,11 +169,6 @@ export class DatabaseSeedService {
     }
 
     // 4. Seed Diary Logs (Idempotent)
-    // 1536-dimensional mock embedding array
-    const mockEmbedding = Array(1536)
-      .fill(0)
-      .map(() => Math.random() * 0.1);
-
     const logsToSeed = [
       {
         diary: seededDiaries[0],
@@ -207,7 +202,6 @@ export class DatabaseSeedService {
           diary_id: logData.diary._id,
           activity_type: logData.activity_type,
           content: logData.content,
-          content_embedding: mockEmbedding,
         });
         await log.save();
         this.logger.log(`Diary log created: ${logData.activity_type}`);
