@@ -23,7 +23,6 @@ import { StorageModule } from './modules/storage/storage.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';
-import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -103,7 +102,6 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
     PetModule,
     KnowledgeModule,
     AiModule,
-    KnowledgeModule,
   ],
   controllers: [AppController],
   providers: [
