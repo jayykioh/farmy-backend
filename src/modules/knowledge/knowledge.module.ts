@@ -8,6 +8,7 @@ import {
 import { KnowledgeRepository } from './infrastructure/persistence/knowledge.repository';
 import { KnowledgeService } from './application/services/knowledge.service';
 import { KnowledgeValidationService } from './application/services/knowledge-validation.service';
+import { FileParserService } from './application/services/file-parser.service';
 import { AdminKnowledgeController } from './application/controllers/admin-knowledge.controller';
 import { AiModule } from '../ai/ai.module';
 
@@ -25,7 +26,7 @@ import { AiModule } from '../ai/ai.module';
     AiModule,
   ],
   controllers: [AdminKnowledgeController],
-  providers: [KnowledgeRepository, KnowledgeService, KnowledgeValidationService],
-  exports: [KnowledgeRepository, KnowledgeService, KnowledgeValidationService],
+  providers: [KnowledgeRepository, KnowledgeService, KnowledgeValidationService, FileParserService],
+  exports: [KnowledgeRepository, KnowledgeService, KnowledgeValidationService, FileParserService],
 })
 export class KnowledgeModule {}
