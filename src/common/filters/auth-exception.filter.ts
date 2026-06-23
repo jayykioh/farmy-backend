@@ -30,7 +30,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (typeof resContent === 'object' && resContent !== null) {
         const record = resContent as Record<string, unknown>;
 
-        if (typeof record.errorCode === 'string') {
+        if (typeof record.error_code === 'string') {
+          errorCode = record.error_code;
+        } else if (typeof record.errorCode === 'string') {
+          // Accept legacy/internal camelCase exception payloads at the boundary.
           errorCode = record.errorCode;
         } else if (typeof record.error === 'string') {
           errorCode = record.error;
@@ -56,8 +59,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     response.status(status).json({
       success: false,
-      statusCode: status,
-      errorCode,
+      status_code: status,
+      error_code: errorCode,
       message,
       timestamp: new Date().toISOString(),
     });

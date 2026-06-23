@@ -73,7 +73,7 @@ async function bootstrap() {
     console.log(`\n📝 Diary Logs (${logs.length}):`);
     logs.forEach((l) =>
       console.log(
-        `  - Activity: ${l.activity_type}, Content: "${l.content}", Embedding Dimensions: ${l.content_embedding?.length}`,
+        `  - Activity: ${l.activity_type}, Content: "${l.content}"`,
       ),
     );
 

@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -9,6 +10,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { FarmModule } from './modules/farm/farm.module';
 import { PetModule } from './modules/pet/pet.module';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -43,6 +45,18 @@ import { AiModule } from './modules/ai/ai.module';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig],
+    }),
+
+    // PostgreSQL / Supabase
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        url: configService.get<string>('SUPABASE_DB_URL'),
+        autoLoadEntities: true,
+        synchronize: false, // We use migrations
+      }),
+      inject: [ConfigService],
     }),
 
     // MongoDB
@@ -84,6 +98,7 @@ import { AiModule } from './modules/ai/ai.module';
     AuthModule,
     FarmModule,
     PetModule,
+    KnowledgeModule,
     AiModule,
   ],
   controllers: [AppController],

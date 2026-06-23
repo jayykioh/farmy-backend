@@ -1,0 +1,1077 @@
+﻿diff --git a/BACKEND_CONTRACT.md b/BACKEND_CONTRACT.md
+index 909c8dd..0681ad1 100644
+--- a/BACKEND_CONTRACT.md
++++ b/BACKEND_CONTRACT.md
+@@ -31,7 +31,7 @@ VITE_API_URL=http://localhost:3000/api/v1
+ { success: true, message: string }
+ 
+ // Lá»—i
+-{ errorCode: string, message: string }
++{ error_code: string, message: string }
+ ```
+ 
+ ---
+@@ -69,7 +69,7 @@ apiClient.interceptors.response.use(
+     if (error.response?.status === 401) {
+       try {
+         const res = await apiClient.post('/auth/refresh'); // cookie tá»± gá»­i
+-        const newToken = res.data.data.accessToken;        // â† camelCase
++        const newToken = res.data.data.access_token;
+         setAccessToken(newToken);
+         error.config.headers.Authorization = `Bearer ${newToken}`;
+         return apiClient.request(error.config);
+@@ -87,7 +87,7 @@ apiClient.interceptors.response.use(
+ 
+ | Item | Vá»‹ trĂ­ | Ghi chĂº |
+ |------|--------|---------|
+-| `accessToken` | Response body â†’ memory (JS variable) | **KhĂ´ng** lÆ°u localStorage |
++| `access_token` | Response body â†’ memory (JS variable) | **KhĂ´ng** lÆ°u localStorage |
+ | `refreshToken` | HttpOnly Cookie `refresh_token` | Browser tá»± quáº£n lĂ½ |
+ | Cookie path | `/api/v1/auth` | Cookie chá»‰ gá»­i vá»›i auth routes |
+ 
+@@ -107,10 +107,10 @@ apiClient.interceptors.response.use(
+   success: true,
+   message: "ÄÄƒng kĂ½ tĂ i khoáº£n thĂ nh cĂ´ng...",
+   data: {
+-    userId: string,
++    user_id: string,
+     email: string,
+     name: string,
+-    accessToken: string  // â† camelCase
++    access_token: string
+   }
+ }
+ ```
+@@ -124,8 +124,8 @@ apiClient.interceptors.response.use(
+ {
+   success: true,
+   data: {
+-    accessToken: string,   // â† camelCase (lÆ°u vĂ o memory)
+-    expiresIn: 900,        // 15 phĂºt
++    access_token: string,  // lÆ°u vĂ o memory
++    expires_in: 900,       // 15 phĂºt
+     user: { id, email, name, role }
+   }
+ }
+@@ -140,8 +140,8 @@ apiClient.interceptors.response.use(
+ {
+   success: true,
+   data: {
+-    accessToken: string,
+-    expiresIn: 900,
++    access_token: string,
++    expires_in: 900,
+     user: { id, email, name, role }
+   }
+ }
+@@ -283,7 +283,7 @@ apiClient.interceptors.response.use(
+ 
+ ## Error Codes (Auth)
+ 
+-| errorCode | HTTP | TĂ¬nh huá»‘ng |
++| error_code | HTTP | TĂ¬nh huá»‘ng |
+ |-----------|------|-----------|
+ | `AUTH_MISSING_ACCESS_TOKEN` | 401 | KhĂ´ng cĂ³ Bearer token |
+ | `AUTH_TOKEN_EXPIRED` | 401 | Access token háº¿t háº¡n |
+diff --git a/openspec/changes/prompt-module-mvp/proposal.md b/openspec/changes/prompt-module-mvp/proposal.md
+index 154f2b2..adf96a8 100644
+--- a/openspec/changes/prompt-module-mvp/proposal.md
++++ b/openspec/changes/prompt-module-mvp/proposal.md
+@@ -163,7 +163,7 @@ export type BuiltPrompt = {
+ };
+ ```
+ 
+-> **LĂ½ do metadata:** Cho phĂ©p ChatModule log `promptChars` vĂ o `ai_chats` collection mĂ  khĂ´ng cáº§n re-compute. Há»— trá»£ future prompt analytics (prompt token estimate trÆ°á»›c khi gá»­i Gemini).
++> **LĂ½ do metadata:** Cho phĂ©p ChatModule log `promptChars` vĂ o `chat_sessions` collection mĂ  khĂ´ng cáº§n re-compute. Há»— trá»£ future prompt analytics (prompt token estimate trÆ°á»›c khi gá»­i Gemini).
+ 
+ ### 4.2 Builder Method Signatures
+ 
+@@ -470,7 +470,7 @@ describe('PromptService', () => {
+ ```
+ TC-PROMPT-INT-01: ChatModule.sendMessage() â†’ PromptService.buildChatPrompt() nháº­n Ä‘Ăºng args
+ TC-PROMPT-INT-02: LLMService.complete() nháº­n prompt tá»« BuiltPrompt.prompt
+-TC-PROMPT-INT-03: prompt_version Ä‘Æ°á»£c lÆ°u trong ai_chats MongoDB document
++TC-PROMPT-INT-03: prompt_version Ä‘Æ°á»£c lÆ°u trong chat_sessions MongoDB document
+ TC-PROMPT-INT-04: Full flow: injection attempt trong userMessage â†’ bá»‹ blocked â†’ Gemini khĂ´ng nháº­n injection
+ ```
+ 
+diff --git a/openspec/specs/ai_chat_spec.md b/openspec/specs/ai_chat_spec.md
+index 7ecab05..c78480a 100644
+--- a/openspec/specs/ai_chat_spec.md
++++ b/openspec/specs/ai_chat_spec.md
+@@ -42,7 +42,7 @@ Quy trĂ¬nh RAG (Retrieval-Augmented Generation) tĂ¬m kiáº¿m dá»¯ liá»‡u bá»• tr
+   (System Prompt + Context Chunks + User Message + Chat History)
+          |
+          v
+-  [6. Google Gemini Flash API] ----> [7. Save to MongoDB (ai_chats)]
++  [6. Google Gemini Flash API] ----> [7. Save to MongoDB (chat_sessions)]
+          |
+          v
+   Safe UI Response
+@@ -67,7 +67,7 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Chat Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+ 
+       @IsUUID('4', { message: 'Session ID pháº£i Ä‘Ăºng Ä‘á»‹nh dáº¡ng UUID!' })
+       @IsOptional()
+-      sessionId?: string; // Náº¿u trá»‘ng, backend tá»± khá»Ÿi táº¡o Session má»›i
++      session_id?: string; // Náº¿u trá»‘ng, backend tá»± khá»Ÿi táº¡o Session má»›i
+     }
+     ```
+ *   **Response (200 OK):**
+@@ -75,7 +75,7 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Chat Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+     {
+       "success": true,
+       "data": {
+-        "sessionId": "4a18d192-bc2f-410a-9d7a-115f231e228d",
++        "session_id": "4a18d192-bc2f-410a-9d7a-115f231e228d",
+         "response": {
+           "role": "assistant",
+           "content": "CĂ¢y bÆ°á»Ÿi cá»§a báº¡n cĂ³ thá»ƒ Ä‘ang bá»‹ thiáº¿u káº½m hoáº·c bá»‹ nhá»‡n Ä‘á» táº¥n cĂ´ng. HĂ£y kiá»ƒm tra máº·t sau cá»§a lĂ¡...",
+@@ -95,10 +95,10 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Chat Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+       "success": true,
+       "data": [
+         {
+-          "sessionId": "4a18d192-bc2f-410a-9d7a-115f231e228d",
++          "session_id": "4a18d192-bc2f-410a-9d7a-115f231e228d",
+           "title": "Chá»¯a bá»‡nh Ä‘á»‘m vĂ ng trĂªn cĂ¢y bÆ°á»Ÿi",
+-          "createdAt": "2026-05-18T01:10:00Z",
+-          "updatedAt": "2026-05-18T01:13:00Z"
++          "created_at": "2026-05-18T01:10:00Z",
++          "updated_at": "2026-05-18T01:13:00Z"
+         }
+       ],
+       "pagination": {
+@@ -110,14 +110,14 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Chat Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+     ```
+ 
+ ### 2.3 Xem chi tiáº¿t lá»‹ch sá»­ phiĂªn chat (Get Session Details)
+-*   **Endpoint:** `GET /api/v1/chat/sessions/:sessionId`
++*   **Endpoint:** `GET /api/v1/chat/sessions/:session_id`
+ *   **XĂ¡c thá»±c:** YĂªu cáº§u Access Token (Bearer)
+ *   **Response (200 OK):**
+     ```json
+     {
+       "success": true,
+       "data": {
+-        "sessionId": "4a18d192-bc2f-410a-9d7a-115f231e228d",
++        "session_id": "4a18d192-bc2f-410a-9d7a-115f231e228d",
+         "messages": [
+           { "role": "user", "content": "LĂ¡ bÆ°á»Ÿi bá»‹ Ä‘á»‘m vĂ ng", "timestamp": "2026-05-18T01:12:00Z" },
+           { "role": "assistant", "content": "CĂ¢y bÆ°á»Ÿi cá»§a báº¡n...", "timestamp": "2026-05-18T01:13:00Z" }
+@@ -134,7 +134,8 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Chat Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+     export class SubmitFeedbackDto {
+       @IsString()
+       @IsNotEmpty()
+-      mongoChatId: string; // ID tĂ i liá»‡u tin nháº¯n assistant trong MongoDB
++      session_id: string;
++      message_id: string; // ID subdocument assistant trong chat_sessions
+ 
+       @IsInt()
+       @Min(1)
+@@ -235,9 +236,9 @@ export class LlmRateLimiter {
+ 
+ ### Quy trĂ¬nh Dá»± phĂ²ng (Fallback Chain) khi quĂ¡ táº£i:
+ 1.  **Náº¿u `flashKey` <= 14 vĂ  `embedKey` <= 95:** Request Ä‘Æ°á»£c xá»­ lĂ½ Ä‘á»“ng bá»™ trá»±c tiáº¿p vá»›i Gemini API. Pháº£n há»“i tráº£ ngay sau 2-3s, pháº£n há»“i AI stream qua **SSE (Server-Sent Events)** táº¡i endpoint `/api/v1/chat/stream`.
+-2.  **Náº¿u `flashKey` > 14 (Flash quĂ¡ táº£i):** ÄÆ°a request vĂ o **BullMQ (`llm_queue`)** vá»›i cÆ¡ cháº¿ FIFO. Client nháº­n SSE event: `data: {"status": "queued", "message": "AI Ä‘ang báº­n phĂ¢n tĂ­ch dá»¯ liá»‡u, vui lĂ²ng Ä‘á»£i trong giĂ¢y lĂ¡t... đŸœ"}`.
+-3.  **Náº¿u Gemini tráº£ lá»—i HTTP 429 tháº­t:** KĂ­ch hoáº¡t cÆ¡ cháº¿ **Exponential Backoff Retry** (thá»­ láº¡i sau 1s, rá»“i 2s, rá»“i 4s).
+-4.  **Náº¿u thá»­ láº¡i 3 láº§n váº«n tháº¥t báº¡i (QuĂ¡ táº£i náº·ng):** Tráº£ vá» fallback tÄ©nh Ä‘Æ°á»£c thiáº¿t láº­p sáºµn: *"Dáº¡, há»‡ thá»‘ng tÆ° váº¥n Ä‘ang quĂ¡ táº£i lÆ°á»£t truy cáº­p. BĂ  con vui lĂ²ng nghá»‰ tay uá»‘ng nÆ°á»›c chĂ¨ rá»“i báº¥m gá»­i láº¡i sau 10 giĂ¢y nhĂ©! đŸŒ±"*
++2.  **Náº¿u `flashKey` > 14 (Flash quĂ¡ táº£i):** Tráº£ fallback ngay vá»›i `rate_limited: true`, hoáº·c HTTP 429 cho endpoint khĂ´ng há»— trá»£ fallback. KhĂ´ng Ä‘Æ°a chat realtime vĂ o BullMQ.
++3.  **Náº¿u Gemini tráº£ HTTP 429/5xx:** KĂ­ch hoáº¡t **Exponential Backoff Retry** ngáº¯n (1s, 2s, 4s; tá»‘i Ä‘a 3 láº§n).
++4.  **Náº¿u retry váº«n tháº¥t báº¡i:** Tráº£ fallback tÄ©nh hoáº·c HTTP 429 theo `onRateLimit`; káº¿t thĂºc SSE hiá»‡n táº¡i. BullMQ chá»‰ dĂ¹ng cho embedding, insight, reminder vĂ  tĂ¡c vá»¥ background.
+ 
+ ---
+ 
+@@ -275,11 +276,11 @@ NhĂ³m phĂ¡t triá»ƒn báº¯t buá»™c kiá»ƒm chuáº©n dá»¯ liá»‡u Ä‘áº§u vĂ o vĂ  Ä‘
+ 
+ TrÆ°á»›c khi Ä‘áº©y PR lĂªn nhĂ¡nh `main`, nhĂ³m phĂ¡t triá»ƒn báº¯t buá»™c kiá»ƒm thá»­ thĂ nh cĂ´ng cĂ¡c case sau táº¡i suite `test/chat.e2e-spec.ts`:
+ 
+-- [ ] **TC-CHAT-01:** Táº¡o há»™i thoáº¡i má»›i khĂ´ng truyá»n `sessionId` -> Káº¿t quáº£: Há»‡ thá»‘ng tá»± sinh Session ID má»›i trong MongoDB vĂ  lÆ°u lÆ°á»£t chat.
++- [ ] **TC-CHAT-01:** Táº¡o há»™i thoáº¡i má»›i khĂ´ng truyá»n `session_id` -> Káº¿t quáº£: Há»‡ thá»‘ng tá»± sinh Session ID má»›i trong MongoDB `chat_sessions` vĂ  lÆ°u lÆ°á»£t chat.
+ - [ ] **TC-CHAT-02:** Gá»­i cĂ¢u há»i khĂ´ng liĂªn quan Ä‘áº¿n nĂ´ng nghiá»‡p ("HĂ£y viáº¿t code Javascript...") -> Káº¿t quáº£: AI lá»‹ch sá»± tá»« chá»‘i tráº£ lá»i vĂ  hÆ°á»›ng dáº«n Ä‘áº·t cĂ¢u há»i Ä‘Ăºng trá»ng tĂ¢m nĂ´ng nghiá»‡p.
+ - [ ] **TC-CHAT-03:** Gá»­i cĂ¢u há»i vá» bá»‡nh cĂ¢y trá»“ng cĂ³ sáºµn tĂ i liá»‡u trong MongoDB -> Káº¿t quáº£: Kiá»ƒm tra logs verify truy váº¥n pgvector Ä‘Æ°á»£c thá»±c thi Ä‘á»ƒ láº¥y IDs, sau Ä‘Ă³ fetch dá»¯ liá»‡u tá»« MongoDB vĂ  káº¿t quáº£ tráº£ ra khá»›p vá»›i thĂ´ng tin tĂ i liá»‡u bá»• trá»£.
+-- [ ] **TC-CHAT-04:** Spam gá»­i tin nháº¯n liĂªn tá»¥c (> 15 requests trong 1 phĂºt tá»« nhiá»u client) -> Káº¿t quáº£: Há»‡ thá»‘ng kĂ­ch hoáº¡t BullMQ Queue vĂ  xá»­ lĂ½ tuáº§n tá»± khĂ´ng bá»‹ sáº­p dá»‹ch vá»¥ do HTTP 429.
+-- [ ] **TC-CHAT-05:** Gá»­i Ä‘Ă¡nh giĂ¡ feedback AI há»£p lá»‡ -> Káº¿t quáº£: Ghi nháº­n thĂ nh cĂ´ng vĂ o MongoDB collection `ai_feedback` hoáº·c `chat_feedback` Ä‘á»ƒ phá»¥c vá»¥ cáº£i tiáº¿n prompt.
++- [ ] **TC-CHAT-04:** Spam gá»­i tin nháº¯n liĂªn tá»¥c (> 15 requests trong 1 phĂºt tá»« nhiá»u client) -> Káº¿t quáº£: Há»‡ thá»‘ng tráº£ fallback/429 ngay, khĂ´ng táº¡o job trong BullMQ.
++- [ ] **TC-CHAT-05:** Gá»­i Ä‘Ă¡nh giĂ¡ feedback AI há»£p lá»‡ -> Káº¿t quáº£: Ghi nháº­n thĂ nh cĂ´ng vĂ o MongoDB collection `ai_feedback` Ä‘á»ƒ phá»¥c vá»¥ cáº£i tiáº¿n prompt.
+ - [ ] **TC-CHAT-06:** Test TTL MongoDB -> Verify tin nháº¯n tá»± Ä‘á»™ng bá»‹ xĂ³a sau 90 ngĂ y hoáº¡t Ä‘á»™ng.
+ - [ ] **TC-CHAT-07:** TĂ­ch há»£p Pet State vĂ o Prompt -> Äáº£m báº£o khi báº¯t Ä‘áº§u hoáº·c tiáº¿p tá»¥c trĂ² chuyá»‡n, prompt gá»­i sang Gemini Flash Ä‘Æ°á»£c tá»± Ä‘á»™ng lĂ m giĂ u báº±ng `streak_count` vĂ  `pet_mood` chĂ­nh xĂ¡c tá»« MongoDB `pet_states`.
+ 
+diff --git a/openspec/specs/aifeature.md b/openspec/specs/aifeature.md
+index e5266ba..ab8ea45 100644
+--- a/openspec/specs/aifeature.md
++++ b/openspec/specs/aifeature.md
+@@ -45,7 +45,7 @@
+ ```
+ ChatModule
+   â”œâ”€â”€ depends on: LLMModule, RAGModule, PromptModule, PetModule
+-  â””â”€â”€ saves to: MongoDB (ai_chats)
++  â””â”€â”€ saves to: MongoDB (chat_sessions)
+ 
+ RAGModule
+   â”œâ”€â”€ depends on: EmbeddingModule (for query vector), PgvectorRepository (Supabase)
+@@ -76,7 +76,7 @@ WeeklyInsightModule
+   â””â”€â”€ saves to: MongoDB (weekly_insights)
+ ```
+ 
+-**Rule:** KhĂ´ng module nĂ o Ä‘Æ°á»£c gá»i Gemini trá»±c tiáº¿p ngoĂ i `LLMModule`. Má»i Gemini call pháº£i Ä‘i qua `LLMModule`.
++**Rule:** KhĂ´ng module nĂ o Ä‘Æ°á»£c gá»i Gemini trá»±c tiáº¿p ngoĂ i `LLMModule`. `LLMService` implement `IEmbeddingProvider`; `EmbeddingModule` vĂ  `RAGModule` inject interface token nĂ y, Ä‘Æ°á»£c bind báº±ng `useExisting: LLMService`, thay vĂ¬ phá»¥ thuá»™c concrete service hoáº·c Gemini SDK.
+ 
+ ---
+ 
+@@ -862,7 +862,7 @@ Náº¿u `rate_limited: true`: content = `LLM_FALLBACK_MESSAGE`, HTTP váº«n 200. FE
+ }
+ ```
+ 
+-#### GET /api/v1/chat/sessions/:sessionId
++#### GET /api/v1/chat/sessions/:session_id
+ 
+ **Response 200:**
+ ```json
+@@ -951,7 +951,7 @@ Cho phĂ©p FE stream response thay vĂ¬ wait full response:
+ > **[FIX #4] MVP Queue Decision:** For MVP, realtime chat does NOT queue on Flash RPM limit.
+ > - **Reason:** Queuing a response back to a live SSE connection adds significant complexity (need WebSocket or polling fallback).
+ > - **Behavior:** Return fallback response immediately with `rate_limited: true`. FE shows toast.
+-> - **Override:** This decision overrides the `BullMQ queuing on rate-limit` behavior described in `ai_chat_spec.md` (TC-CHAT-04). That test case is deprecated for MVP.
++> - **Canonical rule:** This matches `ai_chat_spec.md`: realtime chat never waits in BullMQ.
+ > - **Future:** Chat queue / polling / WebSocket can be added post-MVP.
+ 
+ > đŸ“ **SSE Contract & Rate Limit Note:**
+@@ -1285,7 +1285,7 @@ petService.updateMood(userId, 'happy', 'Chá»§ vÆ°á»n Ä‘Ă£ xá»­ lĂ½ sĂ¢u bá»‡nh!
+ 
+ ## 11. MongoDB Collections
+ 
+-### ai_chats
++### chat_sessions
+ 
+ ```javascript
+ {
+@@ -1311,9 +1311,9 @@ petService.updateMood(userId, 'happy', 'Chá»§ vÆ°á»n Ä‘Ă£ xá»­ lĂ½ sĂ¢u bá»‡nh!
+ }
+ 
+ // Indexes:
+-db.ai_chats.createIndex({ user_id: 1, updated_at: -1 });
+-db.ai_chats.createIndex({ session_id: 1 }, { unique: true });
+-db.ai_chats.createIndex(             // TTL 90 ngĂ y
++db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
++db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
++db.chat_sessions.createIndex(        // TTL 90 ngĂ y
+   { created_at: 1 },
+   { expireAfterSeconds: 7776000 }
+ );
+@@ -1322,13 +1322,13 @@ db.ai_chats.createIndex(             // TTL 90 ngĂ y
+ ### ai_feedback
+ 
+ > **[FIX #5]** `mongo_chat_id` renamed to `message_id` + `session_id` pair.
+-> Since messages are subdocuments inside `ai_chats`, we reference by `(session_id, message_id)` for clarity.
+-> This also overrides the `mongoChatId` camelCase field in `ai_chat_spec.md` â€” see API Casing note below.
++> Since messages are subdocuments inside `chat_sessions`, we reference by `(session_id, message_id)` for clarity.
++> This matches the canonical `ai_chat_spec.md` wire contract.
+ 
+ ```javascript
+ {
+   _id:            ObjectId,
+-  session_id:     String,   // ai_chats.session_id â€” which session contains the rated message
++  session_id:     String,   // chat_sessions.session_id â€” which session contains the rated message
+   message_id:     String,   // message subdocument's message_id â€” which specific message was rated
+   user_id:        String,
+   rating:         Number,   // 1â€“5
+@@ -1443,14 +1443,14 @@ Nháº¥t quĂ¡n vá»›i `auth_spec.md` error format:
+ ```json
+ {
+   "success":    false,
+-  "statusCode": 429,
+-  "errorCode":  "SCAN_QUOTA_EXCEEDED",
++  "status_code": 429,
++  "error_code":  "SCAN_QUOTA_EXCEEDED",
+   "message":    "ÄĂ£ dĂ¹ng háº¿t 3 lÆ°á»£t quĂ©t hĂ´m nay.",
+   "timestamp":  "2026-06-10T08:00:00Z"
+ }
+ ```
+ 
+-| HTTP | errorCode | NguyĂªn nhĂ¢n | FE xá»­ lĂ½ |
++| HTTP | error_code | NguyĂªn nhĂ¢n | FE xá»­ lĂ½ |
+ |---|---|---|---|
+ | 429 | `SCAN_QUOTA_EXCEEDED` | VÆ°á»£t scan limit ngĂ y | Bottom sheet "Háº¿t lÆ°á»£t hĂ´m nay" |
+ | 422 | `SCAN_IMAGE_BLURRY` | Laplacian < 100 | Bottom sheet "áº¢nh má», chá»¥p láº¡i" |
+@@ -1469,9 +1469,9 @@ Nháº¥t quĂ¡n vá»›i `auth_spec.md` error format:
+ > |---|---|
+ > | **All external REST API payloads** | Use `snake_case` (request body, response body) |
+ > | **Internal TypeScript interfaces** | May use `camelCase` (services, repositories) |
+-> | **Overridden fields** | `sessionId` â†’ `session_id`, `mongoChatId` â†’ `message_id` + `session_id`, `createdAt` â†’ `created_at` |
++> | **Canonical fields** | `session_id`, `message_id`, `created_at`, `access_token`, `error_code` |
+ >
+-> Agent implementors: if you see `sessionId` or `mongoChatId` in old spec examples, use the `snake_case` version defined here.
++> Agent implementors: wire payloads are always `snake_case`; camelCase is allowed only inside application/domain code.
+ 
+ ---
+ 
+@@ -1558,4 +1558,4 @@ Nháº¥t quĂ¡n vá»›i `auth_spec.md` error format:
+ ---
+ 
+ *FarmDiaries AI â€” Backend AI Feature Specification v1.0*
+-*Consistent vá»›i: ai_chat_spec.md Â· embedding_spec.md Â· core_features_spec.md Â· blueprint.md v6.0 Â· api_wiring*
+\ No newline at end of file
++*Consistent vá»›i: ai_chat_spec.md Â· embedding_spec.md Â· core_features_spec.md Â· blueprint.md v6.0 Â· api_wiring*
+diff --git a/openspec/specs/api_wiring.md b/openspec/specs/api_wiring.md
+index 679c718..9909a35 100644
+--- a/openspec/specs/api_wiring.md
++++ b/openspec/specs/api_wiring.md
+@@ -7,7 +7,7 @@
+ - **API Base URL**: ÄÆ°á»£c quáº£n lĂ½ qua `import.meta.env.VITE_API_URL`. Khi cháº¡y local: `http://localhost:3000/api/v1`.
+ - **Axios Client (`src/api/client.ts`)**: 
+   - Báº¯t buá»™c pháº£i cĂ³ `withCredentials: true` trĂªn má»i request Ä‘á»ƒ Ä‘áº£m báº£o Refresh Token (Ä‘Æ°á»£c lÆ°u trong HttpOnly Cookie) cĂ³ thá»ƒ gá»­i Ä‘i vĂ  nháº­n vá».
+-  - Tá»± Ä‘á»™ng gáº¯n Bearer Token (`accessToken`) vĂ o header `Authorization`.
++  - Tá»± Ä‘á»™ng gáº¯n Bearer Token (`access_token`) vĂ o header `Authorization`.
+   - Tá»± Ä‘á»™ng báº¯t lá»—i HTTP 401 Ä‘á»ƒ gá»i `POST /auth/refresh`, rotate token, vĂ  thá»±c hiá»‡n láº¡i cĂ¡c request Ä‘ang pending.
+ 
+ ## 2. Response Standard
+@@ -22,11 +22,11 @@ type ApiResponse<T> = {
+ 
+ ## 3. Data Mapping & Conventions
+ 
+-> **Quan Trá»ng**: Backend cá»§a Farmy sá»­ dá»¥ng chuáº©n `snake_case` cho háº§u háº¿t cĂ¡c field name (do map trá»±c tiáº¿p tá»« MongoDB Document vĂ  DTO).
++> **Quan Trá»ng**: Backend cá»§a Farmy sá»­ dá»¥ng chuáº©n `snake_case` cho toĂ n bá»™ field name trĂªn HTTP wire contract (request body, query vĂ  response JSON).
+ > Äá»ƒ trĂ¡nh lá»™n xá»™n, Frontend API interfaces/types cÅ©ng sáº½ sá»­ dá»¥ng `snake_case` táº¡i táº§ng giao tiáº¿p API. 
+ 
+ ### 3.1. Auth Module (`/auth`)
+-- **Login**: `POST /auth/login` - Payload: `{ email, password }` -> Returns `accessToken` (Ä‘Ă¢y lĂ  ngoáº¡i lá»‡ dĂ¹ng camelCase tá»« Backend).
++- **Login**: `POST /auth/login` - Payload: `{ email, password }` -> Returns `{ access_token, expires_in, user }`.
+ - **Register**: `POST /auth/register` - Payload: `{ name, email, password }`.
+ - **Me**: `GET /auth/me` -> Returns `{ id, email, name, role }`.
+ 
+diff --git a/openspec/specs/architecture.md b/openspec/specs/architecture.md
+index 8e49faa..4a94d13 100644
+--- a/openspec/specs/architecture.md
++++ b/openspec/specs/architecture.md
+@@ -77,8 +77,8 @@ graph TD
+     Chat --> RAG
+     RAG -->|1. ANN search - returns IDs only| PGVector
+     RAG -->|2. Fetch full docs by ID| MongoDB
+-    RAG --> Embed
+-    Embed -->|text-embedding-004| GeminiAPI
++    RAG -->|IEmbeddingProvider| Embed
++    Embed -->|IEmbeddingProvider token| LLM
+     Embed -->|Write embedding + source_id| PGVector
+     Chat --> LLM
+     LLM -->|Redis Counter Check| Redis
+@@ -110,7 +110,7 @@ sequenceDiagram
+     actor User as NĂ´ng dĂ¢n (Client)
+     participant Nest as NestJS Backend (AuthModule)
+     participant Supa as Supabase Auth Service
+-    participant DB as PostgreSQL (refresh_tokens)
++    participant DB as MongoDB (refresh_tokens)
+ 
+     User->>Nest: POST /auth/login (Credentials / OIDC Token)
+     Nest->>Supa: Verify user credentials
+@@ -127,7 +127,7 @@ sequenceDiagram
+     Note over User, Nest: Access Token háº¿t háº¡n (sau 15 phĂºt)
+     
+     User->>Nest: Request API báº¥t ká»³ mang Access Token (Expired)
+-    Nest-->>User: Tráº£ lá»—i 401 + errorCode: AUTH_TOKEN_EXPIRED
++    Nest-->>User: Tráº£ lá»—i 401 + error_code: AUTH_TOKEN_EXPIRED
+     
+     User->>Nest: POST /auth/refresh (Gá»­i HTTP-Only Refresh Token tá»± Ä‘á»™ng)
+     Nest->>DB: Truy váº¥n & verify hash(Refresh Token) cĂ²n háº¡n & chÆ°a revoke
+@@ -156,6 +156,7 @@ sequenceDiagram
+     participant Nest as NestJS (PlantScanModule)
+     participant Sharp as Sharp.js Image Processor
+     participant R2 as Cloudflare R2 Store
++    participant LLM as LLMModule
+     participant Gemini as Gemini Vision API
+     participant Mongo as MongoDB Atlas (plant_scans)
+ 
+@@ -192,9 +193,11 @@ sequenceDiagram
+     else áº¢nh má»›i hoĂ n toĂ n
+         Nest->>R2: Stream buffer lĂªn Cloudflare R2 (Signed URL)
+         R2-->>Nest: Tráº£ vá» safe Key / Image URL
+-        Nest->>Gemini: Gá»i Gemini Vision vá»›i custom System Prompt & Image Buffer
++        Nest->>LLM: completeVision(image, prompt)
++        LLM->>Gemini: Gá»i Gemini Vision vá»›i custom System Prompt & Image Buffer
+         Note over Gemini: PhĂ¢n tĂ­ch Ä‘á»‘m lĂ¡, Ä‘á»™ vĂ ng, Ä‘á» xuáº¥t thuá»‘c Ä‘iá»u trá»‹ (PHI warning)
+-        Gemini-->>Nest: Tráº£ JSON Káº¿t quáº£ cháº©n Ä‘oĂ¡n bá»‡nh
++        Gemini-->>LLM: Tráº£ JSON Káº¿t quáº£ cháº©n Ä‘oĂ¡n bá»‡nh
++        LLM-->>Nest: Diagnosis result
+         Nest->>Mongo: LÆ°u báº£n ghi plant_scans má»›i (bao gá»“m pHash, cháº©n Ä‘oĂ¡n, imageUrl)
+         Nest-->>User: Tráº£ vá» Káº¿t quáº£ cháº©n Ä‘oĂ¡n bá»‡nh chi tiáº¿t
+     end
+@@ -213,18 +216,17 @@ sequenceDiagram
+     participant Redis as Redis Quota Counter
+     participant RAG as RAGModule
+     participant Embed as EmbeddingModule
++    participant LLM as LLMModule
+     participant PGVector as pgvector (Search Index)
+     participant Mongo as MongoDB Atlas (PRIMARY DB)
+-    participant Bull as BullMQ Delay Queue
+     participant Gemini as Gemini Flash API
+ 
+     User->>Nest: Gá»­i tin nháº¯n chat ("LĂºa bá»‹ ráº§y nĂ¢u phun gĂ¬?")
+     Nest->>Redis: Increment & Get Counter "llm:rpm:limit" (TTL 60s)
+     
+     alt Counter > 14 (Cháº¡m ngÆ°á»¡ng giá»›i háº¡n)
+-        Nest->>Bull: ÄÆ°a request vĂ o llm_queue (High priority)
+-        Bull-->>Nest: Enqueued (User nháº­n: "AI Ä‘ang báº­n, sáº½ tráº£ lá»i sau giĂ¢y lĂ¡t...")
+-        Note over Nest, Bull: Chá» worker trá»‘ng Ä‘á»ƒ xá»­ lĂ½ tiáº¿p
++        Nest-->>User: Tráº£ fallback ngay vá»›i rate_limited=true hoáº·c HTTP 429
++        Note over Nest: Chat realtime khĂ´ng Ä‘Æ°á»£c Ä‘Æ°a vĂ o queue kĂ©o dĂ i
+     else Counter <= 14 (Hoáº¡t Ä‘á»™ng bĂ¬nh thÆ°á»ng)
+         Redis-->>Nest: OK
+     end
+@@ -232,8 +234,10 @@ sequenceDiagram
+     Nest->>RAG: Truy váº¥n tĂ i liá»‡u bá»• trá»£ (Context Retrieval)
+     
+     RAG->>Embed: Embed tin nháº¯n ngÆ°á»i dĂ¹ng (text-embedding-004)
+-    Embed->>Gemini: Gá»i API sinh vector 768 chiá»u
+-    Gemini-->>Embed: vector[768]
++    Embed->>LLM: embed() qua IEmbeddingProvider
++    LLM->>Gemini: Gá»i API sinh vector 768 chiá»u
++    Gemini-->>LLM: vector[768]
++    LLM-->>Embed: vector[768]
+     
+     RAG->>PGVector: ANN search â€” ORDER BY embedding <=> $queryVector LIMIT 10
+     Note over PGVector: Chá»‰ tráº£ vá» source_id, source_type, score (NO content)
+@@ -244,8 +248,10 @@ sequenceDiagram
+     Mongo-->>RAG: Full documents (notes, chunkText, metadata)
+     
+     RAG->>Nest: Káº¿t há»£p [System Prompt] + [User message] + [Context tá»« MongoDB]
+-    Nest->>Gemini: Gá»i Gemini Flash sinh cĂ¢u tráº£ lá»i
+-    Gemini-->>Nest: Tráº£ vá» text cĂ¢u tráº£ lá»i
++    Nest->>LLM: complete(prompt)
++    LLM->>Gemini: Gá»i Gemini Flash sinh cĂ¢u tráº£ lá»i
++    Gemini-->>LLM: Tráº£ vá» text cĂ¢u tráº£ lá»i
++    LLM-->>Nest: Completion result
+     
+     Nest->>Mongo: LÆ°u lÆ°á»£t chat vĂ o chat_sessions (MongoDB)
+     Nest-->>User: Tráº£ vá» cĂ¢u tráº£ lá»i hÆ°á»›ng dáº«n chuáº©n ká»¹ thuáº­t nĂ´ng nghiá»‡p đŸŒ±
+@@ -261,23 +267,22 @@ All business data lives in MongoDB. See `openspec/specs/mongodb_stack_analysis.m
+ 
+ | Collection | Stores | Key indexes |
+ |---|---|---|
+-| `users` | User profile, Zalo/push prefs, role, soft-delete | `email`, `zaloUserId` |
+-| `refresh_tokens` | Token hash, family lineage, expiry, device | `tokenHash` unique, `expiresAt` TTL |
+-| `diary_entries` | Crop log, notes, photos, weather, location, flags | `userId+createdAt`, `userId+cropType` |
+-| `pet_states` | Current mood, streak, last diary timestamp | `userId` unique |
+-| `pet_events` | Mood change history, milestones | `userId+createdAt` |
+-| `plant_scans` | Image metadata, pHash, AI diagnosis JSON | `userId+createdAt`, `pHash` |
+-| `chat_sessions` | Message array, citations, AI metadata, TTL 90d | `userId+updatedAt`, `sessionId` unique |
+-| `knowledge_chunks` | Technical content chunks, crop tags, quality score | `cropType+qualityScore`, vector search |
+-| `memory_embeddings` | (legacy name) â€” if using pure MongoDB RAG, store here | `userId+sourceId` |
+-| `reminders` | Scheduled jobs, status, retry, channel | `status+scheduledAt`, `userId` |
+-| `notification_subscriptions` | Push/Zalo/email destinations | `userId` |
+-| `notification_logs` | Delivery outcomes | `userId+createdAt` |
+-| `weekly_insights` | Generated insight, delivery state, user feedback | `userId+weekStartDate` |
+-| `audit_logs` | Compliance records (append-only) | `userId+createdAt`, `action+createdAt` |
+-| `user_events` | Product analytics events, TTL 30d | `userId+createdAt`, `eventType` |
+-| `farm_snaps` | Photo share, condition, reactions, XP | `userId+createdAt`, `isPublic+createdAt` |
+-| `ai_feedback` | Chat ratings, A/B test data | `userId+createdAt` |
++| `users` | User profile, Zalo/push prefs, role, soft-delete | `email`, `zalo_user_id` |
++| `refresh_tokens` | Token hash, family lineage, expiry, device | `token_hash` unique, `expires_at` TTL |
++| `diary_entries` | Crop log, notes, photos, weather, location, flags | `user_id+created_at`, `user_id+crop_type` |
++| `pet_states` | Current mood, streak, last diary timestamp | `user_id` unique |
++| `pet_events` | Mood change history, milestones | `user_id+created_at` |
++| `plant_scans` | Image metadata, pHash, AI diagnosis JSON | `user_id+created_at`, `p_hash` |
++| `chat_sessions` | Message array, citations, AI metadata, TTL 90d | `user_id+updated_at`, `session_id` unique |
++| `knowledge_chunks` | Technical content chunks, crop tags, quality score | `crop_type+quality_score` |
++| `reminders` | Scheduled jobs, status, retry, channel | `status+scheduled_at`, `user_id` |
++| `notification_subscriptions` | Push/Zalo/email destinations | `user_id` |
++| `notification_logs` | Delivery outcomes | `user_id+created_at` |
++| `weekly_insights` | Generated insight, delivery state, user feedback | `user_id+week_start_date` |
++| `audit_logs` | Compliance records (append-only) | `user_id+created_at`, `action+created_at` |
++| `user_events` | Product analytics events, TTL 30d | `user_id+created_at`, `event_type` |
++| `farm_snaps` | Photo share, condition, reactions, XP | `user_id+created_at`, `is_public+created_at` |
++| `ai_feedback` | Chat ratings, A/B test data | `user_id+created_at` |
+ 
+ ### 3.2 pgvector â€” Search Index Only
+ 
+@@ -306,12 +311,12 @@ erDiagram
+ 
+ TĂ¡ch biá»‡t cĂ¡c dáº¡ng dá»¯ liá»‡u táº§n suáº¥t ghi cá»±c cao, schema linh Ä‘á»™ng vĂ  cĂ³ thá»ƒ lÆ°u trá»¯ ngáº¯n háº¡n:
+ 
+-#### 1. Collection `ai_chats` (LÆ°u lá»‹ch sá»­ há»™i thoáº¡i cĂ³ TTL 90 ngĂ y)
++#### 1. Collection `chat_sessions` (LÆ°u lá»‹ch sá»­ há»™i thoáº¡i cĂ³ TTL 90 ngĂ y)
+ *   **Má»¥c Ä‘Ă­ch:** LÆ°u tin nháº¯n dáº¡ng máº£ng lá»“ng nhau, phá»¥c vá»¥ giao diá»‡n chat dáº¡ng thread/session.
+ *   **Index Ä‘á» xuáº¥t:**
+-    *   `{ userId: 1, createdAt: -1 }` (Hiá»ƒn thá»‹ danh sĂ¡ch há»™i thoáº¡i cá»§a ngÆ°á»i dĂ¹ng)
+-    *   `{ sessionId: 1 }` (Äá»™c nháº¥t, phá»¥c vá»¥ láº¥y chi tiáº¿t cuá»™c há»™i thoáº¡i)
+-    *   `{ createdAt: 1 }` vá»›i thuá»™c tĂ­nh `expireAfterSeconds: 7776000` (Tá»± Ä‘á»™ng xĂ³a tin nháº¯n cÅ© sau 90 ngĂ y Ä‘á»ƒ trĂ¡nh lĂ m phĂ¬nh to Ä‘Ä©a).
++    *   `{ user_id: 1, updated_at: -1 }` (Hiá»ƒn thá»‹ danh sĂ¡ch há»™i thoáº¡i cá»§a ngÆ°á»i dĂ¹ng)
++    *   `{ session_id: 1 }` (Äá»™c nháº¥t, phá»¥c vá»¥ láº¥y chi tiáº¿t cuá»™c há»™i thoáº¡i)
++    *   `{ expires_at: 1 }` vá»›i thuá»™c tĂ­nh `expireAfterSeconds: 0` (TTL tuyá»‡t Ä‘á»‘i 90 ngĂ y, Ä‘Æ°á»£c tĂ­nh khi táº¡o/cáº­p nháº­t retention).
+ 
+ #### 2. Collection `user_events` (Nháº­t kĂ½ hĂ nh vi nĂ´ng dĂ¢n vá»›i TTL 30 ngĂ y)
+ *   **Má»¥c Ä‘Ă­ch:** Thu tháº­p dá»¯ liá»‡u phá»¥c vá»¥ nghiĂªn cá»©u hĂ nh vi nĂ´ng dĂ¢n vĂ  cáº£i tiáº¿n sáº£n pháº©m.
+@@ -386,14 +391,13 @@ Káº» táº¥n cĂ´ng cĂ³ thá»ƒ Ä‘á»•i Ä‘uĂ´i file `.exe` hay `.sh` thĂ nh `.jpg` hĂ²
+ 
+ ### 5.3 NgÄƒn ngá»«a Táº¥n cĂ´ng chiáº¿m dá»¥ng phiĂªn (Token Theft Detection)
+ Náº¿u káº» táº¥n cĂ´ng Ä‘Ă¡nh cáº¯p Ä‘Æ°á»£c `Refresh Token` tá»« mĂ¡y ngÆ°á»i dĂ¹ng:
+-*   Má»—i khi má»™t Refresh Token Ä‘Æ°á»£c sá»­ dá»¥ng Ä‘á»ƒ láº¥y Access Token má»›i, backend táº¡o token má»›i vĂ  Ä‘áº·t `replaced_by = new_token.id` trĂªn token cÅ©, sau Ä‘Ă³ Ä‘Ă¡nh dáº¥u token cÅ© lĂ  `revoked_at = now()`.
+-*   **Token Theft Detection Logic:** Náº¿u backend phĂ¡t hiá»‡n má»™t Refresh Token cÅ© (cĂ³ `revoked_at IS NOT NULL` hoáº·c Ä‘Ă£ cĂ³ `replaced_by`) Ä‘á»™t ngá»™t Ä‘Æ°á»£c gá»­i láº¡i há»‡ thá»‘ng, Ä‘Ă¢y lĂ  dáº¥u hiá»‡u cháº¯c cháº¯n bá»‹ Ä‘Ă¡nh cáº¯p. Backend kĂ­ch hoáº¡t **Token Theft Alarm** thĂ´ng qua `family_id`:
+-    ```sql
+-    -- TĂ¬m vĂ  revoke toĂ n bá»™ token cĂ¹ng lineage (cĂ¹ng family_id)
+-    UPDATE refresh_tokens
+-    SET revoked_at = NOW()
+-    WHERE family_id = :compromised_family_id
+-      AND revoked_at IS NULL;
++*   Má»—i khi má»™t Refresh Token Ä‘Æ°á»£c sá»­ dá»¥ng, backend Ä‘Ă¡nh dáº¥u token cÅ© lĂ  `is_used=true` vĂ  táº¡o token má»›i trong cĂ¹ng `family_id`.
++*   **Token Theft Detection Logic:** Náº¿u backend phĂ¡t hiá»‡n token Ä‘Ă£ dĂ¹ng hoáº·c Ä‘Ă£ revoke Ä‘Æ°á»£c gá»­i láº¡i, backend thu há»“i toĂ n bá»™ token cĂ¹ng family trong MongoDB:
++    ```javascript
++    await refreshTokens.updateMany(
++      { family_id: compromisedFamilyId },
++      { $set: { is_revoked: true } },
++    );
+     ```
+ *   Káº¿t quáº£: Thu há»“i ngay láº­p tá»©c **toĂ n bá»™ cĂ¡c token cĂ¹ng family** (khĂ´ng revoke token cá»§a cĂ¡c phiĂªn khĂ¡c), báº¯t buá»™c Ä‘Äƒng nháº­p láº¡i trĂªn má»i thiáº¿t bá»‹ trong cĂ¹ng chuá»—i Ä‘Ă³.
+ 
+@@ -413,14 +417,19 @@ $$\text{Delay}_i = i \times \left( \frac{14400 \times 1000}{N} \right) \text{ mi
+ *   CĂ´ng thá»©c nĂ y giĂºp Ä‘áº£m báº£o táº§n suáº¥t gá»i API Gemini Flash luĂ´n giá»¯ á»Ÿ má»©c an toĂ n dÆ°á»›i **10 RPM**, loáº¡i bá» hoĂ n toĂ n kháº£ nÄƒng cháº¡m ngÆ°á»¡ng giá»›i háº¡n cá»§a Free Tier (15 RPM).
+ 
+ ### 6.2 Cáº¥u hĂ¬nh HĂ ng Ä‘á»£i PhĂ¢n cáº¥p Æ¯u tiĂªn (BullMQ Priority Queue)
+-Sá»­ dá»¥ng BullMQ Ä‘á»ƒ phĂ¢n táº§ng Æ°u tiĂªn xá»­ lĂ½ cĂ¡c request gá»i LLM:
++BullMQ chá»‰ Ä‘iá»u phá»‘i tĂ¡c vá»¥ ná»n; request tÆ°Æ¡ng tĂ¡c realtime khĂ´ng chá» queue:
+ 
+ | Thá»© háº¡ng | TĂ¡c vá»¥ | Æ¯u tiĂªn (Priority) | Queue | Tráº£i nghiá»‡m ngÆ°á»i dĂ¹ng |
+ |---|---|---|---|---|
+-| **1** | TrĂ² chuyá»‡n trá»±c tiáº¿p (AI Chat) | 1 (High) | `llm_queue` | Xá»­ lĂ½ ngay láº­p tá»©c (< 3s) |
+-| **2** | QuĂ©t cháº©n Ä‘oĂ¡n bá»‡nh (Plant Scan) | 2 (Medium) | `llm_queue` | Pháº£n há»“i trong vĂ²ng 5-10s |
+-| **3** | Nháº¯c nhá»Ÿ cĂ´ng viá»‡c (Reminder) | 5 (Low) | `reminder_queue` | Cháº¥p nháº­n Ä‘á»™ trá»… vĂ i phĂºt |
+-| **4** | Tá»•ng há»£p insight tuáº§n (Weekly Cron) | 10 (Lowest) | `insight_queue` | Cháº¡y ná»n phĂ¢n tĂ¡n trong 4 giá» |
++| **1** | Táº¡o/cáº­p nháº­t embedding | 3 | `embedding_queue` | TĂ¡c vá»¥ ná»n, retry an toĂ n |
++| **2** | Nháº¯c nhá»Ÿ cĂ´ng viá»‡c | 5 | `reminder_queue` | Cháº¥p nháº­n Ä‘á»™ trá»… vĂ i phĂºt |
++| **3** | Tá»•ng há»£p insight tuáº§n | 10 | `insight_queue` | Cháº¡y ná»n phĂ¢n tĂ¡n trong 4 giá» |
++
++AI Chat vĂ  Plant Scan gá»i `LLMModule` Ä‘á»“ng bá»™. Khi quota cáº¡n, service retry ngáº¯n theo policy rá»“i tráº£ fallback hoáº·c HTTP 429; khĂ´ng táº¡o `llm_queue`.
++
++### 6.3 AI Provider Abstraction
++
++`LLMModule` lĂ  gateway duy nháº¥t Ä‘Æ°á»£c phĂ©p gá»i Gemini SDK. `LLMService` implement `IEmbeddingProvider`; `EmbeddingModule` vĂ  `RAGModule` chá»‰ inject token `IEmbeddingProvider` vĂ  khĂ´ng phá»¥ thuá»™c concrete provider. DI pháº£i dĂ¹ng `useExisting: LLMService` Ä‘á»ƒ chat, vision vĂ  embedding dĂ¹ng chung má»™t gateway/rate-limit state.
+ 
+ ---
+ 
+diff --git a/openspec/specs/auth_spec.md b/openspec/specs/auth_spec.md
+index 3130490..5b92c4f 100644
+--- a/openspec/specs/auth_spec.md
++++ b/openspec/specs/auth_spec.md
+@@ -67,7 +67,7 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Auth Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+       "success": true,
+       "message": "ÄÄƒng kĂ½ tĂ i khoáº£n thĂ nh cĂ´ng. Vui lĂ²ng xĂ¡c thá»±c email náº¿u cáº§n!",
+       "data": {
+-        "userId": "d748f328-761b-4f9e-a035-715a4b75a133",
++        "user_id": "d748f328-761b-4f9e-a035-715a4b75a133",
+         "email": "nongdan@gmail.com",
+         "name": "Nguyá»…n VÄƒn Ruá»™ng"
+       }
+@@ -95,8 +95,8 @@ Táº¥t cáº£ cĂ¡c API Endpoints thuá»™c Module Auth Ä‘á»u cĂ³ tiá»n tá»‘ `/api/v
+         {
+           "success": true,
+           "data": {
+-            "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNzQ4ZjMyOC...",
+-            "expiresIn": 900,
++            "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNzQ4ZjMyOC...",
++            "expires_in": 900,
+             "user": {
+               "id": "d748f328-761b-4f9e-a035-715a4b75a133",
+               "email": "nongdan@gmail.com",
+@@ -277,8 +277,8 @@ Khi xĂ¡c thá»±c tháº¥t báº¡i, há»‡ thá»‘ng báº¯t buá»™c tráº£ vá» cáº¥u trĂºc l
+ ```json
+ {
+   "success": false,
+-  "statusCode": 401,
+-  "errorCode": "AUTH_TOKEN_EXPIRED",
++  "status_code": 401,
++  "error_code": "AUTH_TOKEN_EXPIRED",
+   "message": "Access Token Ä‘Ă£ háº¿t háº¡n!",
+   "timestamp": "2026-05-18T01:12:46Z"
+ }
+@@ -289,13 +289,13 @@ Khi xĂ¡c thá»±c tháº¥t báº¡i, há»‡ thá»‘ng báº¯t buá»™c tráº£ vá» cáº¥u trĂºc l
+ |---|---|---|---|
+ | **401 Unauthorized** | `AUTH_MISSING_TOKEN` | KhĂ´ng Ä‘Ă­nh kĂ¨m Bearer token á»Ÿ header | Kiá»ƒm tra Authorization header |
+ | **401 Unauthorized** | `AUTH_INVALID_TOKEN` | Token bá»‹ sai chá»¯ kĂ½ hoáº·c sai cáº¥u trĂºc | YĂªu cáº§u user login láº¡i |
+-| **401 Unauthorized** | `AUTH_TOKEN_EXPIRED` | Access Token háº¿t háº¡n | Gá»­i request `/auth/refresh` láº¥y token má»›i (distinguish báº±ng `errorCode`, khĂ´ng báº±ng HTTP status) |
++| **401 Unauthorized** | `AUTH_TOKEN_EXPIRED` | Access Token háº¿t háº¡n | Gá»­i request `/auth/refresh` láº¥y token má»›i (distinguish báº±ng `error_code`, khĂ´ng báº±ng HTTP status) |
+ | **401 Unauthorized** | `AUTH_REFRESH_FAILED` | Refresh Token sai/háº¿t háº¡n/thu há»“i | Äiá»u hÆ°á»›ng báº¯t buá»™c vá» mĂ n hĂ¬nh Login |
+ | **403 Forbidden** | `AUTH_INSUFFICIENT_ROLE` | Vai trĂ² ngÆ°á»i dĂ¹ng khĂ´ng Ä‘á»§ quyá»n truy cáº­p | Hiá»ƒn thá»‹ thĂ´ng bĂ¡o Toast cáº¥m truy cáº­p |
+ 
+-> **Quy táº¯c Axios Interceptor:** PhĂ¢n biá»‡t token háº¿t háº¡n báº±ng `errorCode` trong response body, khĂ´ng báº±ng HTTP status code:
++> **Quy táº¯c Axios Interceptor:** PhĂ¢n biá»‡t token háº¿t háº¡n báº±ng `error_code` trong response body, khĂ´ng báº±ng HTTP status code:
+ > ```typescript
+-> if (error.response?.data?.errorCode === 'AUTH_TOKEN_EXPIRED') {
++> if (error.response?.data?.error_code === 'AUTH_TOKEN_EXPIRED') {
+ >   // trigger refresh token flow
+ > } else if (error.response?.status === 401) {
+ >   // force logout
+@@ -313,7 +313,7 @@ TrÆ°á»›c khi Ä‘áº©y PR lĂªn nhĂ¡nh `main`, nhĂ³m phĂ¡t triá»ƒn báº¯t buá»™c ki
+ - [ ] **TC-AUTH-03:** ÄÄƒng nháº­p vá»›i máº­t kháº©u khĂ´ng chĂ­nh xĂ¡c -> Káº¿t quáº£: 400 Bad Request / 401 Unauthorized.
+ - [ ] **TC-AUTH-04:** ÄÄƒng nháº­p thĂ nh cĂ´ng -> Káº¿t quáº£: Nháº­n Access Token trong Body, Refresh Token trong cookie HTTP-Only.
+ - [ ] **TC-AUTH-05:** Gá»i API Ä‘Æ°á»£c báº£o vá»‡ khĂ´ng cĂ³ token -> Káº¿t quáº£: 401 Unauthorized.
+-- [ ] **TC-AUTH-06:** Gá»i API vá»›i Access Token háº¿t háº¡n -> Káº¿t quáº£: 401 Unauthorized vá»›i `errorCode: AUTH_TOKEN_EXPIRED`.
++- [ ] **TC-AUTH-06:** Gá»i API vá»›i Access Token háº¿t háº¡n -> Káº¿t quáº£: 401 Unauthorized vá»›i `error_code: AUTH_TOKEN_EXPIRED`.
+ - [ ] **TC-AUTH-07:** LĂ m má»›i token thĂ nh cĂ´ng báº±ng Refresh Token cĂ²n háº¡n -> Káº¿t quáº£: Cáº¥p má»›i cáº·p token.
+ - [ ] **TC-AUTH-08:** Thu há»“i phiĂªn (Logout) -> Káº¿t quáº£: Refresh Token trong database bá»‹ xĂ³a/revoke, cookie bá»‹ xĂ³a sáº¡ch.
+ - [ ] **TC-AUTH-09:** Zalo OAuth â€” Verify nĂ´ng dĂ¢n gá»­i láº¡i `state` cÅ© (replay attack) -> Káº¿t quáº£: 401 Unauthorized do nonce Ä‘Ă£ bá»‹ xĂ³a khá»i Redis sau láº§n dĂ¹ng Ä‘áº§u.
+diff --git a/openspec/specs/blueprint.md b/openspec/specs/blueprint.md
+index 0d36b19..4b973db 100644
+--- a/openspec/specs/blueprint.md
++++ b/openspec/specs/blueprint.md
+@@ -257,7 +257,7 @@ Specs xong rá»“i. Báº¡n duyá»‡t Ä‘á»ƒ mĂ¬nh báº¯t Ä‘áº§u implement khĂ´ng? đŸ€
+ ```
+ 1. Caller (ChatModule, InsightModule, PlantScanModule) gá»i llmService.complete(options)
+ 2. LLMModule check Redis counter: RPM < 14? (buffer 1 dÆ°á»›i 15 RPM limit)
+-3. Náº¿u gáº§n limit â†’ push vĂ o llm_queue (BullMQ) vá»›i priority â€” khĂ´ng reject user
++3. Náº¿u gáº§n limit â†’ chat realtime tráº£ fallback ngay vá»›i `rate_limited: true`; endpoint khĂ´ng há»— trá»£ fallback tráº£ HTTP 429. KhĂ´ng push vĂ o queue.
+ 4. Náº¿u cĂ²n quota â†’ gá»i Gemini API, increment Redis counter (TTL 60s)
+ 5. Gemini tráº£ vá» â†’ LLMModule log: model, latency_ms, prompt_tokens, completion_tokens, prompt_version
+ 6. Tráº£ káº¿t quáº£ vá» caller. Náº¿u 429 tá»« Gemini â†’ retry exponential backoff (1s, 2s, 4s, max 3 láº§n)
+@@ -354,8 +354,8 @@ db.chat_sessions.createIndex(
+ );
+ 
+ // Index tĂ¬m kiáº¿m session cá»§a user
+-db.chat_sessions.createIndex({ userId: 1, updatedAt: -1 });
+-db.chat_sessions.createIndex({ sessionId: 1 }, { unique: true });
++db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
++db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
+ ```
+ 
+ ### Archive Strategy (MongoDB)
+@@ -393,12 +393,12 @@ db.archived_chat_metadata.createIndex({ userId: 1, archivedAt: -1 });
+ 
+ | Config | GiĂ¡ trá»‹ | LĂ½ do |
+ |---|---|---|
+-| Queue name | insight_queue | TĂ¡ch riĂªng vá»›i llm_queue â€” khĂ´ng block AI chat |
++| Queue name | insight_queue | TĂ¡ch khá»i request AI realtime |
+ | Concurrency | 2 workers | An toĂ n vá»›i 15 RPM Gemini |
+ | Job attempts | 3 | Retry náº¿u Gemini fail |
+ | Backoff | exponential, 2s base | TrĂ¡nh thundering herd |
+ | Remove on complete | true, after 24h | Giá»¯ log nháº¹ |
+-| Priority | low (10) | AI chat (priority 1) luĂ´n Æ°u tiĂªn hÆ¡n |
++| Priority | low (10) | TĂ¡ch biá»‡t khá»i request chat realtime |
+ 
+ ---
+ 
+@@ -620,12 +620,12 @@ CREATE TABLE reactions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id U
+ 
+ ### MongoDB â€” Primary Database (All Application Data)
+ 
+-**ai_chats:**
++**chat_sessions:**
+ ```json
+ {
+   "_id": "ObjectId",
+-  "userId": "UUID string",
+-  "sessionId": "UUID string",
++  "user_id": "UUID string",
++  "session_id": "UUID string",
+   "messages": [
+     {
+       "role": "user | assistant",
+@@ -683,10 +683,10 @@ CREATE TABLE reactions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), post_id U
+ **MongoDB indexes:**
+ 
+ ```javascript
+-// ai_chats
+-db.ai_chats.createIndex({ userId: 1, createdAt: -1 });
+-db.ai_chats.createIndex({ sessionId: 1 }, { unique: true });
+-db.ai_chats.createIndex({ createdAt: 1 }, { expireAfterSeconds: 7776000 }); // TTL 90 ngĂ y
++// chat_sessions
++db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
++db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
++db.chat_sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }); // TTL tuyá»‡t Ä‘á»‘i 90 ngĂ y
+ 
+ // user_events
+ db.user_events.createIndex({ userId: 1, createdAt: -1 });
+@@ -716,7 +716,7 @@ db.plant_scans.createIndex({ pHash: 1 });
+ 
+ // JWT Refresh Token â€” stored in MongoDB `refresh_tokens` collection
+ // See mongodb_stack_analysis.md for the full index plan.
+-// Fields: userId, tokenHash (unique), familyId, replacedBy, deviceInfo, ipAddress, expiresAt, revokedAt, createdAt
++// Fields: user_id, token_hash (unique), family_id, is_used, is_revoked, expires_at, created_at, updated_at
+ ```
+ 
+ **RBAC â€” Role-Based Access Control:**
+@@ -1581,7 +1581,7 @@ async hardDeleteUserData(userId: string) {
+ 
+   // XĂ³a plant scan áº£nh trĂªn R2
+   // XĂ³a chat history trĂªn MongoDB
+-  await this.mongo.ai_chats.deleteMany({ userId });
++  await this.mongo.chat_sessions.deleteMany({ user_id: userId });
+   await this.mongo.user_events.deleteMany({ userId });
+   await this.mongo.plant_scans.deleteMany({ userId });
+ 
+@@ -1594,7 +1594,7 @@ async exportUserData(userId: string): Promise<Buffer> {
+   const [user, diaries, chats, scans] = await Promise.all([
+     this.db.users.findUnique({ where: { id: userId } }),
+     this.db.diaryEntries.findMany({ where: { user_id: userId } }),
+-    this.mongo.ai_chats.find({ userId }).toArray(),
++    this.mongo.chat_sessions.find({ user_id: userId }).toArray(),
+     this.mongo.plant_scans.find({ userId }).toArray(),
+   ]);
+ 
+diff --git a/specs/aifeature.md b/specs/aifeature.md
+index e5266ba..ab8ea45 100644
+--- a/specs/aifeature.md
++++ b/specs/aifeature.md
+@@ -45,7 +45,7 @@
+ ```
+ ChatModule
+   â”œâ”€â”€ depends on: LLMModule, RAGModule, PromptModule, PetModule
+-  â””â”€â”€ saves to: MongoDB (ai_chats)
++  â””â”€â”€ saves to: MongoDB (chat_sessions)
+ 
+ RAGModule
+   â”œâ”€â”€ depends on: EmbeddingModule (for query vector), PgvectorRepository (Supabase)
+@@ -76,7 +76,7 @@ WeeklyInsightModule
+   â””â”€â”€ saves to: MongoDB (weekly_insights)
+ ```
+ 
+-**Rule:** KhĂ´ng module nĂ o Ä‘Æ°á»£c gá»i Gemini trá»±c tiáº¿p ngoĂ i `LLMModule`. Má»i Gemini call pháº£i Ä‘i qua `LLMModule`.
++**Rule:** KhĂ´ng module nĂ o Ä‘Æ°á»£c gá»i Gemini trá»±c tiáº¿p ngoĂ i `LLMModule`. `LLMService` implement `IEmbeddingProvider`; `EmbeddingModule` vĂ  `RAGModule` inject interface token nĂ y, Ä‘Æ°á»£c bind báº±ng `useExisting: LLMService`, thay vĂ¬ phá»¥ thuá»™c concrete service hoáº·c Gemini SDK.
+ 
+ ---
+ 
+@@ -862,7 +862,7 @@ Náº¿u `rate_limited: true`: content = `LLM_FALLBACK_MESSAGE`, HTTP váº«n 200. FE
+ }
+ ```
+ 
+-#### GET /api/v1/chat/sessions/:sessionId
++#### GET /api/v1/chat/sessions/:session_id
+ 
+ **Response 200:**
+ ```json
+@@ -951,7 +951,7 @@ Cho phĂ©p FE stream response thay vĂ¬ wait full response:
+ > **[FIX #4] MVP Queue Decision:** For MVP, realtime chat does NOT queue on Flash RPM limit.
+ > - **Reason:** Queuing a response back to a live SSE connection adds significant complexity (need WebSocket or polling fallback).
+ > - **Behavior:** Return fallback response immediately with `rate_limited: true`. FE shows toast.
+-> - **Override:** This decision overrides the `BullMQ queuing on rate-limit` behavior described in `ai_chat_spec.md` (TC-CHAT-04). That test case is deprecated for MVP.
++> - **Canonical rule:** This matches `ai_chat_spec.md`: realtime chat never waits in BullMQ.
+ > - **Future:** Chat queue / polling / WebSocket can be added post-MVP.
+ 
+ > đŸ“ **SSE Contract & Rate Limit Note:**
+@@ -1285,7 +1285,7 @@ petService.updateMood(userId, 'happy', 'Chá»§ vÆ°á»n Ä‘Ă£ xá»­ lĂ½ sĂ¢u bá»‡nh!
+ 
+ ## 11. MongoDB Collections
+ 
+-### ai_chats
++### chat_sessions
+ 
+ ```javascript
+ {
+@@ -1311,9 +1311,9 @@ petService.updateMood(userId, 'happy', 'Chá»§ vÆ°á»n Ä‘Ă£ xá»­ lĂ½ sĂ¢u bá»‡nh!
+ }
+ 
+ // Indexes:
+-db.ai_chats.createIndex({ user_id: 1, updated_at: -1 });
+-db.ai_chats.createIndex({ session_id: 1 }, { unique: true });
+-db.ai_chats.createIndex(             // TTL 90 ngĂ y
++db.chat_sessions.createIndex({ user_id: 1, updated_at: -1 });
++db.chat_sessions.createIndex({ session_id: 1 }, { unique: true });
++db.chat_sessions.createIndex(        // TTL 90 ngĂ y
+   { created_at: 1 },
+   { expireAfterSeconds: 7776000 }
+ );
+@@ -1322,13 +1322,13 @@ db.ai_chats.createIndex(             // TTL 90 ngĂ y
+ ### ai_feedback
+ 
+ > **[FIX #5]** `mongo_chat_id` renamed to `message_id` + `session_id` pair.
+-> Since messages are subdocuments inside `ai_chats`, we reference by `(session_id, message_id)` for clarity.
+-> This also overrides the `mongoChatId` camelCase field in `ai_chat_spec.md` â€” see API Casing note below.
++> Since messages are subdocuments inside `chat_sessions`, we reference by `(session_id, message_id)` for clarity.
++> This matches the canonical `ai_chat_spec.md` wire contract.
+ 
+ ```javascript
+ {
+   _id:            ObjectId,
+-  session_id:     String,   // ai_chats.session_id â€” which session contains the rated message
++  session_id:     String,   // chat_sessions.session_id â€” which session contains the rated message
+   message_id:     String,   // message subdocument's message_id â€” which specific message was rated
+   user_id:        String,
+   rating:         Number,   // 1â€“5
+@@ -1443,14 +1443,14 @@ Nháº¥t quĂ¡n vá»›i `auth_spec.md` error format:
+ ```json
+ {
+   "success":    false,
+-  "statusCode": 429,
+-  "errorCode":  "SCAN_QUOTA_EXCEEDED",
++  "status_code": 429,
++  "error_code":  "SCAN_QUOTA_EXCEEDED",
+   "message":    "ÄĂ£ dĂ¹ng háº¿t 3 lÆ°á»£t quĂ©t hĂ´m nay.",
+   "timestamp":  "2026-06-10T08:00:00Z"
+ }
+ ```
+ 
+-| HTTP | errorCode | NguyĂªn nhĂ¢n | FE xá»­ lĂ½ |
++| HTTP | error_code | NguyĂªn nhĂ¢n | FE xá»­ lĂ½ |
+ |---|---|---|---|
+ | 429 | `SCAN_QUOTA_EXCEEDED` | VÆ°á»£t scan limit ngĂ y | Bottom sheet "Háº¿t lÆ°á»£t hĂ´m nay" |
+ | 422 | `SCAN_IMAGE_BLURRY` | Laplacian < 100 | Bottom sheet "áº¢nh má», chá»¥p láº¡i" |
+@@ -1469,9 +1469,9 @@ Nháº¥t quĂ¡n vá»›i `auth_spec.md` error format:
+ > |---|---|
+ > | **All external REST API payloads** | Use `snake_case` (request body, response body) |
+ > | **Internal TypeScript interfaces** | May use `camelCase` (services, repositories) |
+-> | **Overridden fields** | `sessionId` â†’ `session_id`, `mongoChatId` â†’ `message_id` + `session_id`, `createdAt` â†’ `created_at` |
++> | **Canonical fields** | `session_id`, `message_id`, `created_at`, `access_token`, `error_code` |
+ >
+-> Agent implementors: if you see `sessionId` or `mongoChatId` in old spec examples, use the `snake_case` version defined here.
++> Agent implementors: wire payloads are always `snake_case`; camelCase is allowed only inside application/domain code.
+ 
+ ---
+ 
+@@ -1558,4 +1558,4 @@ Nháº¥t quĂ¡n vá»›i `auth_spec.md` error format:
+ ---
+ 
+ *FarmDiaries AI â€” Backend AI Feature Specification v1.0*
+-*Consistent vá»›i: ai_chat_spec.md Â· embedding_spec.md Â· core_features_spec.md Â· blueprint.md v6.0 Â· api_wiring*
+\ No newline at end of file
++*Consistent vá»›i: ai_chat_spec.md Â· embedding_spec.md Â· core_features_spec.md Â· blueprint.md v6.0 Â· api_wiring*
+diff --git a/specs/farmy_research_paper.md b/specs/farmy_research_paper.md
+index 21ec563..27587e5 100644
+--- a/specs/farmy_research_paper.md
++++ b/specs/farmy_research_paper.md
+@@ -204,7 +204,7 @@ This design was chosen over MongoDB Atlas Vector Search after analysis of latenc
+ 
+ ### 4.3 Caching and Queue Architecture
+ 
+-Redis serves three roles: (1) rate limit counters for Gemini API quota enforcement (two independent keys â€” `llm:rpm:flash` for Gemini Flash at 15 RPM and `llm:rpm:embed` for text-embedding-004 at 100 RPM); (2) plant scan result caching keyed on perceptual hash; and (3) BullMQ broker state. BullMQ manages four priority queues: `llm_queue` (priority 1 for interactive chat, priority 2 for plant scans), `embed_queue` (priority 3), `reminder_queue` (priority 5), and `insight_queue` (priority 10, lowest). This priority hierarchy ensures interactive user-facing requests are never blocked by background batch operations.
++Redis serves three roles: (1) rate limit counters for Gemini API quota enforcement (two independent keys â€” `llm:rpm:flash` for Gemini Flash and `llm:rpm:embed` for embeddings); (2) short-lived cache state; and (3) BullMQ broker state. BullMQ is reserved for background work: `embedding_queue`, `reminder_queue`, and `insight_queue`. Interactive chat and plant scans use short retries and then return a fallback or HTTP 429; they are never held in a long-running queue.
+ 
+ ### 4.4 Object Storage
+ 
+@@ -388,8 +388,10 @@ sequenceDiagram
+         R2-->>Nest: Image URL
+         Nest->>Prompt: buildVisionPrompt(cropType)
+         Prompt-->>Nest: BuiltPrompt (vision_v1.0)
+-        Nest->>Gemini: completeVision(imageBuffer, prompt)
+-        Gemini-->>Nest: Diagnosis JSON
++        Nest->>LLM: completeVision(imageBuffer, prompt)
++        LLM->>Gemini: Gemini Vision request
++        Gemini-->>LLM: Diagnosis JSON
++        LLM-->>Nest: Diagnosis result
+         Nest->>Mongo: Persist plant_scan record
+         Nest-->>Farmer: Structured diagnosis with treatment + PHI warning
+     end
+@@ -437,7 +439,7 @@ The backend is built on NestJS 10 with TypeScript strict mode. The module system
+ 
+ ### 8.3 Database Layer
+ 
+-MongoDB Atlas serves as the primary datastore with Mongoose as the ODM. Collections relevant to the AI pipeline include: `ai_chats` (conversation sessions with TTL index at 90 days), `diary_entries` (farm records), `knowledge_chunks` (admin-curated agricultural content), `plant_scans` (diagnosis records), `weekly_insights` (generated summaries), and `ai_feedback` (retained indefinitely for research value).
++MongoDB Atlas serves as the primary datastore with Mongoose as the ODM. Collections relevant to the AI pipeline include: `chat_sessions` (conversation sessions with TTL index at 90 days), `diary_entries` (farm records), `knowledge_chunks` (admin-curated agricultural content), `plant_scans` (diagnosis records), `weekly_insights` (generated summaries), and `ai_feedback` (retained indefinitely for research value).
+ 
+ pgvector is deployed as a PostgreSQL extension within the same infrastructure container, accessed via TypeORM's raw query interface. The HNSW index parameters (m=16, ef_construction=64) balance recall quality against index build time and query latency, achieving sub-10ms p99 for the target collection size.
+ 
+diff --git a/src/common/filters/auth-exception.filter.ts b/src/common/filters/auth-exception.filter.ts
+index dd2681f..c1b932a 100644
+--- a/src/common/filters/auth-exception.filter.ts
++++ b/src/common/filters/auth-exception.filter.ts
+@@ -30,7 +30,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
+       if (typeof resContent === 'object' && resContent !== null) {
+         const record = resContent as Record<string, unknown>;
+ 
+-        if (typeof record.errorCode === 'string') {
++        if (typeof record.error_code === 'string') {
++          errorCode = record.error_code;
++        } else if (typeof record.errorCode === 'string') {
++          // Accept legacy/internal camelCase exception payloads at the boundary.
+           errorCode = record.errorCode;
+         } else if (typeof record.error === 'string') {
+           errorCode = record.error;
+@@ -56,8 +59,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
+ 
+     response.status(status).json({
+       success: false,
+-      statusCode: status,
+-      errorCode,
++      status_code: status,
++      error_code: errorCode,
+       message,
+       timestamp: new Date().toISOString(),
+     });
+diff --git a/src/common/health/health.service.ts b/src/common/health/health.service.ts
+index d5c9e5c..42d7153 100644
+--- a/src/common/health/health.service.ts
++++ b/src/common/health/health.service.ts
+@@ -36,7 +36,7 @@ export class HealthService {
+ 
+     if (!healthy) {
+       throw new ServiceUnavailableException({
+-        errorCode: 'HEALTH_CHECK_FAILED',
++        error_code: 'HEALTH_CHECK_FAILED',
+         message: 'Má»™t hoáº·c nhiá»u dá»‹ch vá»¥ phá»¥ thuá»™c khĂ´ng kháº£ dá»¥ng!',
+         data: { db, mongo, redis },
+       });
+diff --git a/src/modules/ai/ai.module.ts b/src/modules/ai/ai.module.ts
+index 8a1e891..98a02af 100644
+--- a/src/modules/ai/ai.module.ts
++++ b/src/modules/ai/ai.module.ts
+@@ -39,7 +39,7 @@ import { EmbeddingProcessor } from './application/processors/embedding.processor
+     EmbeddingProcessor,
+     {
+       provide: 'IEmbeddingProvider',
+-      useClass: LLMService,
++      useExisting: LLMService,
+     },
+   ],
+   exports: [
+diff --git a/src/modules/auth/infrastructure/persistence/mongoose-refresh-token.repository.ts b/src/modules/auth/infrastructure/persistence/mongoose-refresh-token.repository.ts
+index e2dceb5..d5cbd65 100644
+--- a/src/modules/auth/infrastructure/persistence/mongoose-refresh-token.repository.ts
++++ b/src/modules/auth/infrastructure/persistence/mongoose-refresh-token.repository.ts
+@@ -1,6 +1,7 @@
+ import { Injectable } from '@nestjs/common';
+ import { InjectModel } from '@nestjs/mongoose';
+ import { Model } from 'mongoose';
++import { createHash } from 'crypto';
+ import { RefreshToken } from '../../domain/refresh-token.aggregate';
+ import type { IRefreshTokenRepository } from '../../domain/repositories/refresh-token-repository.interface';
+ import { RefreshTokenDocument } from './refresh-token.schema';
+@@ -15,18 +16,20 @@ export class MongooseRefreshTokenRepository implements IRefreshTokenRepository {
+   async create(refreshToken: RefreshToken): Promise<void> {
+     const doc = new this.refreshTokenModel({
+       _id: refreshToken.getId(),
+-      token: refreshToken.getToken(),
+-      userId: refreshToken.getUserId(),
+-      familyId: refreshToken.getFamilyId(),
+-      isUsed: refreshToken.getIsUsed(),
+-      isRevoked: refreshToken.getIsRevoked(),
+-      expiresAt: refreshToken.getExpiresAt(),
++      token_hash: this.hashToken(refreshToken.getToken()),
++      user_id: refreshToken.getUserId(),
++      family_id: refreshToken.getFamilyId(),
++      is_used: refreshToken.getIsUsed(),
++      is_revoked: refreshToken.getIsRevoked(),
++      expires_at: refreshToken.getExpiresAt(),
+     });
+     await doc.save();
+   }
+ 
+   async findByToken(token: string): Promise<RefreshToken | null> {
+-    const doc = await this.refreshTokenModel.findOne({ token }).exec();
++    const doc = await this.refreshTokenModel
++      .findOne({ token_hash: this.hashToken(token) })
++      .exec();
+     if (!doc) {
+       return null;
+     }
+@@ -36,31 +39,34 @@ export class MongooseRefreshTokenRepository implements IRefreshTokenRepository {
+   async save(refreshToken: RefreshToken): Promise<void> {
+     await this.refreshTokenModel
+       .findByIdAndUpdate(refreshToken.getId(), {
+-        token: refreshToken.getToken(),
+-        userId: refreshToken.getUserId(),
+-        familyId: refreshToken.getFamilyId(),
+-        isUsed: refreshToken.getIsUsed(),
+-        isRevoked: refreshToken.getIsRevoked(),
+-        expiresAt: refreshToken.getExpiresAt(),
++        user_id: refreshToken.getUserId(),
++        family_id: refreshToken.getFamilyId(),
++        is_used: refreshToken.getIsUsed(),
++        is_revoked: refreshToken.getIsRevoked(),
++        expires_at: refreshToken.getExpiresAt(),
+       })
+       .exec();
+   }
+ 
+   async revokeFamily(familyId: string): Promise<void> {
+     await this.refreshTokenModel
+-      .updateMany({ familyId }, { $set: { isRevoked: true } })
++      .updateMany({ family_id: familyId }, { $set: { is_revoked: true } })
+       .exec();
+   }
+ 
+   private toDomain(doc: RefreshTokenDocument): RefreshToken {
+     return new RefreshToken(
+       doc._id.toString(),
+-      doc.token,
+-      doc.userId,
+-      doc.familyId,
+-      doc.isUsed,
+-      doc.isRevoked,
+-      doc.expiresAt,
++      doc.token_hash,
++      doc.user_id,
++      doc.family_id,
++      doc.is_used,
++      doc.is_revoked,
++      doc.expires_at,
+     );
+   }
++
++  private hashToken(token: string): string {
++    return createHash('sha256').update(token).digest('hex');
++  }
+ }
+diff --git a/src/modules/auth/infrastructure/persistence/refresh-token.schema.ts b/src/modules/auth/infrastructure/persistence/refresh-token.schema.ts
+index 6eefd32..6c9ae1c 100644
+--- a/src/modules/auth/infrastructure/persistence/refresh-token.schema.ts
++++ b/src/modules/auth/infrastructure/persistence/refresh-token.schema.ts
+@@ -1,25 +1,28 @@
+ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+ import { Document } from 'mongoose';
+ 
+-@Schema({ timestamps: true, collection: 'refresh_tokens' })
++@Schema({
++  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
++  collection: 'refresh_tokens',
++})
+ export class RefreshTokenDocument extends Document {
+   @Prop({ required: true, unique: true, index: true })
+-  token: string;
++  token_hash: string;
+ 
+   @Prop({ required: true, index: true })
+-  userId: string;
++  user_id: string;
+ 
+   @Prop({ required: true, index: true })
+-  familyId: string;
++  family_id: string;
+ 
+   @Prop({ required: true, default: false })
+-  isUsed: boolean;
++  is_used: boolean;
+ 
+   @Prop({ required: true, default: false })
+-  isRevoked: boolean;
++  is_revoked: boolean;
+ 
+-  @Prop({ required: true })
+-  expiresAt: Date;
++  @Prop({ required: true, index: { expires: 0 } })
++  expires_at: Date;
+ }
+ 
+ export const RefreshTokenSchema =
+diff --git a/src/modules/auth/interface/controllers/auth.controller.ts b/src/modules/auth/interface/controllers/auth.controller.ts
+index 2ead691..93e7136 100644
+--- a/src/modules/auth/interface/controllers/auth.controller.ts
++++ b/src/modules/auth/interface/controllers/auth.controller.ts
+@@ -46,10 +46,10 @@ export class AuthController {
+       success: true,
+       message: 'ÄÄƒng kĂ½ tĂ i khoáº£n thĂ nh cĂ´ng. Vui lĂ²ng xĂ¡c thá»±c email náº¿u cáº§n!',
+       data: {
+-        userId: result.user.getId(),
++        user_id: result.user.getId(),
+         email: result.user.getEmail(),
+         name: result.user.getName(),
+-        accessToken: result.accessToken,
++        access_token: result.accessToken,
+       },
+     };
+   }
+@@ -76,8 +76,8 @@ export class AuthController {
+     return {
+       success: true,
+       data: {
+-        accessToken: result.accessToken,
+-        expiresIn: 900, // 15 minutes
++        access_token: result.accessToken,
++        expires_in: 900, // 15 minutes
+         user: {
+           id: result.user.getId(),
+           email: result.user.getEmail(),
+@@ -113,8 +113,8 @@ export class AuthController {
+     return {
+       success: true,
+       data: {
+-        accessToken: result.accessToken,
+-        expiresIn: 900,
++        access_token: result.accessToken,
++        expires_in: 900,
+         user: {
+           id: result.user.getId(),
+           email: result.user.getEmail(),

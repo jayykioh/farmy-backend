@@ -1,25 +1,28 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 
-@Schema({ timestamps: true, collection: 'refresh_tokens' })
+@Schema({
+  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+  collection: 'refresh_tokens',
+})
 export class RefreshTokenDocument extends Document {
   @Prop({ required: true, unique: true, index: true })
-  token: string;
+  token_hash: string;
 
   @Prop({ required: true, index: true })
-  userId: string;
+  user_id: string;
 
   @Prop({ required: true, index: true })
-  familyId: string;
+  family_id: string;
 
   @Prop({ required: true, default: false })
-  isUsed: boolean;
+  is_used: boolean;
 
   @Prop({ required: true, default: false })
-  isRevoked: boolean;
+  is_revoked: boolean;
 
-  @Prop({ required: true })
-  expiresAt: Date;
+  @Prop({ required: true, index: { expires: 0 } })
+  expires_at: Date;
 }
 
 export const RefreshTokenSchema =

@@ -46,10 +46,10 @@ export class AuthController {
       success: true,
       message: 'Đăng ký tài khoản thành công. Vui lòng xác thực email nếu cần!',
       data: {
-        userId: result.user.getId(),
+        user_id: result.user.getId(),
         email: result.user.getEmail(),
         name: result.user.getName(),
-        accessToken: result.accessToken,
+        access_token: result.accessToken,
       },
     };
   }
@@ -76,8 +76,8 @@ export class AuthController {
     return {
       success: true,
       data: {
-        accessToken: result.accessToken,
-        expiresIn: 900, // 15 minutes
+        access_token: result.accessToken,
+        expires_in: 900, // 15 minutes
         user: {
           id: result.user.getId(),
           email: result.user.getEmail(),
@@ -113,8 +113,8 @@ export class AuthController {
     return {
       success: true,
       data: {
-        accessToken: result.accessToken,
-        expiresIn: 900,
+        access_token: result.accessToken,
+        expires_in: 900,
         user: {
           id: result.user.getId(),
           email: result.user.getEmail(),

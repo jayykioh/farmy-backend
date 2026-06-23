@@ -21,9 +21,6 @@ export class DiaryLogDocument extends Document<string> {
 
   @Prop()
   image_url?: string;
-
-  @Prop({ type: [Number], required: true })
-  content_embedding: number[];
 }
 
 export const DiaryLogSchema: MongooseSchema =

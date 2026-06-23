@@ -14,6 +14,9 @@ import { UpdateDiaryDto } from '../../interface/dtos/update-diary.dto';
 import { CreateDiaryLogDto } from '../../interface/dtos/create-diary-log.dto';
 import { UpdateDiaryLogDto } from '../../interface/dtos/update-diary-log.dto';
 import { PetService } from '../../../pet/application/services/pet.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { EmbeddingRepository } from '../../../ai/infrastructure/persistence/embedding.repository';
 
 
 @Injectable()
@@ -26,6 +29,9 @@ export class DiaryService {
     @InjectModel(FarmPlotDocument.name)
     private readonly farmPlotModel: Model<FarmPlotDocument>,
     private readonly petService: PetService,
+    @InjectQueue('embedding_queue')
+    private readonly embedQueue: Queue,
+    private readonly embeddingRepository: EmbeddingRepository,
   ) {}
 
   // Helpers to verify ownership
@@ -117,24 +123,32 @@ export class DiaryService {
   ): Promise<DiaryLogDocument> {
     await this.verifyDiaryOwner(userId, diaryId);
 
-    // Create 1536-dimensional mock embedding array
-    const mockEmbedding = Array(1536)
-      .fill(0)
-      .map(() => Math.random() * 0.1);
-
     const log = new this.diaryLogModel({
       _id: crypto.randomUUID(),
       diary_id: diaryId,
       activity_type: dto.activity_type,
       content: dto.content,
       image_url: dto.image_url,
-      content_embedding: mockEmbedding,
     });
     
     // Tăng streak và cập nhật trạng thái thú ảo
     await this.petService.updateStreakAndMoodOnDiaryCreated(userId);
 
-    return log.save();
+    const savedLog = await log.save();
+
+    const contentHash = crypto.createHash('sha256').update(savedLog.content).digest('hex');
+    await this.embedQueue.add(
+      'embed_document',
+      {
+        sourceId: savedLog._id.toString(),
+        sourceType: 'diary_log',
+        text: savedLog.content,
+        metadata: { user_id: userId }
+      },
+      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` }
+    );
+
+    return savedLog;
   }
 
   async findAllLogs(
@@ -168,11 +182,26 @@ export class DiaryService {
     if (dto.content !== undefined) log.content = dto.content;
     if (dto.image_url !== undefined) log.image_url = dto.image_url;
 
-    return log.save();
+    const savedLog = await log.save();
+
+    const contentHash = crypto.createHash('sha256').update(savedLog.content).digest('hex');
+    await this.embedQueue.add(
+      'embed_document',
+      {
+        sourceId: savedLog._id.toString(),
+        sourceType: 'diary_log',
+        text: savedLog.content,
+        metadata: { user_id: userId }
+      },
+      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` }
+    );
+
+    return savedLog;
   }
 
   async removeLog(userId: string, logId: string): Promise<void> {
     const log = await this.findOneLog(userId, logId);
     await this.diaryLogModel.deleteOne({ _id: log._id }).exec();
+    await this.embeddingRepository.deactivateBySourceId(log._id.toString());
   }
 }
