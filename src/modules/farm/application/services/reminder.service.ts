@@ -12,11 +12,13 @@ import {
 } from '../../infrastructure/persistence/reminder.schema';
 import { DiaryDocument } from '../../infrastructure/persistence/diary.schema';
 import { FarmPlotDocument } from '../../infrastructure/persistence/farm-plot.schema';
-import { CreateReminderDto, ReminderType } from '../../interface/dtos/create-reminder.dto';
+import {
+  CreateReminderDto,
+  ReminderType,
+} from '../../interface/dtos/create-reminder.dto';
 import { UpdateReminderDto } from '../../interface/dtos/update-reminder.dto';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
 import { PetService } from '../../../pet/application/services/pet.service';
-
 
 @Injectable()
 export class ReminderService {
@@ -59,7 +61,8 @@ export class ReminderService {
 
     // Tự động suy ra schedule_slot nếu client không truyền
     const scheduleSlot =
-      dto.schedule_slot ?? ReminderSchedulerService.resolveScheduleSlot(remindAt);
+      dto.schedule_slot ??
+      ReminderSchedulerService.resolveScheduleSlot(remindAt);
 
     const reminder = new this.reminderModel({
       _id: crypto.randomUUID(),
@@ -134,7 +137,7 @@ export class ReminderService {
       reminder.is_sent = dto.status === 'delivered';
     }
     if (dto.repeat !== undefined) {
-      reminder.repeat = dto.repeat as 'none' | 'daily' | 'weekly';
+      reminder.repeat = dto.repeat;
     }
 
     return reminder.save();

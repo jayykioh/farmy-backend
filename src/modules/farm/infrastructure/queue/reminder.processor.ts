@@ -48,12 +48,21 @@ export class ReminderProcessor extends WorkerHost {
 
     try {
       // Fetch the full reminder object to check for repeat options
-      const originalReminder = await this.reminderModel.findById(reminderId).exec();
+      const originalReminder = await this.reminderModel
+        .findById(reminderId)
+        .exec();
 
       // === Gửi thông báo ===
       // Hiện tại: Console log (mock Web Push)
       // Tương lai: Tích hợp Zalo ZNS / Firebase FCM / Email
-      await this.sendNotification({ reminderId, userId, title, type, action_type, action_detail });
+      await this.sendNotification({
+        reminderId,
+        userId,
+        title,
+        type,
+        action_type,
+        action_detail,
+      });
 
       // Cập nhật trạng thái delivered
       await this.reminderModel.updateOne(
@@ -70,7 +79,11 @@ export class ReminderProcessor extends WorkerHost {
       this.logger.log(`✅ Reminder delivered: ${reminderId}`);
 
       // Auto-recurring logic: if repeat is daily or weekly, schedule the next occurrence
-      if (originalReminder && originalReminder.repeat && originalReminder.repeat !== 'none') {
+      if (
+        originalReminder &&
+        originalReminder.repeat &&
+        originalReminder.repeat !== 'none'
+      ) {
         const nextRemindAt = new Date(originalReminder.remind_at);
         if (originalReminder.repeat === 'daily') {
           nextRemindAt.setDate(nextRemindAt.getDate() + 1);

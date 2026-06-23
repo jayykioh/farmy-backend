@@ -38,9 +38,7 @@ export class PromptService {
     const truncatedCtx = this.truncate(safeCtx, PROMPT_LIMITS.maxContextChars);
 
     const ragBlock =
-      truncatedCtx.length > 0
-        ? truncatedCtx
-        : '(Không có dữ liệu tham khảo)';
+      truncatedCtx.length > 0 ? truncatedCtx : '(Không có dữ liệu tham khảo)';
     const historyBlock =
       history.length > 0 ? history : '(Chưa có lịch sử hội thoại)';
 
@@ -49,10 +47,7 @@ export class PromptService {
       PROMPT_LIMITS.historyTurns,
     );
 
-    const prompt = CHAT_SYSTEM_PROMPT_V1.replace(
-      '{user_name}',
-      input.userName,
-    )
+    const prompt = CHAT_SYSTEM_PROMPT_V1.replace('{user_name}', input.userName)
       .replace('{streak_count}', String(input.streakCount))
       .replace('{pet_mood}', input.petMood)
       .replace('{rag_context}', ragBlock)

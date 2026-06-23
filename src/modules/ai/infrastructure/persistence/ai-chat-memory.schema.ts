@@ -6,6 +6,7 @@ import { UserDocument } from '../../../auth/infrastructure/persistence/user.sche
   timestamps: { createdAt: 'created_at', updatedAt: false },
   collection: 'ai_chat_memories',
 })
+/** @deprecated Retained for read compatibility only. New chat flows use ChatMessage. */
 export class AiChatMemoryDocument extends Document<string> {
   @Prop({ type: String, required: true })
   declare _id: string;

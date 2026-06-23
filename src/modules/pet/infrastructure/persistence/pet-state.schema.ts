@@ -5,23 +5,23 @@ import { UserDocument } from '../../../auth/infrastructure/persistence/user.sche
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export enum PetMood {
-  EXCITED  = 'excited',
-  HAPPY    = 'happy',
-  NEUTRAL  = 'neutral',
-  SAD      = 'sad',
-  WORRIED  = 'worried',
-  SLEEPY   = 'sleepy',
-  HUNGRY   = 'hungry',
+  EXCITED = 'excited',
+  HAPPY = 'happy',
+  NEUTRAL = 'neutral',
+  SAD = 'sad',
+  WORRIED = 'worried',
+  SLEEPY = 'sleepy',
+  HUNGRY = 'hungry',
 }
 
 export enum PetMoodReason {
-  STREAK_MILESTONE      = 'STREAK_MILESTONE',
+  STREAK_MILESTONE = 'STREAK_MILESTONE',
   USER_LOGGED_DIARY_TODAY = 'USER_LOGGED_DIARY_TODAY',
-  MISSED_MULTIPLE_DAYS  = 'MISSED_MULTIPLE_DAYS',
-  MISSED_ONE_DAY        = 'MISSED_ONE_DAY',
-  LATE_DAY_NO_DIARY     = 'LATE_DAY_NO_DIARY',
-  NEEDS_DAILY_DIARY     = 'NEEDS_DAILY_DIARY',
-  DEFAULT_STATE         = 'DEFAULT_STATE',
+  MISSED_MULTIPLE_DAYS = 'MISSED_MULTIPLE_DAYS',
+  MISSED_ONE_DAY = 'MISSED_ONE_DAY',
+  LATE_DAY_NO_DIARY = 'LATE_DAY_NO_DIARY',
+  NEEDS_DAILY_DIARY = 'NEEDS_DAILY_DIARY',
+  DEFAULT_STATE = 'DEFAULT_STATE',
 }
 
 const ALL_MOODS = Object.values(PetMood);
@@ -36,7 +36,13 @@ export class PetStateDocument extends Document<string> {
   @Prop({ type: String, required: true })
   declare _id: string;
 
-  @Prop({ type: String, ref: UserDocument.name, required: true, unique: true, index: true })
+  @Prop({
+    type: String,
+    ref: UserDocument.name,
+    required: true,
+    unique: true,
+    index: true,
+  })
   user_id: string;
 
   @Prop({ type: String, enum: ALL_MOODS, default: PetMood.NEUTRAL })

@@ -31,7 +31,7 @@ export interface RAGContext {
 @Injectable()
 export class RagService {
   private readonly logger = new Logger(RagService.name);
-  
+
   // A simple in-memory cache for knowledge chunks to simulate Redis if not available.
   // In production with Redis, you'd use @Inject(CACHE_MANAGER) Cache
   private knowledgeCache = new Map<string, string>();
@@ -45,14 +45,18 @@ export class RagService {
     private readonly knowledgeRepository: KnowledgeRepository,
   ) {}
 
-  async retrieveContext(userMessage: string, userId: string, limit = 5): Promise<RAGContext> {
+  async retrieveContext(
+    userMessage: string,
+    userId: string,
+    limit = 5,
+  ): Promise<RAGContext> {
     try {
       const { vector } = await this.embeddingProvider.embed(userMessage);
-      
+
       const hits = await this.embeddingRepository.searchSimilar(
         vector,
         { limit, minScore: 0.7 },
-        userId
+        userId,
       );
 
       if (!hits || hits.length === 0) {
@@ -72,14 +76,15 @@ export class RagService {
         let chunkContent = '';
 
         if (hit.source_type === 'knowledge_source') {
-           chunkContent = await this.getKnowledgeChunk(hit);
+          chunkContent = await this.getKnowledgeChunk(hit);
         } else if (hit.source_type === 'diary_log') {
-           chunkContent = await this.getDiaryLogChunk(userId, hit);
+          chunkContent = await this.getDiaryLogChunk(userId, hit);
         }
 
         if (!chunkContent) continue;
 
-        const prospectiveContext = contextText + (contextText ? '\n\n' : '') + chunkContent;
+        const prospectiveContext =
+          contextText + (contextText ? '\n\n' : '') + chunkContent;
         if (prospectiveContext.length > MAX_CONTEXT_LENGTH) {
           // Skip adding if it exceeds context limit
           continue;
@@ -100,12 +105,13 @@ export class RagService {
         has_context: contextText.length > 0,
         retrieval_status: 'success',
       };
-
     } catch (err) {
       const error = err as Error;
       // Fail-open for infrastructure errors
       // You may add more specific error checks for Timeout, Quota, etc.
-      this.logger.warn(`Infrastructure error during RAG retrieval: ${error.message}`);
+      this.logger.warn(
+        `Infrastructure error during RAG retrieval: ${error.message}`,
+      );
       return {
         context_text: '',
         citations: [],
@@ -118,12 +124,14 @@ export class RagService {
   private async getKnowledgeChunk(hit: SearchHit): Promise<string> {
     // Exact Identity Cache
     const cacheKey = `rag:knowledge:${crypto.createHash('sha256').update(`${hit.source_id}:${hit.chunk_index}:${hit.content_hash}`).digest('hex')}`;
-    
+
     try {
       const cached = this.knowledgeCache.get(cacheKey);
       if (cached) return cached;
     } catch (err) {
-      this.logger.warn(`Failed to read from cache for key ${cacheKey}: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to read from cache for key ${cacheKey}: ${(err as Error).message}`,
+      );
     }
 
     const source = await this.knowledgeRepository.findById(hit.source_id);
@@ -139,13 +147,18 @@ export class RagService {
         // We simulate short-lived cache here.
         this.knowledgeCache.set(cacheKey, chunkText);
       } catch (err) {
-        this.logger.warn(`Failed to write to cache for key ${cacheKey}: ${(err as Error).message}`);
+        this.logger.warn(
+          `Failed to write to cache for key ${cacheKey}: ${(err as Error).message}`,
+        );
       }
     }
     return chunkText || '';
   }
 
-  private async getDiaryLogChunk(userId: string, hit: SearchHit): Promise<string> {
+  private async getDiaryLogChunk(
+    userId: string,
+    hit: SearchHit,
+  ): Promise<string> {
     try {
       // Defense-in-depth: DiaryService.findOneLog throws if user doesn't own it
       const log = await this.diaryService.findOneLog(userId, hit.source_id);
@@ -156,7 +169,9 @@ export class RagService {
       return chunks[hit.chunk_index] || '';
     } catch (err) {
       // Could be NotFound or Forbidden (User isolation failed at DB level)
-      this.logger.warn(`Failed to hydrate diary log ${hit.source_id} for user ${userId}: ${(err as Error).message}`);
+      this.logger.warn(
+        `Failed to hydrate diary log ${hit.source_id} for user ${userId}: ${(err as Error).message}`,
+      );
       return '';
     }
   }

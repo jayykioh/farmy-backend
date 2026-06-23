@@ -22,6 +22,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { AiModule } from './modules/ai/ai.module';
     PetModule,
     KnowledgeModule,
     AiModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
@@ -121,8 +123,6 @@ import { AiModule } from './modules/ai/ai.module';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(CsrfMiddleware)
-      .forRoutes('*');
+    consumer.apply(CsrfMiddleware).forRoutes('*');
   }
 }

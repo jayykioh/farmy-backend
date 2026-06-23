@@ -12,7 +12,10 @@ export class UpdateReminderDto {
   @IsOptional()
   title?: string;
 
-  @IsDateString({}, { message: 'remind_at phải là định dạng ngày tháng hợp lệ!' })
+  @IsDateString(
+    {},
+    { message: 'remind_at phải là định dạng ngày tháng hợp lệ!' },
+  )
   @IsOptional()
   remind_at?: string;
 
@@ -28,9 +31,14 @@ export class UpdateReminderDto {
   status?: string;
 
   /** Loại nhắc nhở */
-  @IsEnum(
-    ['diary', 'water', 'fertilize', 'weekly_insight', 'streak_milestone', 'plant_alert'],
-  )
+  @IsEnum([
+    'diary',
+    'water',
+    'fertilize',
+    'weekly_insight',
+    'streak_milestone',
+    'plant_alert',
+  ])
   @IsOptional()
   type?: string;
 

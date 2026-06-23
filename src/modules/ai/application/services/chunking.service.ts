@@ -8,7 +8,12 @@ export class ChunkingService {
    * Ensures no chunk exceeds the window size and adjacent chunks overlap by the specified step size.
    */
   chunkText(text: string, options: ChunkingOptions): string[] {
-    const { windowSize, stepSize, maxChunks = Infinity, minLength = 0 } = options;
+    const {
+      windowSize,
+      stepSize,
+      maxChunks = Infinity,
+      minLength = 0,
+    } = options;
     if (windowSize <= 0) {
       throw new Error('windowSize must be greater than 0');
     }
@@ -29,7 +34,7 @@ export class ChunkingService {
     while (currentIndex < text.length && chunks.length < maxChunks) {
       const end = Math.min(currentIndex + windowSize, text.length);
       const chunk = text.slice(currentIndex, end);
-      
+
       if (chunk.length >= minLength) {
         chunks.push(chunk);
       }
