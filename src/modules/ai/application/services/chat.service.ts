@@ -6,6 +6,7 @@ import { AiChatDocument, ChatMessageSubdocument } from '../../infrastructure/per
 import { AiFeedbackDocument } from '../../infrastructure/persistence/ai-feedback.schema';
 import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 import { PetService } from '../../../pet/application/services/pet.service';
+import { RAGService, Citation } from './rag.service';
 import { PromptService } from './prompt.service';
 import { LLMService } from './llm.service';
 import { LLM_SAFETY_MESSAGE, LLM_FALLBACK_MESSAGE } from '../../domain/llm.constants';
@@ -38,6 +39,7 @@ export class ChatService {
     @InjectModel(UserDocument.name)
     private readonly userModel: Model<UserDocument>,
     private readonly petService: PetService,
+    private readonly ragService: RAGService,
     private readonly promptService: PromptService,
     private readonly llmService: LLMService,
   ) {}
@@ -76,8 +78,8 @@ export class ChatService {
     const userName = user?.name || 'Anh/Chị nhà nông';
     const petState = await this.petService.getStatus(userId);
 
-    // 3. No RAG Context retrieval in SCRUM-46
-    const ragContextText = '';
+    // 3. RAG Context retrieval
+    const ragContext = await this.ragService.retrieveContext(dto.content, userId);
 
     // 4. Build prompt
     // Format messages for prompt history
@@ -90,7 +92,7 @@ export class ChatService {
       userName,
       streakCount: petState.streakCount,
       petMood: petState.mood,
-      ragContext: ragContextText,
+      ragContext: ragContext.context_text,
       chatHistory: history,
       userMessage: dto.content,
     });
@@ -102,12 +104,13 @@ export class ChatService {
     let responseContent: string;
     let isSafetyBlocked = false;
     let confidence = 0.85; // Default confidence
-    let citations: any[] = [];
+    let citations: Citation[] = ragContext.citations;
 
     if (hasNonAgri) {
       responseContent = 'Dạ, tôi là chuyên gia nông nghiệp FarmDiaries. Tôi chỉ có thể hỗ trợ bạn về kỹ thuật trồng trọt, chăn nuôi và chăm sóc nhật ký nông trại thôi ạ! 🌱';
       isSafetyBlocked = true;
       confidence = 1.0;
+      citations = [];
     } else {
       // 6. Call LLM Service
       const start = Date.now();
@@ -141,8 +144,12 @@ export class ChatService {
       safetyAlert = `🚨 CẢNH BÁO BẢO VỆ THỰC VẬT: Hoạt chất ${matchedBanned.join(', ')} nằm trong danh mục cấm hoặc hạn chế nghiêm ngặt tại Việt Nam do độc tính cực cao đối với sức khỏe và môi trường. Vui lòng tham khảo ý kiến Chi cục Bảo vệ Thực vật địa phương để thay thế bằng hoạt chất an toàn hơn.`;
     }
 
-    if (!isSafetyBlocked) {
-      confidence = 0.58; // Low confidence default without RAG
+    // Map confidence score from RAG similarity
+    if (citations.length > 0) {
+      confidence = citations[0].score;
+    } else if (!isSafetyBlocked) {
+      // If no citations, average query confidence is lower
+      confidence = 0.58;
     }
 
     // 8. Save user and assistant messages to MongoDB
@@ -165,7 +172,7 @@ export class ChatService {
       rate_limited: responseContent === LLM_FALLBACK_MESSAGE,
       timestamp: new Date(),
       confidence,
-      sources: [],
+      sources: citations.map((c) => `${c.title} (Độ tin cậy: ${Math.round(c.score * 100)}%)`),
       phi_warning: phiWarning,
       safety_alert: safetyAlert,
     } as any;
@@ -182,7 +189,7 @@ export class ChatService {
         timestamp: assistantMessage.timestamp.toISOString(),
         rate_limited: assistantMessage.rate_limited,
         confidence,
-        sources: [],
+        sources: assistantMessage.sources,
         phi_warning: phiWarning,
         safety_alert: safetyAlert,
         mascot_mood: isSafetyBlocked ? 'sleepy' : (phiWarning || safetyAlert ? 'worried' : 'happy'),
