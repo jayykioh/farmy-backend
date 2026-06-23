@@ -9,23 +9,34 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { KnowledgeService } from '../services/knowledge.service';
 import { KnowledgeValidationService } from '../services/knowledge-validation.service';
-import { CreateKnowledgeDto } from '../dto/create-knowledge.dto';
+import {
+  FileParserService,
+} from '../services/file-parser.service';
+import { CreateKnowledgeUnifiedDto } from '../dto/create-knowledge-unified.dto';
 import { UpdateKnowledgeDto } from '../dto/update-knowledge.dto';
 import { BatchEmbedKnowledgeDto } from '../dto/batch-embed-knowledge.dto';
 import { ConfirmKnowledgeDto } from '../dto/confirm-knowledge.dto';
+
+/** Giới hạn file 10MB */
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 /**
  * AdminKnowledgeController
  *
  * All routes protected by JwtAuthGuard (global) + RolesGuard + @Roles('admin').
- * Base path: /api/v1/admin/knowledge
+ * Base path: /admin/knowledge  (NestJS prefix không thêm /api/v1 ở đây)
  *
- * Document lifecycle (v2):
- *   POST /                    → tạo bài (unvalidated)
+ * Document lifecycle (v3):
+ *   POST /                    → tạo bài (unified: text | PDF | DOCX | JSON file)
  *   POST /:id/validate        → Gemini đánh giá → validated | rejected
  *   POST /:id/confirm         → Admin confirm | reject thủ công
  *   POST /batch-embed         → embed tất cả bài đã confirmed
@@ -36,16 +47,140 @@ export class AdminKnowledgeController {
   constructor(
     private readonly knowledgeService: KnowledgeService,
     private readonly validationService: KnowledgeValidationService,
+    private readonly fileParserService: FileParserService,
   ) {}
 
-  // ─── CRUD ─────────────────────────────────────────────────────────────────
+  // ─── CRUD ──────────────────────────────────────────────────────────────────
 
-  // POST /admin/knowledge
+  /**
+   * POST /admin/knowledge
+   *
+   * Unified endpoint — nhận multipart/form-data với 4 cách tạo bài:
+   *
+   * 1. Nhập text thủ công:
+   *    Fields: title (required), content (required), category (required)
+   *
+   * 2. Upload PDF:
+   *    File: file.pdf | Fields: category (required), title (optional)
+   *
+   * 3. Upload DOCX:
+   *    File: file.docx | Fields: category (required), title (optional)
+   *
+   * 4. Upload JSON file:
+   *    File: bai-viet.json (chứa { title, content, category, source_url? })
+   *    → tất cả fields lấy từ file, không cần form fields
+   */
   @Post()
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_FILE_SIZE },
+      fileFilter: (_req, file, cb) => {
+        // Validate MIME type sớm — trả lỗi 415 trước khi đọc hết file
+        try {
+          FileParserService.validateFileType(file.mimetype, file.originalname);
+          cb(null, true);
+        } catch (err) {
+          cb(err as Error, false);
+        }
+      },
+    }),
+  )
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() dto: CreateKnowledgeDto) {
-    const doc = await this.knowledgeService.create(dto);
-    return { success: true, data: doc };
+  async create(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() dto: CreateKnowledgeUnifiedDto,
+  ) {
+    let finalTitle: string;
+    let finalContent: string;
+    let finalCategory: string;
+    let finalSourceUrl: string | undefined = dto.source_url;
+
+    // Metadata để lưu vào DB
+    const metadata: Record<string, unknown> = {};
+
+    if (file) {
+      // ── Có file đính kèm → parse file ──────────────────────────────────────
+      const parsed = await this.fileParserService.parse(
+        file.buffer,
+        file.mimetype,
+        file.originalname,
+      );
+
+      finalContent = parsed.content;
+
+      // Với JSON file: lấy category/source_url từ file (form ghi đè nếu có)
+      if (parsed.sourceFileType === 'json') {
+        finalCategory = dto.category ?? parsed.category!;
+        finalTitle =
+          dto.title ?? parsed.title ?? FileParserService.stripExtension(file.originalname);
+        finalSourceUrl = dto.source_url ?? parsed.source_url;
+      } else {
+        // PDF / DOCX: category BẮT BUỘC từ form
+        if (!dto.category?.trim()) {
+          throw new BadRequestException(
+            'Field "category" là bắt buộc khi upload file PDF hoặc DOCX.',
+          );
+        }
+        finalCategory = dto.category.trim();
+        finalTitle =
+          dto.title?.trim() ?? FileParserService.stripExtension(file.originalname);
+      }
+
+      // Lưu metadata file
+      metadata['source_file_type'] = parsed.sourceFileType;
+      metadata['source_file_name'] = file.originalname;
+      metadata['extracted_chars'] = parsed.extractedChars;
+      if (parsed.pageCount !== undefined) {
+        metadata['page_count'] = parsed.pageCount;
+      }
+    } else {
+      // ── Không có file → dùng text nhập thủ công ────────────────────────────
+      if (!dto.content?.trim()) {
+        throw new BadRequestException(
+          'Phải cung cấp file (PDF/DOCX/JSON) hoặc field "content" (nhập text thủ công).',
+        );
+      }
+      if (!dto.title?.trim()) {
+        throw new BadRequestException(
+          'Field "title" là bắt buộc khi nhập nội dung thủ công.',
+        );
+      }
+      if (!dto.category?.trim()) {
+        throw new BadRequestException(
+          'Field "category" là bắt buộc.',
+        );
+      }
+
+      finalContent = dto.content.trim();
+      finalTitle = dto.title.trim();
+      finalCategory = dto.category.trim();
+      metadata['source_file_type'] = 'text';
+    }
+
+    const doc = await this.knowledgeService.create({
+      title: finalTitle,
+      content: finalContent,
+      category: finalCategory,
+      source_url: finalSourceUrl,
+      metadata,
+    });
+
+    // Tạo message thân thiện dựa vào loại input
+    const sourceType = (metadata['source_file_type'] as string) ?? 'text';
+    const charCount = (metadata['extracted_chars'] as number | undefined) ?? finalContent.length;
+    const sourceLabels: Record<string, string> = {
+      pdf: 'file PDF',
+      docx: 'file DOCX',
+      json: 'file JSON',
+      text: 'nội dung nhập thủ công',
+    };
+
+    return {
+      success: true,
+      message: `Đã tạo bài viết từ ${sourceLabels[sourceType] ?? 'file'} (${charCount} ký tự). Sẵn sàng để validation.`,
+      data: doc,
+    };
   }
 
   // GET /admin/knowledge?category=&limit=&skip=&validation_status=
@@ -86,7 +221,7 @@ export class AdminKnowledgeController {
     await this.knowledgeService.remove(id);
   }
 
-  // ─── AI Validation Pipeline (v2) ──────────────────────────────────────────
+  // ─── AI Validation Pipeline (v2) ───────────────────────────────────────────
 
   /**
    * POST /admin/knowledge/:id/validate
@@ -133,7 +268,7 @@ export class AdminKnowledgeController {
     };
   }
 
-  // ─── Batch Embed ───────────────────────────────────────────────────────────
+  // ─── Batch Embed ────────────────────────────────────────────────────────────
 
   /**
    * POST /admin/knowledge/batch-embed
