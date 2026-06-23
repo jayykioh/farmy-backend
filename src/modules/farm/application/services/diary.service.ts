@@ -14,6 +14,9 @@ import { UpdateDiaryDto } from '../../interface/dtos/update-diary.dto';
 import { CreateDiaryLogDto } from '../../interface/dtos/create-diary-log.dto';
 import { UpdateDiaryLogDto } from '../../interface/dtos/update-diary-log.dto';
 import { PetService } from '../../../pet/application/services/pet.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { EmbeddingRepository } from '../../../ai/infrastructure/persistence/embedding.repository';
 
 
 @Injectable()
@@ -26,6 +29,9 @@ export class DiaryService {
     @InjectModel(FarmPlotDocument.name)
     private readonly farmPlotModel: Model<FarmPlotDocument>,
     private readonly petService: PetService,
+    @InjectQueue('embedding_queue')
+    private readonly embedQueue: Queue,
+    private readonly embeddingRepository: EmbeddingRepository,
   ) {}
 
   // Helpers to verify ownership
@@ -130,8 +136,17 @@ export class DiaryService {
 
     const savedLog = await log.save();
 
-    // TODO: Enqueue embedding job via BullMQ
-    // e.g., await this.embedQueue.add('embed_diary', { diaryId: savedLog._id.toString(), userId }, { priority: 3 });
+    const contentHash = crypto.createHash('sha256').update(savedLog.content).digest('hex');
+    await this.embedQueue.add(
+      'embed_document',
+      {
+        sourceId: savedLog._id.toString(),
+        sourceType: 'diary_log',
+        text: savedLog.content,
+        metadata: { user_id: userId }
+      },
+      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` }
+    );
 
     return savedLog;
   }
@@ -167,11 +182,26 @@ export class DiaryService {
     if (dto.content !== undefined) log.content = dto.content;
     if (dto.image_url !== undefined) log.image_url = dto.image_url;
 
-    return log.save();
+    const savedLog = await log.save();
+
+    const contentHash = crypto.createHash('sha256').update(savedLog.content).digest('hex');
+    await this.embedQueue.add(
+      'embed_document',
+      {
+        sourceId: savedLog._id.toString(),
+        sourceType: 'diary_log',
+        text: savedLog.content,
+        metadata: { user_id: userId }
+      },
+      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` }
+    );
+
+    return savedLog;
   }
 
   async removeLog(userId: string, logId: string): Promise<void> {
     const log = await this.findOneLog(userId, logId);
     await this.diaryLogModel.deleteOne({ _id: log._id }).exec();
+    await this.embeddingRepository.deactivateBySourceId(log._id.toString());
   }
 }

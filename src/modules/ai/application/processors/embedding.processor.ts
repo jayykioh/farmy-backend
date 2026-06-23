@@ -5,6 +5,7 @@ import { ChunkingService } from '../services/chunking.service';
 import type { IEmbeddingProvider } from '../../domain/embedding.types';
 import { EmbedDocumentPayload } from '../../domain/embedding.types';
 import { EmbeddingRepository, UpsertEmbeddingDto } from '../../infrastructure/persistence/embedding.repository';
+import { CHUNKING_PRESETS } from '../../domain/chunking.constants';
 import * as crypto from 'crypto';
 
 @Processor('embedding_queue')
@@ -26,29 +27,71 @@ export class EmbeddingProcessor extends WorkerHost {
       
       if (!text) return;
 
-      // Default chunking parameters
-      const chunks = this.chunkingService.chunkText(text, { windowSize: 1000, stepSize: 200 });
+      const preset = CHUNKING_PRESETS[sourceType] || { windowSize: 1000, stepSize: 200, maxChunks: 10, minLength: 0 };
+      const chunks = this.chunkingService.chunkText(text, preset);
       
+      const activeStates = await this.embeddingRepository.findActiveChunkStates(sourceId, sourceType);
       const vectorsToUpsert: UpsertEmbeddingDto[] = [];
+      const activeChunkIndices = new Set<number>();
       
       for (let i = 0; i < chunks.length; i++) {
          const chunkText = chunks[i];
-         const result = await this.embeddingProvider.embed(chunkText);
          const contentHash = crypto.createHash('sha256').update(chunkText).digest('hex');
+         
+         const existing = activeStates.get(i);
+         if (existing && existing.contentHash === contentHash) {
+            // Unchanged chunk, skip embedding
+            activeChunkIndices.add(i);
+            continue;
+         }
+
+         const result = await this.embeddingProvider.embed(chunkText);
 
          vectorsToUpsert.push({
            sourceId,
            sourceType,
            chunkIndex: i,
-           text: chunkText,
            contentHash,
            vector: result.vector,
            metadata,
            isActive: true,
          });
+         activeChunkIndices.add(i);
       }
 
-      await this.embeddingRepository.upsertMany(vectorsToUpsert);
+      // Determine stale chunks
+      const staleIndices: number[] = [];
+      for (const [index] of activeStates.entries()) {
+        if (!activeChunkIndices.has(index)) {
+          staleIndices.push(index);
+        }
+      }
+
+      // We need to pass sourceId/sourceType to upsertMany if dtos is empty but we have staleIndices
+      if (vectorsToUpsert.length > 0 || staleIndices.length > 0) {
+        // If dtos is empty, we just run deactivate directly since upsertMany might fail to guess sourceId
+        if (vectorsToUpsert.length === 0) {
+          // Deactivate only
+          const queryRunner = this.embeddingRepository['dataSource'].createQueryRunner();
+          await queryRunner.connect();
+          await queryRunner.startTransaction();
+          try {
+            await queryRunner.query(
+              `UPDATE "embeddings" SET "is_active" = false 
+               WHERE "source_id" = $1 AND "source_type" = $2 AND "chunk_index" = ANY($3)`,
+              [sourceId, sourceType, staleIndices]
+            );
+            await queryRunner.commitTransaction();
+          } catch (err) {
+            await queryRunner.rollbackTransaction();
+            throw err;
+          } finally {
+            await queryRunner.release();
+          }
+        } else {
+          await this.embeddingRepository.upsertMany(vectorsToUpsert, staleIndices);
+        }
+      }
       
       this.logger.log(`Successfully processed embedding job ${job.id} for source ${sourceId}`);
     } catch (error) {

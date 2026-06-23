@@ -28,6 +28,7 @@ import { ReminderProcessor } from './infrastructure/queue/reminder.processor';
 import { REMINDER_QUEUE } from './infrastructure/queue/reminder-queue.constants';
 import { PetModule } from '../pet/pet.module';
 import { DiaryRepository } from './infrastructure/persistence/diary.repository';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { DiaryRepository } from './infrastructure/persistence/diary.repository';
       name: REMINDER_QUEUE,
     }),
     PetModule,
+    AiModule,
   ],
   controllers: [FarmPlotController, DiaryController, ReminderController],
   providers: [
