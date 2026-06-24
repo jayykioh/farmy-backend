@@ -54,6 +54,12 @@ import { AiModule } from '../ai/ai.module';
     ReminderSchedulerService,
     ReminderProcessor,
   ],
-  exports: [FarmPlotService, DiaryRepository, DiaryService, ReminderService, ReminderSchedulerService],
+  exports: [
+    FarmPlotService,
+    DiaryRepository,
+    DiaryService,
+    ReminderService,
+    ReminderSchedulerService,
+  ],
 })
 export class FarmModule {}

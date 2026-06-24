@@ -18,9 +18,11 @@ export class KnowledgeRepository {
   ) {}
 
   async findByIds(ids: string[]): Promise<KnowledgeSourceDocument[]> {
-    return this.knowledgeModel.find({
-      _id: { $in: ids }
-    }).exec();
+    return this.knowledgeModel
+      .find({
+        _id: { $in: ids },
+      })
+      .exec();
   }
 
   async findById(id: string): Promise<KnowledgeSourceDocument | null> {
@@ -29,10 +31,13 @@ export class KnowledgeRepository {
 
   async save(doc: KnowledgeSourceDocument): Promise<KnowledgeSourceDocument> {
     const saved = await doc.save();
-    
+
     // Auto enqueue embedding job on save
     if (saved.content) {
-      const contentHash = crypto.createHash('sha256').update(saved.content).digest('hex');
+      const contentHash = crypto
+        .createHash('sha256')
+        .update(saved.content)
+        .digest('hex');
       await this.embedQueue.add(
         'embed_document',
         {
@@ -40,10 +45,10 @@ export class KnowledgeRepository {
           sourceType: 'knowledge_source',
           text: saved.content,
         },
-        { jobId: `embed:knowledge_source:${saved._id}:${contentHash}` }
+        { jobId: `embed:knowledge_source:${saved._id}:${contentHash}` },
       );
     }
-    
+
     return saved;
   }
 

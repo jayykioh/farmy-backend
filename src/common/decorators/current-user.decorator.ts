@@ -19,7 +19,7 @@ export const CurrentUser = createParamDecorator(
     const request = ctx.switchToHttp().getRequest<{
       user?: AuthenticatedUser;
     }>();
-    const user = request.user as AuthenticatedUser | undefined;
+    const user = request.user;
 
     if (!data) {
       return user as TKey extends CurrentUserKey ? never : AuthenticatedUser;

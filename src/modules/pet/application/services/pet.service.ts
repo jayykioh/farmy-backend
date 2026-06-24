@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -56,7 +57,10 @@ export class PetService {
    *  6. No diary today              → hungry
    *  7. Default                     → neutral
    */
-  calculateMood(input: CalculateMoodInput): { mood: PetMood; reason: PetMoodReason } {
+  calculateMood(input: CalculateMoodInput): {
+    mood: PetMood;
+    reason: PetMoodReason;
+  } {
     const { loggedToday, streakCount, missedDays, currentHourVN } = input;
 
     if (loggedToday && streakCount >= 7) {
@@ -64,7 +68,10 @@ export class PetService {
     }
 
     if (loggedToday) {
-      return { mood: PetMood.HAPPY, reason: PetMoodReason.USER_LOGGED_DIARY_TODAY };
+      return {
+        mood: PetMood.HAPPY,
+        reason: PetMoodReason.USER_LOGGED_DIARY_TODAY,
+      };
     }
 
     if (missedDays >= 2) {
@@ -295,7 +302,9 @@ export class PetService {
   // ── Legacy / Backward-Compat Methods ─────────────────────────────────────
 
   /** @deprecated Use getStatus() instead. Kept for /pet/state backward compat. */
-  async getPetState(userId: string): Promise<PetStatusResponse & { bubble_message: string }> {
+  async getPetState(
+    userId: string,
+  ): Promise<PetStatusResponse & { bubble_message: string }> {
     const status = await this.getStatus(userId);
     return { ...status, bubble_message: status.bubbleMessage };
   }

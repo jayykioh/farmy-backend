@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 import { Injectable, Logger } from '@nestjs/common';
 import {
   GoogleGenAI,
@@ -336,9 +337,12 @@ export class LLMService implements IEmbeddingProvider {
 
   private isSafetyBlocked(response: GenerateContentResponse): boolean {
     return (
-      response.candidates?.some((candidate) => candidate.finishReason === 'SAFETY') ??
-      false
-    ) || Boolean(response.promptFeedback?.blockReason);
+      (response.candidates?.some(
+        (candidate) => candidate.finishReason === 'SAFETY',
+      ) ??
+        false) ||
+      Boolean(response.promptFeedback?.blockReason)
+    );
   }
 
   private isRetryable(error: unknown): boolean {
@@ -378,7 +382,9 @@ export class LLMService implements IEmbeddingProvider {
   }
 
   private errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : 'Gemini provider request failed.';
+    return error instanceof Error
+      ? error.message
+      : 'Gemini provider request failed.';
   }
 
   private logFallback(

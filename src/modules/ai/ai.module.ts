@@ -27,8 +27,14 @@ import { DbModule } from '../../db/db.module';
 import { EmbeddingRepository } from './infrastructure/persistence/embedding.repository';
 import { EmbeddingProcessor } from './application/processors/embedding.processor';
 import { AiAdminController } from './application/controllers/ai-admin.controller';
-import { DiaryLogDocument, DiaryLogSchema } from '../farm/infrastructure/persistence/diary-log.schema';
-import { KnowledgeSourceDocument, KnowledgeSourceSchema } from '../knowledge/infrastructure/persistence/knowledge-source.schema';
+import {
+  DiaryLogDocument,
+  DiaryLogSchema,
+} from '../farm/infrastructure/persistence/diary-log.schema';
+import {
+  KnowledgeSourceDocument,
+  KnowledgeSourceSchema,
+} from '../knowledge/infrastructure/persistence/knowledge-source.schema';
 
 @Module({
   imports: [
@@ -83,4 +89,4 @@ import { KnowledgeSourceDocument, KnowledgeSourceSchema } from '../knowledge/inf
     PlantScanService,
   ],
 })
-export class AiModule {}
+export class AiModule { }

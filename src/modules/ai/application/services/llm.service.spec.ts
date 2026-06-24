@@ -1,3 +1,4 @@
+/* eslint-disable no-var */
 import { LLMService } from './llm.service';
 import {
   EmbedQuotaExceededException,
@@ -57,7 +58,10 @@ describe('LLMService', () => {
     process.env.GEMINI_EMBED_MODEL = 'text-embedding-004';
     service = new LLMService(rateLimiter as never);
     sleepSpy = jest
-      .spyOn(service as unknown as { sleep: (ms: number) => Promise<void> }, 'sleep')
+      .spyOn(
+        service as unknown as { sleep: (ms: number) => Promise<void> },
+        'sleep',
+      )
       .mockResolvedValue(undefined);
   });
 
@@ -146,7 +150,10 @@ describe('LLMService', () => {
 
   it('throws provider errors after retries in throw mode for non-429 failures', async () => {
     rateLimiter.consume.mockResolvedValue({ allowed: true });
-    mockGenerateContent.mockRejectedValue({ status: 503, message: 'unavailable' });
+    mockGenerateContent.mockRejectedValue({
+      status: 503,
+      message: 'unavailable',
+    });
 
     await expect(
       service.complete({

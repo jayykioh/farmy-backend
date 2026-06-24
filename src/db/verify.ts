@@ -72,9 +72,7 @@ async function bootstrap() {
     const logs = await diaryLogModel.find().exec();
     console.log(`\n📝 Diary Logs (${logs.length}):`);
     logs.forEach((l) =>
-      console.log(
-        `  - Activity: ${l.activity_type}, Content: "${l.content}"`,
-      ),
+      console.log(`  - Activity: ${l.activity_type}, Content: "${l.content}"`),
     );
 
     const reminders = await reminderModel.find().exec();

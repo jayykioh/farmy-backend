@@ -17,4 +17,3 @@ export const LLM_FLASH_RPM_LIMIT = 14;
 export const LLM_EMBED_RPM_LIMIT = 95;
 
 export const LLM_RPM_WINDOW_SECONDS = 60;
-
