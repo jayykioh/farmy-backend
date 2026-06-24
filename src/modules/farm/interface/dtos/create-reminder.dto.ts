@@ -34,8 +34,18 @@ export class CreateReminderDto {
 
   /** Loại nhắc nhở */
   @IsEnum(
-    ['diary', 'water', 'fertilize', 'weekly_insight', 'streak_milestone', 'plant_alert'],
-    { message: 'type phải là một trong: diary, water, fertilize, weekly_insight, streak_milestone, plant_alert' },
+    [
+      'diary',
+      'water',
+      'fertilize',
+      'weekly_insight',
+      'streak_milestone',
+      'plant_alert',
+    ],
+    {
+      message:
+        'type phải là một trong: diary, water, fertilize, weekly_insight, streak_milestone, plant_alert',
+    },
   )
   @IsOptional()
   type?: ReminderType;

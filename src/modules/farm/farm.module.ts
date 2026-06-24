@@ -76,5 +76,6 @@ import { AiModule } from '../ai/ai.module';
     ReminderSchedulerService,
     WeeklyInsightRepository,
   ],
+
 })
 export class FarmModule {}

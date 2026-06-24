@@ -5,7 +5,7 @@ export class RecreateEmbeddings1782176680513 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP TABLE IF EXISTS "embeddings" CASCADE;`);
-    
+
     await queryRunner.query(`
       CREATE TABLE "embeddings" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -21,13 +21,13 @@ export class RecreateEmbeddings1782176680513 implements MigrationInterface {
         CONSTRAINT "UQ_embeddings_source_chunk" UNIQUE ("source_id", "source_type", "chunk_index")
       );
     `);
-    
+
     // HNSW index for cosine similarity
     await queryRunner.query(`
       CREATE INDEX "IDX_embeddings_embedding_hnsw"
       ON "embeddings" USING hnsw ("embedding" vector_cosine_ops);
     `);
-    
+
     // Composite index for active-only queries
     await queryRunner.query(`
       CREATE INDEX "IDX_embeddings_active"

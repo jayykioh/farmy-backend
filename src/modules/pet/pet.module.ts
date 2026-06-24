@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { PetStateDocument, PetStateSchema } from './infrastructure/persistence/pet-state.schema';
+import {
+  PetStateDocument,
+  PetStateSchema,
+} from './infrastructure/persistence/pet-state.schema';
 import { PetService } from './application/services/pet.service';
 import { PetController } from './interface/controllers/pet.controller';
 

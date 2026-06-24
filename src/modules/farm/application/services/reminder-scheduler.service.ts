@@ -60,7 +60,7 @@ export class ReminderSchedulerService {
     for (const reminder of pendingReminders) {
       try {
         const payload: ReminderJobPayload = {
-          reminderId: reminder._id as string,
+          reminderId: reminder._id,
           userId: reminder.user_id,
           title: reminder.title,
           type: reminder.type ?? 'diary',
@@ -70,10 +70,10 @@ export class ReminderSchedulerService {
         };
 
         await this.reminderQueue.add(REMINDER_JOB_DISPATCH, payload, {
-          attempts: 4,          // 1 lần gốc + 3 retry
+          attempts: 4, // 1 lần gốc + 3 retry
           backoff: {
             type: 'exponential',
-            delay: 5000,         // 5s → 10s → 20s
+            delay: 5000, // 5s → 10s → 20s
           },
           removeOnComplete: 100, // Giữ 100 job đã xong để debug
           removeOnFail: 50,
@@ -86,12 +86,14 @@ export class ReminderSchedulerService {
         );
       } catch (err) {
         this.logger.error(
-          `Failed to enqueue reminder ${reminder._id as string}: ${String(err)}`,
+          `Failed to enqueue reminder ${reminder._id}: ${String(err)}`,
         );
       }
     }
 
-    this.logger.log(`✅ Dispatched ${enqueued}/${pendingReminders.length} reminders.`);
+    this.logger.log(
+      `✅ Dispatched ${enqueued}/${pendingReminders.length} reminders.`,
+    );
     return enqueued;
   }
 

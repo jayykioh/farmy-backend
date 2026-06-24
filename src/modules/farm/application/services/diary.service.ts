@@ -18,7 +18,6 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmbeddingRepository } from '../../../ai/infrastructure/persistence/embedding.repository';
 
-
 @Injectable()
 export class DiaryService {
   constructor(
@@ -130,22 +129,25 @@ export class DiaryService {
       content: dto.content,
       image_url: dto.image_url,
     });
-    
+
     // Tăng streak và cập nhật trạng thái thú ảo
     await this.petService.updateStreakAndMoodOnDiaryCreated(userId);
 
     const savedLog = await log.save();
 
-    const contentHash = crypto.createHash('sha256').update(savedLog.content).digest('hex');
+    const contentHash = crypto
+      .createHash('sha256')
+      .update(savedLog.content)
+      .digest('hex');
     await this.embedQueue.add(
       'embed_document',
       {
         sourceId: savedLog._id.toString(),
         sourceType: 'diary_log',
         text: savedLog.content,
-        metadata: { user_id: userId }
+        metadata: { user_id: userId },
       },
-      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` }
+      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` },
     );
 
     return savedLog;
@@ -184,16 +186,19 @@ export class DiaryService {
 
     const savedLog = await log.save();
 
-    const contentHash = crypto.createHash('sha256').update(savedLog.content).digest('hex');
+    const contentHash = crypto
+      .createHash('sha256')
+      .update(savedLog.content)
+      .digest('hex');
     await this.embedQueue.add(
       'embed_document',
       {
         sourceId: savedLog._id.toString(),
         sourceType: 'diary_log',
         text: savedLog.content,
-        metadata: { user_id: userId }
+        metadata: { user_id: userId },
       },
-      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` }
+      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` },
     );
 
     return savedLog;
