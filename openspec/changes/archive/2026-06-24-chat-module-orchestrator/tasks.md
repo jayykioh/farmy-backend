@@ -46,11 +46,11 @@
 - [x] 6.4 Unit: Pet failure uses neutral/0 fallback.
 - [x] 6.5 Unit: `failed` and `pending` messages are excluded from history.
 - [x] 6.6 Unit: Bounded history preserves chronological turns without splitting user-assistant pairs.
-- [ ] 6.7 Integration: User A cannot access User B session.
-- [ ] 6.8 Integration: Concurrent duplicate `client_message_id` creates one user message.
-- [ ] 6.9 Integration: Failed retry transitions `failed` -> `pending` and processes.
-- [ ] 6.10 Integration: One assistant response per user message.
-- [ ] 6.11 Integration: `done` emitted ONLY after persistence succeeds.
-- [ ] 6.12 E2E: POST streaming event formatting and headers are exact.
-- [ ] 6.13 E2E: Sessions/messages pagination and ownership.
+- [x] 6.7 Integration: User A cannot access User B session.
+- [x] 6.8 Integration: Concurrent duplicate `client_message_id` creates one user message.
+- [x] 6.9 Integration: Failed retry transitions `failed` -> `pending` and processes.
+- [x] 6.10 Integration: One assistant response per user message.
+- [x] 6.11 Integration: `done` emitted ONLY after persistence succeeds.
+- [x] 6.12 E2E: POST streaming event formatting and headers are exact.
+- [x] 6.13 E2E: Sessions/messages pagination and ownership.
 - [x] 6.14 Compilation: No circular dependencies.

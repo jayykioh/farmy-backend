@@ -65,4 +65,4 @@ import {
     BullModule,
   ],
 })
-export class AiModule {}
+export class AiModule { }

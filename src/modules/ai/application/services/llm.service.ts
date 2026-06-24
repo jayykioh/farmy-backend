@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-enum-comparison */
 import { Injectable, Logger } from '@nestjs/common';
 import {
   GoogleGenAI,

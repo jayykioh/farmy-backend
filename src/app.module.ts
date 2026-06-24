@@ -18,7 +18,6 @@ import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
 import { HealthService } from './common/health/health.service';
 import { DbModule } from './db/db.module';
 import { RedisModule } from './common/redis/redis.module';
-import { StorageModule } from './modules/storage/storage.module';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';

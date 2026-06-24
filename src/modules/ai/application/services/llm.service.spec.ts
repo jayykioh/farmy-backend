@@ -1,3 +1,4 @@
+/* eslint-disable no-var */
 import { LLMService } from './llm.service';
 import {
   EmbedQuotaExceededException,
