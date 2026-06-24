@@ -268,6 +268,18 @@ describe('PromptService', () => {
       );
       expect(result.prompt).not.toContain('<|im_start|>');
     });
+
+    it('TC-PROMPT-pii: redacts email, phone number, and Vietnam CCCD ID from userMessage', () => {
+      const result = service.buildChatPrompt(
+        makeChatInput({ userMessage: 'My email is test@gmail.com and phone is 0912345678, CCCD 123456789012' }),
+      );
+      expect(result.prompt).toContain('[EMAIL ĐÃ ĐƯỢC ẨN BỞI AI SAFETY]');
+      expect(result.prompt).toContain('[SỐ ĐIỆN THOẠI ĐÃ ĐƯỢC ẨN BỞI AI SAFETY]');
+      expect(result.prompt).toContain('[SỐ ĐỊNH DANH ĐÃ ĐƯỢC ẨN BỞI AI SAFETY]');
+      expect(result.prompt).not.toContain('test@gmail.com');
+      expect(result.prompt).not.toContain('0912345678');
+      expect(result.prompt).not.toContain('123456789012');
+    });
   });
 
   // =========================================================================

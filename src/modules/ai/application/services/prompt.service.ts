@@ -124,13 +124,24 @@ export class PromptService {
     return text.slice(text.length - maxChars);
   }
 
+  private redactPII(input: string): string {
+    const phoneRegex = /\b\d{9,11}\b/g;
+    const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+    const idRegex = /\b\d{12}\b/g; // 12-digit VN CCCD
+    return input
+      .replace(phoneRegex, '[SỐ ĐIỆN THOẠI ĐÃ ĐƯỢC ẨN BỞI AI SAFETY]')
+      .replace(emailRegex, '[EMAIL ĐÃ ĐƯỢC ẨN BỞI AI SAFETY]')
+      .replace(idRegex, '[SỐ ĐỊNH DANH ĐÃ ĐƯỢC ẨN BỞI AI SAFETY]');
+  }
+
   /**
    * sanitize() — áp dụng lên user messages.
    * Block các pattern injection phổ biến bằng regex.
    * Sau đó KHÔNG truncate ở đây — để buildChatPrompt() xử lý truncate tách biệt.
    */
   private sanitize(input: string): string {
-    return input
+    const redacted = this.redactPII(input);
+    return redacted
       .replace(/\[SYSTEM\]/gi, '[SYS-BLOCKED]')
       .replace(/\[INST\]/gi, '[INST-BLOCKED]')
       .replace(/<\|.*?\|>/g, '')
@@ -145,7 +156,8 @@ export class PromptService {
    * Giống sanitize() nhưng tách riêng để dễ test và extend độc lập.
    */
   private sanitizeContext(context: string): string {
-    return context
+    const redacted = this.redactPII(context);
+    return redacted
       .replace(/\[SYSTEM\]/gi, '[SYS-BLOCKED]')
       .replace(/\[INST\]/gi, '[INST-BLOCKED]')
       .replace(/<\|.*?\|>/g, '')

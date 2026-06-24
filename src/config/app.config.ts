@@ -83,6 +83,20 @@ export const appConfig = () => ({
     visionModel: process.env.GEMINI_VISION_MODEL ?? 'gemini-1.5-flash',
     embedModel: process.env.GEMINI_EMBED_MODEL ?? 'text-embedding-004',
   },
+
+  /**
+   * Supabase / Postgres (pgvector) — used for semantic embedding index only.
+   * Prefer PG_CONNECTION_STRING (full DSN) over individual fields.
+   */
+  pg: {
+    connectionString: process.env.PG_CONNECTION_STRING,
+    host: process.env.PG_HOST ?? '127.0.0.1',
+    port: parseInt(process.env.PG_PORT ?? '5432', 10),
+    database: process.env.PG_DATABASE ?? 'postgres',
+    user: process.env.PG_USER ?? 'postgres',
+    password: process.env.PG_PASSWORD ?? '',
+    ssl: process.env.PG_SSL !== 'false',
+  },
 });
 
 export type AppConfig = ReturnType<typeof appConfig>;
