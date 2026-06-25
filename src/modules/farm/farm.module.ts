@@ -17,15 +17,24 @@ import {
   ReminderDocument,
   ReminderSchema,
 } from './infrastructure/persistence/reminder.schema';
+import {
+  WeeklyInsightDocument,
+  WeeklyInsightSchema,
+} from './infrastructure/persistence/weekly-insight.schema';
 import { FarmPlotService } from './application/services/farm-plot.service';
 import { DiaryService } from './application/services/diary.service';
 import { ReminderService } from './application/services/reminder.service';
 import { ReminderSchedulerService } from './application/services/reminder-scheduler.service';
+import { WeeklyInsightSchedulerService } from './application/services/weekly-insight.scheduler';
 import { FarmPlotController } from './interface/controllers/farm-plot.controller';
 import { DiaryController } from './interface/controllers/diary.controller';
 import { ReminderController } from './interface/controllers/reminder.controller';
 import { ReminderProcessor } from './infrastructure/queue/reminder.processor';
 import { REMINDER_QUEUE } from './infrastructure/queue/reminder-queue.constants';
+import { INSIGHT_QUEUE } from './infrastructure/queue/insight-queue.constants';
+import { WeeklyInsightOrchestratorProcessor } from './application/processors/weekly-insight-orchestrator.processor';
+import { WeeklyInsightProcessor } from './application/processors/weekly-insight.processor';
+import { WeeklyInsightRepository } from './infrastructure/persistence/weekly-insight.repository';
 import { PetModule } from '../pet/pet.module';
 import { DiaryRepository } from './infrastructure/persistence/diary.repository';
 import { AiModule } from '../ai/ai.module';
@@ -37,11 +46,11 @@ import { AiModule } from '../ai/ai.module';
       { name: DiaryDocument.name, schema: DiarySchema },
       { name: DiaryLogDocument.name, schema: DiaryLogSchema },
       { name: ReminderDocument.name, schema: ReminderSchema },
+      { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
     ]),
-    // Đăng ký BullMQ queue cho reminder dispatch
-    BullModule.registerQueue({
-      name: REMINDER_QUEUE,
-    }),
+    // BullMQ queues
+    BullModule.registerQueue({ name: REMINDER_QUEUE }),
+    BullModule.registerQueue({ name: INSIGHT_QUEUE }),
     PetModule,
     AiModule,
   ],
@@ -53,6 +62,11 @@ import { AiModule } from '../ai/ai.module';
     ReminderService,
     ReminderSchedulerService,
     ReminderProcessor,
+    // Weekly Insight
+    WeeklyInsightRepository,
+    WeeklyInsightSchedulerService,
+    WeeklyInsightOrchestratorProcessor,
+    WeeklyInsightProcessor,
   ],
   exports: [
     FarmPlotService,
@@ -60,6 +74,8 @@ import { AiModule } from '../ai/ai.module';
     DiaryService,
     ReminderService,
     ReminderSchedulerService,
+    WeeklyInsightRepository,
   ],
+
 })
 export class FarmModule {}
