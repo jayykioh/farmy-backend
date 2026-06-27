@@ -38,6 +38,7 @@ export class MongooseUserRepository implements IUserRepository {
         passwordHash: user.getPasswordHash(),
         name: user.getName(),
         role: user.getRole(),
+        push_subscription: user.getPushSubscription(),
       })
       .exec();
   }
@@ -49,6 +50,7 @@ export class MongooseUserRepository implements IUserRepository {
       passwordHash: user.getPasswordHash(),
       name: user.getName(),
       role: user.getRole(),
+      push_subscription: user.getPushSubscription(),
     });
     await newUser.save();
   }
@@ -60,6 +62,7 @@ export class MongooseUserRepository implements IUserRepository {
       doc.passwordHash,
       doc.name,
       doc.role,
+      doc.push_subscription,
     );
   }
 }

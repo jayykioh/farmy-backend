@@ -6,6 +6,7 @@ export class User {
   private passwordHash: string;
   private name: string;
   private role: string;
+  private pushSubscription?: any;
 
   constructor(
     id: string,
@@ -13,12 +14,14 @@ export class User {
     passwordHash: string,
     name: string,
     role: string,
+    pushSubscription?: any,
   ) {
     this.id = id;
     this.email = email;
     this.passwordHash = passwordHash;
     this.name = name;
     this.role = role;
+    this.pushSubscription = pushSubscription;
   }
 
   public getId(): string {
@@ -39,6 +42,14 @@ export class User {
 
   public getRole(): string {
     return this.role;
+  }
+
+  public getPushSubscription(): any {
+    return this.pushSubscription;
+  }
+
+  public setPushSubscription(subscription: any): void {
+    this.pushSubscription = subscription;
   }
 
   public updatePassword(newPasswordHash: string): void {

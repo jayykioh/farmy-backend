@@ -29,6 +29,9 @@ export class UserDocument extends Document<string> {
 
   @Prop({ required: true, default: 'user' })
   role: string;
+
+  @Prop({ type: MongooseSchema.Types.Mixed, required: false })
+  push_subscription?: any;
 }
 
 export const UserSchema: MongooseSchema =
