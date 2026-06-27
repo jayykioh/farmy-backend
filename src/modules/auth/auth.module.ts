@@ -3,7 +3,9 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BullModule } from '@nestjs/bullmq';
 import { AuthController } from './interface/controllers/auth.controller';
+import { UserController } from './interface/controllers/user.controller';
 import { RegisterUserHandler } from './application/commands/register-user.handler';
 import { LoginUserHandler } from './application/commands/login-user.handler';
 import { RefreshTokenHandler } from './application/commands/refresh-token.handler';
@@ -14,15 +16,30 @@ import {
   UserDocument,
   UserSchema,
 } from './infrastructure/persistence/user.schema';
+import {
+  RefreshTokenDocument,
+  RefreshTokenSchema,
+} from './infrastructure/persistence/refresh-token.schema';
+import {
+  UserConsentDocument,
+  UserConsentSchema,
+} from './infrastructure/persistence/user-consent.schema';
+import { FarmPlotDocument, FarmPlotSchema } from '../farm/infrastructure/persistence/farm-plot.schema';
+import { DiaryDocument, DiarySchema } from '../farm/infrastructure/persistence/diary.schema';
+import { DiaryLogDocument, DiaryLogSchema } from '../farm/infrastructure/persistence/diary-log.schema';
+import { ReminderDocument, ReminderSchema } from '../farm/infrastructure/persistence/reminder.schema';
+import { PetStateDocument, PetStateSchema } from '../pet/infrastructure/persistence/pet-state.schema';
+import { AiChatDocument, AiChatSchema } from '../ai/infrastructure/persistence/ai-chat.schema';
+import { AiChatMemoryDocument, AiChatMemorySchema } from '../ai/infrastructure/persistence/ai-chat-memory.schema';
+import { AiFeedbackDocument, AiFeedbackSchema } from '../ai/infrastructure/persistence/ai-feedback.schema';
+import { PlantScanDocument, PlantScanSchema } from '../ai/infrastructure/persistence/plant-scan.schema';
 import { ITokenServiceToken } from './application/services/token-service.interface';
 import { JwtTokenService } from './infrastructure/services/jwt-token.service';
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
 import { IRefreshTokenRepositoryToken } from './domain/repositories/refresh-token-repository.interface';
 import { MongooseRefreshTokenRepository } from './infrastructure/persistence/mongoose-refresh-token.repository';
-import {
-  RefreshTokenDocument,
-  RefreshTokenSchema,
-} from './infrastructure/persistence/refresh-token.schema';
+import { PrivacyProcessor } from './infrastructure/queue/privacy.processor';
+import { StorageModule } from '../storage/storage.module';
 
 const CommandHandlers = [
   RegisterUserHandler,
@@ -39,12 +56,27 @@ const CommandHandlers = [
     MongooseModule.forFeature([
       { name: UserDocument.name, schema: UserSchema },
       { name: RefreshTokenDocument.name, schema: RefreshTokenSchema },
+      { name: UserConsentDocument.name, schema: UserConsentSchema },
+      { name: FarmPlotDocument.name, schema: FarmPlotSchema },
+      { name: DiaryDocument.name, schema: DiarySchema },
+      { name: DiaryLogDocument.name, schema: DiaryLogSchema },
+      { name: ReminderDocument.name, schema: ReminderSchema },
+      { name: PetStateDocument.name, schema: PetStateSchema },
+      { name: AiChatDocument.name, schema: AiChatSchema },
+      { name: AiChatMemoryDocument.name, schema: AiChatMemorySchema },
+      { name: AiFeedbackDocument.name, schema: AiFeedbackSchema },
+      { name: PlantScanDocument.name, schema: PlantScanSchema },
     ]),
+    BullModule.registerQueue({
+      name: 'privacy',
+    }),
+    StorageModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, UserController],
   providers: [
     ...CommandHandlers,
     JwtStrategy,
+    PrivacyProcessor,
     {
       provide: IUserRepositoryToken,
       useClass: MongooseUserRepository,
