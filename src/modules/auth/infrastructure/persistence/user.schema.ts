@@ -32,6 +32,11 @@ export class UserDocument extends Document<string> {
 
   @Prop({ type: MongooseSchema.Types.Mixed, required: false })
   push_subscription?: any;
+  @Prop({ type: Boolean, default: false })
+  is_deleted?: boolean;
+
+  @Prop({ type: Date, required: false })
+  deleted_at?: Date;
 }
 
 export const UserSchema: MongooseSchema =
