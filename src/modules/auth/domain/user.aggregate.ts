@@ -56,6 +56,8 @@ export class User {
 
   public setPushSubscription(subscription: any): void {
     this.pushSubscription = subscription;
+  }
+
   public isDeletedUser(): boolean {
     return !!this.isDeleted;
   }
