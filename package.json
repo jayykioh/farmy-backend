@@ -18,7 +18,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "postinstall": "node -e \"try{require('child_process').execSync('ctx --version',{stdio:'ignore'})}catch{process.exit(1)}\" || npm install -g @minhpnq1807/contextos",
+    "postinstall": "node -e \"try{require('child_process').execSync('ctx --version',{stdio:'ignore'})}catch{process.exit(1)}\" || npm install -g @minhpnq1807/contextos || true",
     "db:migrate": "ts-node -r tsconfig-paths/register src/db/migrate.ts",
     "db:migrate-pg": "ts-node -r tsconfig-paths/register src/db/migrate-pg.ts",
     "db:seed": "ts-node -r tsconfig-paths/register src/db/seed.ts",
