@@ -13,7 +13,7 @@ services:
     region: singapore
     plan: free
     buildCommand: npm install --production=false --legacy-peer-deps && npm run build
-    startCommand: node dist/db/migrate.js && node dist/db/migrate-pg.js && node dist/main.js
+    startCommand: node dist/src/db/migrate.js && node dist/src/db/migrate-pg.js && node dist/src/main.js
     envVars:
       - key: PORT
         value: 10000
