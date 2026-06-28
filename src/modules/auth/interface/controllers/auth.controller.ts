@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Res, Req, Get } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, Get, Inject, NotFoundException } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
+import { PushSubscriptionDto } from '../dtos/push-subscription.dto';
 import { RegisterUserCommand } from '../../application/commands/register-user.command';
 import { LoginUserCommand } from '../../application/commands/login-user.command';
 import { RefreshTokenCommand } from '../../application/commands/refresh-token.command';
@@ -12,6 +13,8 @@ import { CurrentUser } from '../../../../common/decorators/current-user.decorato
 import type { AuthenticatedUser } from '../../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { User } from '../../domain/user.aggregate';
+import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
+import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
 
 interface AuthCommandResult {
   accessToken: string;
@@ -21,7 +24,11 @@ interface AuthCommandResult {
 
 @Controller('api/v1/auth')
 export class AuthController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    @Inject(IUserRepositoryToken)
+    private readonly userRepository: IUserRepository,
+  ) {}
 
   @Public()
   @Post('register')
@@ -175,6 +182,23 @@ export class AuthController {
     return {
       success: true,
       message: 'Đăng xuất thành công!',
+    };
+  }
+
+  @Post('push-subscription')
+  async updatePushSubscription(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: PushSubscriptionDto,
+  ) {
+    const userAggregate = await this.userRepository.findById(user.id);
+    if (!userAggregate) {
+      throw new NotFoundException('Không tìm thấy người dùng!');
+    }
+    userAggregate.setPushSubscription(dto);
+    await this.userRepository.save(userAggregate);
+    return {
+      success: true,
+      message: 'Cập nhật đăng ký nhận thông báo thành công!',
     };
   }
 }

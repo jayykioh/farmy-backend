@@ -38,6 +38,7 @@ export class MongooseUserRepository implements IUserRepository {
         passwordHash: user.getPasswordHash(),
         name: user.getName(),
         role: user.getRole(),
+        push_subscription: user.getPushSubscription(),
         is_deleted: user.isDeletedUser(),
         deleted_at: user.getDeletedAt(),
       })
@@ -51,6 +52,7 @@ export class MongooseUserRepository implements IUserRepository {
       passwordHash: user.getPasswordHash(),
       name: user.getName(),
       role: user.getRole(),
+      push_subscription: user.getPushSubscription(),
       is_deleted: user.isDeletedUser(),
       deleted_at: user.getDeletedAt(),
     });
@@ -64,6 +66,7 @@ export class MongooseUserRepository implements IUserRepository {
       doc.passwordHash,
       doc.name,
       doc.role,
+      doc.push_subscription,
       doc.is_deleted,
       doc.deleted_at,
     );

@@ -6,6 +6,7 @@ export class User {
   private passwordHash: string;
   private name: string;
   private role: string;
+  private pushSubscription?: any;
   private isDeleted?: boolean;
   private deletedAt?: Date;
 
@@ -15,6 +16,7 @@ export class User {
     passwordHash: string,
     name: string,
     role: string,
+    pushSubscription?: any,
     isDeleted?: boolean,
     deletedAt?: Date,
   ) {
@@ -23,6 +25,7 @@ export class User {
     this.passwordHash = passwordHash;
     this.name = name;
     this.role = role;
+    this.pushSubscription = pushSubscription;
     this.isDeleted = isDeleted;
     this.deletedAt = deletedAt;
   }
@@ -47,6 +50,12 @@ export class User {
     return this.role;
   }
 
+  public getPushSubscription(): any {
+    return this.pushSubscription;
+  }
+
+  public setPushSubscription(subscription: any): void {
+    this.pushSubscription = subscription;
   public isDeletedUser(): boolean {
     return !!this.isDeleted;
   }
