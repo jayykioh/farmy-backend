@@ -29,6 +29,12 @@ export class UserDocument extends Document<string> {
 
   @Prop({ required: true, default: 'user' })
   role: string;
+
+  @Prop({ type: Boolean, default: false })
+  is_deleted?: boolean;
+
+  @Prop({ type: Date, required: false })
+  deleted_at?: Date;
 }
 
 export const UserSchema: MongooseSchema =
