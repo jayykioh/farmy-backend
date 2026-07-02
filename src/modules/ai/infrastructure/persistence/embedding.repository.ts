@@ -6,6 +6,7 @@ export interface UpsertEmbeddingDto {
   sourceId: string;
   sourceType: string;
   chunkIndex: number;
+  text: string;
   contentHash: string;
   vector: number[];
   metadata?: Record<string, any>;
@@ -16,6 +17,7 @@ export interface SearchHit {
   source_id: string;
   source_type: 'diary_log' | 'knowledge_source';
   chunk_index: number;
+  text: string;
   content_hash: string;
   metadata: Record<string, any>;
   score: number;
@@ -49,10 +51,11 @@ export class EmbeddingRepository {
     const isActive = dto.isActive !== undefined ? dto.isActive : true;
 
     await this.dataSource.query(
-      `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "embedding", "metadata", "is_active")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "text", "content_hash", "embedding", "metadata", "is_active")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT ("source_id", "source_type", "chunk_index")
        DO UPDATE SET 
+         "text" = EXCLUDED."text",
          "content_hash" = EXCLUDED."content_hash",
          "embedding" = EXCLUDED."embedding",
          "metadata" = EXCLUDED."metadata",
@@ -62,6 +65,7 @@ export class EmbeddingRepository {
         dto.sourceId,
         dto.sourceType,
         dto.chunkIndex,
+        dto.text,
         dto.contentHash,
         vectorString,
         metadataString,
@@ -89,10 +93,11 @@ export class EmbeddingRepository {
         const isActive = dto.isActive !== undefined ? dto.isActive : true;
 
         await queryRunner.query(
-          `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "embedding", "metadata", "is_active")
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "text", "content_hash", "embedding", "metadata", "is_active")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            ON CONFLICT ("source_id", "source_type", "chunk_index")
            DO UPDATE SET 
+             "text" = EXCLUDED."text",
              "content_hash" = EXCLUDED."content_hash",
              "embedding" = EXCLUDED."embedding",
              "metadata" = EXCLUDED."metadata",
@@ -102,6 +107,7 @@ export class EmbeddingRepository {
             dto.sourceId,
             dto.sourceType,
             dto.chunkIndex,
+            dto.text,
             dto.contentHash,
             vectorString,
             metadataString,
@@ -148,7 +154,7 @@ export class EmbeddingRepository {
   ): Promise<SearchHit[]> {
     const vectorString = `[${vector.join(',')}]`;
     const rows = await this.dataSource.query(
-      `SELECT source_id, source_type, chunk_index, content_hash, metadata,
+      `SELECT source_id, source_type, chunk_index, text, content_hash, metadata,
               1 - (embedding <=> $1::vector) AS score
        FROM "embeddings"
        WHERE is_active = true

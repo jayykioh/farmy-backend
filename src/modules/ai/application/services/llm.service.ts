@@ -39,7 +39,7 @@ export class LLMService implements IEmbeddingProvider {
   private readonly logger = new Logger(LLMService.name);
   private client?: GeminiClient;
 
-  constructor(private readonly rateLimiter: RateLimiterService) {}
+  constructor(private readonly rateLimiter: RateLimiterService) { }
 
   async complete(options: LLMCompleteOptions): Promise<LLMCompleteResult> {
     const rateLimit = await this.rateLimiter.consume(
@@ -120,35 +120,71 @@ export class LLMService implements IEmbeddingProvider {
 
     const cfg = appConfig();
     const startedAt = Date.now();
-    const stream = await this.getClient().models.generateContentStream({
-      model: cfg.gemini.chatModel,
-      contents: options.prompt,
-      config: {
-        maxOutputTokens: options.maxTokens ?? 1000,
-        temperature: options.temperature ?? 0.7,
-        safetySettings: this.safetySettings(),
-      },
-    });
+    const delays = [1000, 2000, 4000];
+    let lastError: unknown;
 
-    for await (const chunk of stream) {
-      if (this.isSafetyBlocked(chunk)) {
-        this.logSafetyBlock('llm.stream_complete', options);
-        yield LLM_SAFETY_MESSAGE;
-        return;
-      }
-      if (chunk.text) {
-        yield chunk.text;
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      let yieldedChunks = 0;
+      try {
+        const stream = await this.getClient().models.generateContentStream({
+          model: cfg.gemini.chatModel,
+          contents: options.prompt,
+          config: {
+            maxOutputTokens: options.maxTokens ?? 1000,
+            temperature: options.temperature ?? 0.7,
+            safetySettings: this.safetySettings(),
+          },
+        });
+
+        for await (const chunk of stream) {
+          if (this.isSafetyBlocked(chunk)) {
+            this.logSafetyBlock('llm.stream_complete', options);
+            yield LLM_SAFETY_MESSAGE;
+            return;
+          }
+          if (chunk.text) {
+            yield chunk.text;
+            yieldedChunks++;
+          }
+        }
+
+        this.logger.log({
+          action: 'llm.stream_complete',
+          userId: options.userId,
+          model: cfg.gemini.chatModel,
+          promptVersion: options.promptVersion,
+          latencyMs: Date.now() - startedAt,
+          rateLimited: false,
+        });
+        return; // Success
+      } catch (error) {
+        if (error instanceof LLMConfigurationException) {
+          throw error;
+        }
+
+        // If we already sent partial response to client, we cannot seamlessly retry
+        if (yieldedChunks > 0) {
+          throw new LLMProviderException(this.errorMessage(error));
+        }
+
+        lastError = error;
+        if (!this.isRetryable(error) || attempt === delays.length) {
+          break;
+        }
+        await this.sleep(delays[attempt]);
       }
     }
 
-    this.logger.log({
-      action: 'llm.stream_complete',
-      userId: options.userId,
-      model: cfg.gemini.chatModel,
-      promptVersion: options.promptVersion,
-      latencyMs: Date.now() - startedAt,
-      rateLimited: false,
-    });
+    if (options.onRateLimit !== 'throw') {
+      this.logFallback('llm.stream_complete', options, lastError);
+      yield LLM_FALLBACK_MESSAGE;
+      return;
+    }
+
+    if (this.isRateLimitError(lastError)) {
+      throw new LLMRateLimitedException();
+    }
+    throw new LLMProviderException(this.errorMessage(lastError));
   }
 
   async completeVision(

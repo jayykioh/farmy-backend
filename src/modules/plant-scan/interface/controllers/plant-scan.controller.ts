@@ -1,6 +1,8 @@
 import {
   Controller,
   Post,
+  Get,
+  Param,
   UseInterceptors,
   UploadedFile,
   Body,
@@ -13,19 +15,20 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { PlantScanService } from '../../application/services/plant-scan.service';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
+import { CreatePlantScanDto } from '../dtos/create-plant-scan.dto';
 
-@Controller('api/v1/plant-scan')
+@Controller('api/v1/plant-scans')
 @UseGuards(JwtAuthGuard)
 export class PlantScanController {
   constructor(private readonly scanService: PlantScanService) {}
 
-  @Post('diagnose')
+  @Post()
   @UseInterceptors(FileInterceptor('image'))
   @HttpCode(HttpStatus.OK)
   async diagnose(
     @CurrentUser() user: { id: string },
     @UploadedFile() file: any,
-    @Body('crop_type') cropType: string,
+    @Body() body: CreatePlantScanDto,
   ) {
     if (!file) {
       throw new HttpException(
@@ -38,12 +41,12 @@ export class PlantScanController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    if (!cropType) {
+    if (!body.crop_type) {
       throw new HttpException(
         {
           success: false,
           statusCode: HttpStatus.BAD_REQUEST,
-          errorCode: 'SCAN_INVALID_FILE',
+          errorCode: 'SCAN_INVALID_INPUT',
           message: 'Loại cây trồng không được để trống!',
         },
         HttpStatus.BAD_REQUEST,
@@ -63,7 +66,19 @@ export class PlantScanController {
       );
     }
 
-    const data = await this.scanService.diagnose(file, cropType, user.id);
+    const data = await this.scanService.diagnose(file, body.crop_type, user.id);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get(':id')
+  async getScan(
+    @CurrentUser() user: { id: string },
+    @Param('id') scanId: string,
+  ) {
+    const data = await this.scanService.getScanById(scanId, user.id);
     return {
       success: true,
       data,

@@ -14,7 +14,7 @@ import { PetStateDocument } from '../../../pet/infrastructure/persistence/pet-st
 import { AiChatDocument } from '../../../ai/infrastructure/persistence/ai-chat.schema';
 import { AiChatMemoryDocument } from '../../../ai/infrastructure/persistence/ai-chat-memory.schema';
 import { AiFeedbackDocument } from '../../../ai/infrastructure/persistence/ai-feedback.schema';
-import { PlantScanDocument } from '../../../ai/infrastructure/persistence/plant-scan.schema';
+import { PlantScanDocument } from '../../../plant-scan/infrastructure/persistence/plant-scan.schema';
 import { R2StorageService } from '../../../storage/r2-storage.service';
 
 @Processor('privacy')
@@ -67,12 +67,18 @@ export class PrivacyProcessor extends WorkerHost {
       // Delete plant scan images from R2
       const scans = await this.plantScanModel.find({ user_id: userId }).exec();
       for (const scan of scans) {
-        if (scan.image_url) {
-          const key = this.extractR2Key(scan.image_url);
+        if (scan.image_key) {
           try {
-            await this.r2StorageService.deleteFile(key);
+            await this.r2StorageService.deleteFile(scan.image_key);
           } catch (err: any) {
-            this.logger.error(`Failed to delete scan photo ${key}: ${err.message}`);
+            this.logger.error(`Failed to delete scan photo ${scan.image_key}: ${err.message}`);
+          }
+        }
+        if (scan.thumbnail_key) {
+          try {
+            await this.r2StorageService.deleteFile(scan.thumbnail_key);
+          } catch (err: any) {
+            this.logger.error(`Failed to delete scan thumbnail ${scan.thumbnail_key}: ${err.message}`);
           }
         }
       }
