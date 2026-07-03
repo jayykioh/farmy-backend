@@ -23,6 +23,7 @@ import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { PlantScanModule } from './modules/plant-scan/plant-scan.module';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { ChatModule } from './modules/chat/chat.module';
     KnowledgeModule,
     AiModule,
     ChatModule,
+    PlantScanModule,
   ],
   controllers: [AppController],
   providers: [

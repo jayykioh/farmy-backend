@@ -29,7 +29,7 @@ import { PetStateDocument } from '../../../pet/infrastructure/persistence/pet-st
 import { AiChatDocument } from '../../../ai/infrastructure/persistence/ai-chat.schema';
 import { AiChatMemoryDocument } from '../../../ai/infrastructure/persistence/ai-chat-memory.schema';
 import { AiFeedbackDocument } from '../../../ai/infrastructure/persistence/ai-feedback.schema';
-import { PlantScanDocument } from '../../../ai/infrastructure/persistence/plant-scan.schema';
+import { PlantScanDocument } from '../../../plant-scan/infrastructure/persistence/plant-scan.schema';
 
 @Controller('api/v1/users')
 export class UserController {

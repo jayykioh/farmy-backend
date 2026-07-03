@@ -35,7 +35,7 @@ export class PromptService {
     const history = this.buildHistory(input.chatHistory);
 
     const truncatedMsg = this.truncate(safeMsg, PROMPT_LIMITS.maxUserMsgChars);
-    const truncatedCtx = this.truncate(safeCtx, PROMPT_LIMITS.maxContextChars);
+    const truncatedCtx = this.truncateRight(safeCtx, PROMPT_LIMITS.maxContextChars);
 
     const ragBlock =
       truncatedCtx.length > 0 ? truncatedCtx : '(Không có dữ liệu tham khảo)';
@@ -87,7 +87,7 @@ export class PromptService {
   buildWeeklyInsightPrompt(input: BuildWeeklyInsightPromptInput): BuiltPrompt {
     const diarySummary = this.formatDiaries(input.diaries);
     const safeCtx = this.sanitizeContext(input.ragContext);
-    const truncatedCtx = this.truncate(safeCtx, PROMPT_LIMITS.maxContextChars);
+    const truncatedCtx = this.truncateRight(safeCtx, PROMPT_LIMITS.maxContextChars);
 
     const ragBlock =
       truncatedCtx.length > 0
@@ -122,6 +122,15 @@ export class PromptService {
   private truncate(text: string, maxChars: number): string {
     if (text.length <= maxChars) return text;
     return text.slice(text.length - maxChars);
+  }
+
+  /**
+   * truncateRight() — cắt chuỗi từ bên phải để giữ phần đầu.
+   * Dùng cho RAG context vì kết quả relevant nhất nằm ở đầu.
+   */
+  private truncateRight(text: string, maxChars: number): string {
+    if (text.length <= maxChars) return text;
+    return text.slice(0, maxChars);
   }
 
   private redactPII(input: string): string {
@@ -193,10 +202,14 @@ export class PromptService {
 
     return diaries
       .map((d) => {
-        const date =
+        const dateObj =
           d.created_at instanceof Date
-            ? d.created_at.toLocaleDateString('vi-VN')
-            : new Date(d.created_at).toLocaleDateString('vi-VN');
+            ? d.created_at
+            : new Date(d.created_at);
+        const day = String(dateObj.getUTCDate()).padStart(2, '0');
+        const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const year = dateObj.getUTCFullYear();
+        const date = `${day}/${month}/${year}`;
         const notes = this.sanitizeContext(d.notes?.trim() ?? '');
         const cropInfo = d.crop_type ? ` [${d.crop_type}]` : '';
         return `[Nhật ký ${date}${cropInfo}] ${notes || '(Không có ghi chú)'}`;

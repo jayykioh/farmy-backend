@@ -32,7 +32,7 @@ import { PetStateDocument, PetStateSchema } from '../pet/infrastructure/persiste
 import { AiChatDocument, AiChatSchema } from '../ai/infrastructure/persistence/ai-chat.schema';
 import { AiChatMemoryDocument, AiChatMemorySchema } from '../ai/infrastructure/persistence/ai-chat-memory.schema';
 import { AiFeedbackDocument, AiFeedbackSchema } from '../ai/infrastructure/persistence/ai-feedback.schema';
-import { PlantScanDocument, PlantScanSchema } from '../ai/infrastructure/persistence/plant-scan.schema';
+import { PlantScanDocument, PlantScanSchema } from '../plant-scan/infrastructure/persistence/plant-scan.schema';
 import { ITokenServiceToken } from './application/services/token-service.interface';
 import { JwtTokenService } from './infrastructure/services/jwt-token.service';
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
