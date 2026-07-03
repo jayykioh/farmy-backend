@@ -7,6 +7,7 @@ import { PlantScanService } from './application/services/plant-scan.service';
 import { StorageService } from './application/services/storage.service';
 import { ImageProcessorService } from './application/services/image-processor.service';
 import { PlantScanGuardrailService } from './application/services/plant-scan-guardrail.service';
+import { RateLimiterModule } from '../../common/rate-limiter/rate-limiter.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PlantScanGuardrailService } from './application/services/plant-scan-gua
       { name: 'PlantScanDocument', schema: PlantScanSchema },
     ]),
     AiModule,
+    RateLimiterModule,
   ],
   controllers: [PlantScanController],
   providers: [
