@@ -4,6 +4,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import cookieParser from 'cookie-parser';
 
 describe('Farm CRUD (e2e)', () => {
   let app: INestApplication<App>;
@@ -20,6 +21,7 @@ describe('Farm CRUD (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+    app.use(cookieParser());
     await app.init();
 
     // Log in with the seeded test user to get an access token
@@ -31,7 +33,7 @@ describe('Farm CRUD (e2e)', () => {
       });
 
     expect(loginRes.status).toBe(201); // login returns 201 due to POST
-    accessToken = loginRes.body.data.accessToken;
+    accessToken = loginRes.body.data.access_token;
     expect(accessToken).toBeDefined();
   });
 
@@ -49,6 +51,10 @@ describe('Farm CRUD (e2e)', () => {
         area_size: 120.5,
         description: 'Vườn tạo bởi kiểm thử tự động E2E',
       });
+
+    if (res.status !== 201) {
+      throw new Error(`Failed to create plot: ${res.status} - ${JSON.stringify(res.body)}`);
+    }
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -109,6 +115,10 @@ describe('Farm CRUD (e2e)', () => {
         content: 'Bón lót phân trùn quế cho dưa lưới con.',
         image_url: 'https://example.com/test-image.jpg',
       });
+
+    if (res.status !== 201) {
+      throw new Error(`Failed to create diary log: ${res.status} - ${JSON.stringify(res.body)}`);
+    }
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -179,10 +189,12 @@ describe('Farm CRUD (e2e)', () => {
       .expect(204);
 
     // delete log
-    await request(app.getHttpServer())
+    const deleteLogRes = await request(app.getHttpServer())
       .delete(`/api/v1/diaries/logs/${logId}`)
-      .set('Authorization', `Bearer ${accessToken}`)
-      .expect(204);
+      .set('Authorization', `Bearer ${accessToken}`);
+    if (deleteLogRes.status !== 204) {
+      throw new Error(`Failed to delete log: ${deleteLogRes.status} - ${JSON.stringify(deleteLogRes.body)}`);
+    }
 
     // delete diary (soft delete, sets status to deleted)
     await request(app.getHttpServer())

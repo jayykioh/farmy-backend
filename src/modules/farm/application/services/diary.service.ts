@@ -147,7 +147,7 @@ export class DiaryService {
         text: savedLog.content,
         metadata: { user_id: userId },
       },
-      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` },
+      { jobId: `embed-diary_log-${savedLog._id}-${contentHash}` },
     );
 
     return savedLog;
@@ -198,7 +198,7 @@ export class DiaryService {
         text: savedLog.content,
         metadata: { user_id: userId },
       },
-      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` },
+      { jobId: `embed-diary_log-${savedLog._id}-${contentHash}` },
     );
 
     return savedLog;

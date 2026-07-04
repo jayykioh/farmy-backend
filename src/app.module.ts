@@ -53,7 +53,11 @@ import { ChatModule } from './modules/chat/chat.module';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        url: configService.get<string>('SUPABASE_DB_URL'),
+        url:
+          process.env.NODE_ENV === 'test'
+            ? configService.get<string>('TEST_SUPABASE_DB_URL') ||
+              configService.get<string>('SUPABASE_DB_URL')
+            : configService.get<string>('SUPABASE_DB_URL'),
         autoLoadEntities: true,
         synchronize: false, // We use migrations
       }),
@@ -64,10 +68,14 @@ import { ChatModule } from './modules/chat/chat.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>(
-          'MONGO_URI',
-          'mongodb+srv://adnparr_db_user:Dong1234@farmdiaries.ytxyxvl.mongodb.net/?appName=FarmDiaries',
-        ),
+        uri:
+          process.env.NODE_ENV === 'test'
+            ? configService.get<string>('TEST_MONGO_URI') ||
+              configService.get<string>('MONGO_URI')
+            : configService.get<string>(
+                'MONGO_URI',
+                'mongodb+srv://adnparr_db_user:Dong1234@farmdiaries.ytxyxvl.mongodb.net/?appName=FarmDiaries',
+              ),
       }),
       inject: [ConfigService],
     }),

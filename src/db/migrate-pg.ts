@@ -24,7 +24,11 @@ import { getPgPool, closePgPool } from './pg-client';
 const EMBEDDING_DIM = 768; // Gemini text-embedding-004 dimension
 
 async function runMigration(): Promise<void> {
-  const connStr = process.env.PG_CONNECTION_STRING;
+  let connStr = process.env.PG_CONNECTION_STRING || process.env.SUPABASE_DB_URL;
+  if (process.env.NODE_ENV === 'test') {
+    connStr = process.env.TEST_SUPABASE_DB_URL || connStr;
+  }
+  process.env.PG_CONNECTION_STRING = connStr;
   const host = process.env.PG_HOST ?? '127.0.0.1';
 
   console.log('[migrate-pg] PG_CONNECTION_STRING loaded:', connStr ? '✔ YES' : '✘ NO (sẽ dùng PG_HOST)');

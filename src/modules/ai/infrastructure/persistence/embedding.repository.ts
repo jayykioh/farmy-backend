@@ -7,6 +7,7 @@ export interface UpsertEmbeddingDto {
   sourceType: string;
   chunkIndex: number;
   contentHash: string;
+  text: string;
   vector: number[];
   metadata?: Record<string, any>;
   isActive?: boolean;
@@ -49,11 +50,12 @@ export class EmbeddingRepository {
     const isActive = dto.isActive !== undefined ? dto.isActive : true;
 
     await this.dataSource.query(
-      `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "embedding", "metadata", "is_active")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "text", "embedding", "metadata", "is_active")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT ("source_id", "source_type", "chunk_index")
        DO UPDATE SET 
          "content_hash" = EXCLUDED."content_hash",
+         "text" = EXCLUDED."text",
          "embedding" = EXCLUDED."embedding",
          "metadata" = EXCLUDED."metadata",
          "is_active" = EXCLUDED."is_active",
@@ -63,6 +65,7 @@ export class EmbeddingRepository {
         dto.sourceType,
         dto.chunkIndex,
         dto.contentHash,
+        dto.text,
         vectorString,
         metadataString,
         isActive,
@@ -89,11 +92,12 @@ export class EmbeddingRepository {
         const isActive = dto.isActive !== undefined ? dto.isActive : true;
 
         await queryRunner.query(
-          `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "embedding", "metadata", "is_active")
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "text", "embedding", "metadata", "is_active")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            ON CONFLICT ("source_id", "source_type", "chunk_index")
            DO UPDATE SET 
              "content_hash" = EXCLUDED."content_hash",
+             "text" = EXCLUDED."text",
              "embedding" = EXCLUDED."embedding",
              "metadata" = EXCLUDED."metadata",
              "is_active" = EXCLUDED."is_active",
@@ -103,6 +107,7 @@ export class EmbeddingRepository {
             dto.sourceType,
             dto.chunkIndex,
             dto.contentHash,
+            dto.text,
             vectorString,
             metadataString,
             isActive,

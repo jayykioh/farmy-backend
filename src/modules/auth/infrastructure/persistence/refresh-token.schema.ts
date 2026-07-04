@@ -6,6 +6,9 @@ import { Document } from 'mongoose';
   collection: 'refresh_tokens',
 })
 export class RefreshTokenDocument extends Document {
+  @Prop({ type: String })
+  _id: string;
+
   @Prop({ required: true, unique: true, index: true })
   token_hash: string;
 
