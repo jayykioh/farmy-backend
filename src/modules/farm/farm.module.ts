@@ -18,6 +18,10 @@ import {
   ReminderSchema,
 } from './infrastructure/persistence/reminder.schema';
 import {
+  UserDocument,
+  UserSchema,
+} from '../auth/infrastructure/persistence/user.schema';
+import {
   WeeklyInsightDocument,
   WeeklyInsightSchema,
 } from './infrastructure/persistence/weekly-insight.schema';
@@ -25,6 +29,7 @@ import { FarmPlotService } from './application/services/farm-plot.service';
 import { DiaryService } from './application/services/diary.service';
 import { ReminderService } from './application/services/reminder.service';
 import { ReminderSchedulerService } from './application/services/reminder-scheduler.service';
+import { WebPushService } from './application/services/web-push.service';
 import { WeeklyInsightSchedulerService } from './application/services/weekly-insight.scheduler';
 import { FarmPlotController } from './interface/controllers/farm-plot.controller';
 import { DiaryController } from './interface/controllers/diary.controller';
@@ -47,6 +52,7 @@ import { AiModule } from '../ai/ai.module';
       { name: DiaryLogDocument.name, schema: DiaryLogSchema },
       { name: ReminderDocument.name, schema: ReminderSchema },
       { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
+      { name: UserDocument.name, schema: UserSchema },
     ]),
     // BullMQ queues
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
@@ -62,6 +68,7 @@ import { AiModule } from '../ai/ai.module';
     ReminderService,
     ReminderSchedulerService,
     ReminderProcessor,
+    WebPushService,
     // Weekly Insight
     WeeklyInsightRepository,
     WeeklyInsightSchedulerService,
@@ -75,6 +82,7 @@ import { AiModule } from '../ai/ai.module';
     ReminderService,
     ReminderSchedulerService,
     WeeklyInsightRepository,
+    WebPushService,
   ],
 
 })

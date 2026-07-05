@@ -58,10 +58,14 @@ export class DatabaseMigrationService {
         string,
         unknown
       >;
-      const migration = (migrationModule.default || migrationModule) as Record<
-        string,
-        unknown
-      >;
+      // Handle three cases:
+      // 1. ESM: migrationModule.default = { up, down }
+      // 2. CJS export default (nodenext): migrationModule.default.default = { up, down }
+      // 3. CJS module.exports = { up, down }
+      let migration = (migrationModule.default || migrationModule) as Record<string, unknown>;
+      if (migration && migration.default && typeof (migration.default as Record<string, unknown>).up === 'function') {
+        migration = migration.default as Record<string, unknown>;
+      }
 
       if (!migration || typeof migration.up !== 'function') {
         throw new Error(

@@ -5,7 +5,9 @@ import { Model } from 'mongoose';
 import { Job } from 'bullmq';
 import * as crypto from 'crypto';
 import { ReminderDocument } from '../persistence/reminder.schema';
+import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 import { PetService } from '../../../pet/application/services/pet.service';
+import { WebPushService } from '../../application/services/web-push.service';
 
 import {
   REMINDER_QUEUE,
@@ -29,7 +31,10 @@ export class ReminderProcessor extends WorkerHost {
   constructor(
     @InjectModel(ReminderDocument.name)
     private readonly reminderModel: Model<ReminderDocument>,
+    @InjectModel(UserDocument.name)
+    private readonly userModel: Model<UserDocument>,
     private readonly petService: PetService,
+    private readonly webPushService: WebPushService,
   ) {
     super();
   }
@@ -145,17 +150,34 @@ export class ReminderProcessor extends WorkerHost {
   }
 
   /**
-   * Mock gửi thông báo (Web Push / Zalo ZNS stub)
-   * Thay thế bằng provider thật khi tích hợp
+   * Send notification via Web Push (PWA) or fall back to mock
    */
   private async sendNotification(payload: ReminderJobPayload): Promise<void> {
-    // TODO: Tích hợp Firebase FCM hoặc Zalo ZNS ở đây
+    try {
+      const user = await this.userModel.findById(payload.userId).exec();
+      if (user && user.push_subscription) {
+        this.logger.log(`🔔 Sending Web Push notification to user: ${payload.userId}`);
+        const sent = await this.webPushService.send(user.push_subscription, {
+          title: 'Nhắc nhở từ Farm Diary 🍃',
+          body: payload.title,
+          url: '/reminders',
+          action_type: payload.action_type,
+          action_detail: payload.action_detail,
+        });
+        if (sent) {
+          return;
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(`Error checking push subscription or sending push: ${err.message}`);
+    }
+
+    // Fallback to console logging
     this.logger.log(
       `🔔 [MOCK NOTIFICATION] → User: ${payload.userId}` +
         ` | "${payload.title}" | Action: ${payload.action_type}` +
         (payload.action_detail ? ` — ${payload.action_detail}` : ''),
     );
-    // Mô phỏng delay gửi (< 500ms)
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }

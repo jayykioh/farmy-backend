@@ -31,6 +31,11 @@ async function runMigration(): Promise<void> {
   process.env.PG_CONNECTION_STRING = connStr;
   const host = process.env.PG_HOST ?? '127.0.0.1';
 
+  if (!connStr && !process.env.PG_HOST) {
+    console.warn('[migrate-pg] ⚠ PG_CONNECTION_STRING is not set. Skipping pgvector migration.');
+    return;
+  }
+
   console.log('[migrate-pg] PG_CONNECTION_STRING loaded:', connStr ? '✔ YES' : '✘ NO (sẽ dùng PG_HOST)');
   console.log('[migrate-pg] Connecting to:', connStr ? connStr.replace(/:([^:@]+)@/, ':***@') : `${host}:${process.env.PG_PORT ?? 5432}`);
 

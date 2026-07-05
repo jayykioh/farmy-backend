@@ -1,4 +1,4 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 
@@ -10,7 +10,11 @@ import { Pool } from 'pg';
       useFactory: (configService: ConfigService) => {
         const connectionString = configService.get<string>('PG_CONNECTION_STRING');
         if (!connectionString) {
-          throw new Error('PG_CONNECTION_STRING is not defined in environment variables');
+          const logger = new Logger('PgModule');
+          logger.warn(
+            'PG_CONNECTION_STRING is not set. pgvector/RAG features will be disabled.',
+          );
+          return null;
         }
         return new Pool({
           connectionString,

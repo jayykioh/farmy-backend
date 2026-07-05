@@ -31,10 +31,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: TokenPayload): Promise<AuthenticatedUser> {
     const user = await this.userRepository.findById(payload.sub);
 
-    if (!user) {
+    if (!user || user.isDeletedUser()) {
       throw createAuthError(
         'AUTH_INVALID_SESSION',
-        'Người dùng không tồn tại hoặc token không hợp lệ!',
+        'Người dùng không tồn tại hoặc tài khoản đã bị xóa!',
       );
     }
 

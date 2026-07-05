@@ -1,0 +1,53 @@
+services:
+  # 1. Valkey (Redis drop-in) for BullMQ background jobs
+  - type: keyvalue
+    name: farmdiaries-redis
+    region: singapore
+    plan: free
+    ipAllowList: []
+
+  # 2. NestJS Backend Web Service
+  - type: web
+    name: farmdiaries-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install --production=false --legacy-peer-deps && npm run build
+    startCommand: node dist/src/db/migrate.js && node dist/src/db/migrate-pg.js && node dist/src/main.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: farmdiaries-redis
+          property: connectionString
+      # We will set these manually in the Render dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: PG_CONNECTION_STRING
+        sync: false
+      - key: SUPABASE_DB_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: GEMINI_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

@@ -17,6 +17,7 @@ export interface SearchHit {
   source_id: string;
   source_type: 'diary_log' | 'knowledge_source';
   chunk_index: number;
+  text: string;
   content_hash: string;
   metadata: Record<string, any>;
   score: number;
@@ -153,7 +154,7 @@ export class EmbeddingRepository {
   ): Promise<SearchHit[]> {
     const vectorString = `[${vector.join(',')}]`;
     const rows = await this.dataSource.query(
-      `SELECT source_id, source_type, chunk_index, content_hash, metadata,
+      `SELECT source_id, source_type, chunk_index, text, content_hash, metadata,
               1 - (embedding <=> $1::vector) AS score
        FROM "embeddings"
        WHERE is_active = true
