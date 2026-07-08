@@ -67,6 +67,7 @@ export class EmbeddingProcessor extends WorkerHost {
           chunkIndex: i,
           text: chunkText,
           contentHash,
+          text: chunkText,
           vector: result.vector,
           metadata,
           isActive: true,

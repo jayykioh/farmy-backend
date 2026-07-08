@@ -58,7 +58,7 @@ export class AiAdminController {
             text: log.content,
             metadata: { user_id: userId },
           },
-          { jobId: `embed:diary_log:${log._id}:${contentHash}` },
+          { jobId: `embed-diary_log-${log._id}-${contentHash}` },
         );
         enqueuedCount++;
       }
@@ -79,7 +79,7 @@ export class AiAdminController {
           sourceType: 'knowledge_source',
           text: source.content,
         },
-        { jobId: `embed:knowledge_source:${source._id}:${contentHash}` },
+        { jobId: `embed-knowledge_source-${source._id}-${contentHash}` },
       );
       enqueuedCount++;
     }
