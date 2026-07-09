@@ -33,6 +33,23 @@ export class ChatController {
     @Body() dto: StreamChatDto,
     @Res() response: Response,
   ): Promise<void> {
+    return this.writeChatStream(user, dto, response);
+  }
+
+  @Get('stream/events')
+  async streamEvents(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() dto: StreamChatDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.writeChatStream(user, dto, response);
+  }
+
+  private async writeChatStream(
+    user: AuthenticatedUser,
+    dto: StreamChatDto,
+    response: Response,
+  ): Promise<void> {
     const turn = await this.chatService.prepareTurn(user.id, user.name, dto);
     let terminal = false;
     let disconnected = false;
