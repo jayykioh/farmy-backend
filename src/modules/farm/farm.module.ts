@@ -25,14 +25,28 @@ import {
   WeeklyInsightDocument,
   WeeklyInsightSchema,
 } from './infrastructure/persistence/weekly-insight.schema';
+import {
+  FarmSnapDocument,
+  FarmSnapSchema,
+} from './infrastructure/persistence/farm-snap.schema';
+import {
+  SnapReactionDocument,
+  SnapReactionSchema,
+} from './infrastructure/persistence/snap-reaction.schema';
+import {
+  SnapCommentDocument,
+  SnapCommentSchema,
+} from './infrastructure/persistence/snap-comment.schema';
 import { FarmPlotService } from './application/services/farm-plot.service';
 import { DiaryService } from './application/services/diary.service';
+import { FarmSnapService } from './application/services/farm-snap.service';
 import { ReminderService } from './application/services/reminder.service';
 import { ReminderSchedulerService } from './application/services/reminder-scheduler.service';
 import { WebPushService } from './application/services/web-push.service';
 import { WeeklyInsightSchedulerService } from './application/services/weekly-insight.scheduler';
 import { FarmPlotController } from './interface/controllers/farm-plot.controller';
 import { DiaryController } from './interface/controllers/diary.controller';
+import { FarmSnapController } from './interface/controllers/farm-snap.controller';
 import { ReminderController } from './interface/controllers/reminder.controller';
 import { ReminderProcessor } from './infrastructure/queue/reminder.processor';
 import { REMINDER_QUEUE } from './infrastructure/queue/reminder-queue.constants';
@@ -52,6 +66,9 @@ import { AiModule } from '../ai/ai.module';
       { name: DiaryLogDocument.name, schema: DiaryLogSchema },
       { name: ReminderDocument.name, schema: ReminderSchema },
       { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
+      { name: FarmSnapDocument.name, schema: FarmSnapSchema },
+      { name: SnapReactionDocument.name, schema: SnapReactionSchema },
+      { name: SnapCommentDocument.name, schema: SnapCommentSchema },
       { name: UserDocument.name, schema: UserSchema },
     ]),
     // BullMQ queues
@@ -60,11 +77,17 @@ import { AiModule } from '../ai/ai.module';
     PetModule,
     AiModule,
   ],
-  controllers: [FarmPlotController, DiaryController, ReminderController],
+  controllers: [
+    FarmPlotController,
+    DiaryController,
+    FarmSnapController,
+    ReminderController,
+  ],
   providers: [
     FarmPlotService,
     DiaryRepository,
     DiaryService,
+    FarmSnapService,
     ReminderService,
     ReminderSchedulerService,
     ReminderProcessor,
@@ -79,11 +102,11 @@ import { AiModule } from '../ai/ai.module';
     FarmPlotService,
     DiaryRepository,
     DiaryService,
+    FarmSnapService,
     ReminderService,
     ReminderSchedulerService,
     WeeklyInsightRepository,
     WebPushService,
   ],
-
 })
 export class FarmModule {}
