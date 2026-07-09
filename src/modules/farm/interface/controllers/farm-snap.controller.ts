@@ -8,7 +8,10 @@ import {
   Param,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import {
   FarmSnapService,
@@ -17,6 +20,7 @@ import {
 import { CreateSnapDto } from '../dtos/create-snap.dto';
 import { ReactSnapDto } from '../dtos/react-snap.dto';
 import { CreateSnapCommentDto } from '../dtos/create-snap-comment.dto';
+import { CreateSnapUploadUrlDto } from '../dtos/create-snap-upload-url.dto';
 
 @Controller('api/v1/snaps')
 export class FarmSnapController {
@@ -29,6 +33,25 @@ export class FarmSnapController {
     @Body() dto: CreateSnapDto,
   ) {
     const data = await this.farmSnapService.create(user.id, dto);
+    return { success: true, data };
+  }
+
+  @Post('upload-url')
+  async createUploadUrl(
+    @CurrentUser() user: { id: string },
+    @Body() dto: CreateSnapUploadUrlDto,
+  ) {
+    const data = await this.farmSnapService.createUploadUrl(user.id, dto);
+    return { success: true, data };
+  }
+
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadPhoto(
+    @CurrentUser() user: { id: string },
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const data = await this.farmSnapService.uploadPhoto(user.id, file);
     return { success: true, data };
   }
 

@@ -57,6 +57,7 @@ import { WeeklyInsightRepository } from './infrastructure/persistence/weekly-ins
 import { PetModule } from '../pet/pet.module';
 import { DiaryRepository } from './infrastructure/persistence/diary.repository';
 import { AiModule } from '../ai/ai.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { AiModule } from '../ai/ai.module';
     BullModule.registerQueue({ name: INSIGHT_QUEUE }),
     PetModule,
     AiModule,
+    StorageModule,
   ],
   controllers: [
     FarmPlotController,

@@ -13,6 +13,7 @@ export class R2StorageService {
   private readonly logger = new Logger(R2StorageService.name);
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
+  private readonly publicUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     const accountId = this.configService.get<string>('R2_ACCOUNT_ID');
@@ -21,6 +22,7 @@ export class R2StorageService {
       'R2_SECRET_ACCESS_KEY',
     );
     this.bucketName = this.configService.get<string>('R2_BUCKET_NAME', '');
+    this.publicUrl = this.configService.get<string>('R2_PUBLIC_URL', '');
 
     if (!accountId || !accessKeyId || !secretAccessKey || !this.bucketName) {
       this.logger.warn(
@@ -88,6 +90,33 @@ export class R2StorageService {
       this.logger.error(`Failed to generate signed URL for key: ${key}`, error);
       throw error;
     }
+  }
+
+  async getPresignedUploadUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds = 300,
+  ): Promise<string> {
+    try {
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        ContentType: contentType,
+      });
+
+      return getSignedUrl(this.s3Client, command, {
+        expiresIn: expiresInSeconds,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to generate upload URL for key: ${key}`, error);
+      throw error;
+    }
+  }
+
+  getPublicUrl(key: string): string {
+    const normalizedBaseUrl = this.publicUrl.replace(/\/$/, '');
+    const normalizedKey = key.replace(/^\//, '');
+    return `${normalizedBaseUrl}/${normalizedKey}`;
   }
 
   /**
