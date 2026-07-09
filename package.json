@@ -29,7 +29,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1078.0",
     "@google/genai": "^2.8.0",
     "@nestjs/bull": "^11.0.4",
-    "@nestjs/bullmq": "^10.2.3",
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
