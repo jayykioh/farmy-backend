@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -18,6 +19,8 @@ import { SnapCommentDocument } from '../../infrastructure/persistence/snap-comme
 import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 import { CreateSnapDto } from '../../interface/dtos/create-snap.dto';
 import { CreateSnapCommentDto } from '../../interface/dtos/create-snap-comment.dto';
+import { CreateSnapUploadUrlDto } from '../../interface/dtos/create-snap-upload-url.dto';
+import { R2StorageService } from '../../../storage/r2-storage.service';
 
 const REACTION_TYPES: SnapReactionType[] = [
   'like',
@@ -44,7 +47,47 @@ export class FarmSnapService {
     private readonly commentModel: Model<SnapCommentDocument>,
     @InjectModel(UserDocument.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly r2StorageService: R2StorageService,
   ) {}
+
+  async createUploadUrl(userId: string, dto: CreateSnapUploadUrlDto) {
+    const extension = this.getExtension(dto.contentType, dto.fileName);
+    const key = this.createSnapImageKey(userId, extension);
+    const uploadUrl = await this.r2StorageService.getPresignedUploadUrl(
+      key,
+      dto.contentType,
+    );
+
+    return {
+      key,
+      uploadUrl,
+      publicUrl: this.r2StorageService.getPublicUrl(key),
+      expiresIn: 300,
+    };
+  }
+
+  async uploadPhoto(userId: string, file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Ảnh không được để trống!');
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      throw new BadRequestException('Định dạng ảnh không được hỗ trợ!');
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('Ảnh quá lớn, tối đa 10MB!');
+    }
+
+    const extension = this.getExtension(file.mimetype, file.originalname);
+    const key = this.createSnapImageKey(userId, extension);
+    await this.r2StorageService.uploadFile(file.buffer, key, file.mimetype);
+
+    return {
+      key,
+      publicUrl: this.r2StorageService.getPublicUrl(key),
+    };
+  }
 
   async create(userId: string, dto: CreateSnapDto) {
     const snap = new this.snapModel({
@@ -240,5 +283,28 @@ export class FarmSnapService {
     const uniqueIds = [...new Set(userIds)];
     const users = await this.userModel.find({ _id: { $in: uniqueIds } }).exec();
     return new Map(users.map((user) => [user._id, user]));
+  }
+
+  private getExtension(contentType: string, fileName?: string) {
+    const fileExtension = fileName?.split('.').pop()?.toLowerCase();
+    if (
+      fileExtension &&
+      ['jpg', 'jpeg', 'png', 'webp'].includes(fileExtension)
+    ) {
+      return fileExtension === 'jpg' ? 'jpeg' : fileExtension;
+    }
+
+    switch (contentType) {
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      default:
+        return 'jpeg';
+    }
+  }
+
+  private createSnapImageKey(userId: string, extension: string) {
+    return `snaps/${userId}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
   }
 }
