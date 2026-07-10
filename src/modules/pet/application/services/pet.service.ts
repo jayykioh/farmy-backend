@@ -121,6 +121,49 @@ export class PetService {
     }
   }
 
+  /**
+   * Shared streak calculation logic (VN timezone).
+   * Determines whether to increment, keep, or reset streak_count based on the
+   * action date relative to last_diary_date (which also tracks task completions).
+   *
+   * - Same VN day  → streak unchanged (idempotent within a day)
+   * - Next VN day  → streak increments by 1
+   * - 2+ days gap  → streak resets to 1 (broken)
+   * - First action → streak starts at 1
+   *
+   * Pure function — mutates pet in place, no DB access, fully testable.
+   */
+  private calculateNewStreak(pet: PetStateDocument, actionDate: Date): void {
+    const actionDateVN = (() => {
+      const d = new Date(actionDate.getTime() + 7 * 60 * 60 * 1000);
+      return d.toISOString().slice(0, 10);
+    })();
+
+    if (!pet.last_diary_date) {
+      // First action ever
+      pet.streak_count = 1;
+    } else if (pet.last_diary_date === actionDateVN) {
+      // Same VN day — streak stays the same
+    } else {
+      const lastDate = new Date(pet.last_diary_date + 'T00:00:00Z');
+      const thisDate = new Date(actionDateVN + 'T00:00:00Z');
+      const diffDays = Math.round(
+        (thisDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (diffDays === 1) {
+        pet.streak_count += 1; // consecutive day
+      } else {
+        pet.streak_count = 1; // broken streak — restart
+      }
+    }
+
+    // Always reset missedDays and update the shared date field
+    pet.missed_days = 0;
+    pet.last_diary_date = actionDateVN;
+    // Backward-compat timestamp field
+    pet.last_diary_at = actionDate;
+  }
+
   /** Bubble message shown in the speech bubble overlay */
   generateBubbleMessage(mood: PetMood, streak: number): string {
     switch (mood) {
@@ -230,40 +273,12 @@ export class PetService {
     diaryDate: Date = new Date(),
   ): Promise<PetStatusResponse> {
     const pet = await this.ensurePet(userId);
-    const todayVN = this.getTodayVN();
 
-    // Add XP regardless
+    // Add XP for diary (30 XP)
     this.addXp(pet, 30);
 
-    // Streak logic
-    const diaryDateVN = (() => {
-      const d = new Date(diaryDate.getTime() + 7 * 60 * 60 * 1000);
-      return d.toISOString().slice(0, 10);
-    })();
-
-    if (!pet.last_diary_date) {
-      // First diary ever
-      pet.streak_count = 1;
-    } else if (pet.last_diary_date === diaryDateVN) {
-      // Same day — don't change streak
-    } else {
-      const lastDate = new Date(pet.last_diary_date + 'T00:00:00Z');
-      const thisDate = new Date(diaryDateVN + 'T00:00:00Z');
-      const diffDays = Math.round(
-        (thisDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24),
-      );
-      if (diffDays === 1) {
-        pet.streak_count += 1;
-      } else {
-        pet.streak_count = 1; // broken streak, restart
-      }
-    }
-
-    // Reset missedDays since user just logged
-    pet.missed_days = 0;
-    pet.last_diary_date = diaryDateVN;
-    // Also keep backward-compat field
-    pet.last_diary_at = diaryDate;
+    // Shared streak progression
+    this.calculateNewStreak(pet, diaryDate);
 
     // Recalculate mood
     const { mood, reason } = this.calculateMood({
@@ -299,6 +314,65 @@ export class PetService {
     };
   }
 
+  /**
+   * Called by ReminderService after a reminder is marked complete.
+   * Uses the same streak progression as diary creation but grants task-specific XP (10 XP).
+   * Milestone rule: if the resulting streak is a multiple of 3, mood becomes 'excited'.
+   */
+  async updateAfterTaskCompleted(
+    userId: string,
+    completedAt: Date = new Date(),
+  ): Promise<PetStatusResponse> {
+    const pet = await this.ensurePet(userId);
+
+    // Add XP for task (10 XP — distinct from diary's 30 XP)
+    this.addXp(pet, 10);
+
+    // Shared streak progression (same VN-timezone rules as diary)
+    this.calculateNewStreak(pet, completedAt);
+
+    // Determine mood: milestone check (streak multiple of 3 → excited)
+    let mood: PetMood;
+    let reason: PetMoodReason;
+    if (pet.streak_count > 0 && pet.streak_count % 3 === 0) {
+      mood = PetMood.EXCITED;
+      reason = PetMoodReason.STREAK_MILESTONE;
+    } else {
+      const result = this.calculateMood({
+        loggedToday: true,
+        streakCount: pet.streak_count,
+        missedDays: 0,
+        currentHourVN: this.getCurrentHourVN(),
+      });
+      mood = result.mood;
+      reason = result.reason;
+    }
+
+    if (pet.mood !== mood) {
+      pet.previous_mood = pet.mood;
+    }
+    pet.mood = mood;
+    pet.mood_reason = reason;
+
+    await pet.save();
+    this.logger.log(
+      `Pet updated (task) for user ${userId}: mood=${mood}, streak=${pet.streak_count}, xp=${pet.xp}`,
+    );
+
+    return {
+      mood: pet.mood,
+      previousMood: pet.previous_mood,
+      streakCount: pet.streak_count,
+      level: pet.level,
+      exp: pet.xp,
+      lastDiaryDate: pet.last_diary_date,
+      missedDays: pet.missed_days,
+      moodReason: reason,
+      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      updatedAt: (pet as any).updated_at,
+    };
+  }
+
   // ── Legacy / Backward-Compat Methods ─────────────────────────────────────
 
   /** @deprecated Use getStatus() instead. Kept for /pet/state backward compat. */
@@ -317,15 +391,12 @@ export class PetService {
     return this.updateAfterDiaryCreated(userId, diaryDate);
   }
 
-  /** Update mood on completed reminder */
+  /**
+   * @deprecated Use updateAfterTaskCompleted() instead.
+   * Kept for backward compatibility. No new call sites should use this method.
+   */
   async updateMoodOnReminderCompleted(userId: string): Promise<void> {
-    const pet = await this.petModel.findOne({ user_id: userId }).exec();
-    if (!pet) return;
-    this.addXp(pet, 10);
-    pet.previous_mood = pet.mood;
-    pet.mood = PetMood.HAPPY;
-    pet.mood_reason = PetMoodReason.USER_LOGGED_DIARY_TODAY;
-    await pet.save();
+    return this.updateAfterTaskCompleted(userId).then(() => undefined);
   }
 
   /** Update mood on failed/missed reminder */

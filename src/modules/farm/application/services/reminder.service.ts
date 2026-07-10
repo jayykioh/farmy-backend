@@ -91,7 +91,7 @@ export class ReminderService {
 
   async findPending(userId: string): Promise<ReminderDocument[]> {
     return this.reminderModel
-      .find({ user_id: userId, status: 'pending' })
+      .find({ user_id: userId, status: { $in: ['pending', 'delivered'] } })
       .sort({ remind_at: 1 })
       .exec();
   }
@@ -146,12 +146,19 @@ export class ReminderService {
   /** Đánh dấu hoàn thành thủ công (user click "Đã xong") */
   async complete(userId: string, id: string): Promise<ReminderDocument> {
     const reminder = await this.findOne(userId, id);
-    reminder.status = 'delivered';
+
+    // Idempotency guard: silently return if already completed (prevents XP/streak farming)
+    // Note: 'delivered' means push notification sent, user can still complete it.
+    if (reminder.status === 'completed') {
+      return reminder;
+    }
+
+    reminder.status = 'completed';
     reminder.is_sent = true;
     reminder.delivered_at = new Date();
 
-    // Cập nhật trạng thái thú ảo
-    await this.petService.updateMoodOnReminderCompleted(userId);
+    // Cập nhật streak, XP và tâm trạng thú ảo (thay vì chỉ set mood happy)
+    await this.petService.updateAfterTaskCompleted(userId, reminder.delivered_at);
 
     return reminder.save();
   }
