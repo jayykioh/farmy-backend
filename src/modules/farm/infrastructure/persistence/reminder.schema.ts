@@ -13,7 +13,7 @@ export type ReminderType =
 
 export type ScheduleSlot = 'morning' | 'noon' | 'afternoon' | 'evening';
 
-export type ReminderStatus = 'pending' | 'delivered' | 'failed' | 'cancelled';
+export type ReminderStatus = 'pending' | 'delivered' | 'completed' | 'failed' | 'cancelled';
 
 @Schema({
   timestamps: { createdAt: 'created_at', updatedAt: false },
@@ -70,7 +70,7 @@ export class ReminderDocument extends Document<string> {
   /** Trạng thái xử lý */
   @Prop({
     type: String,
-    enum: ['pending', 'delivered', 'failed', 'cancelled'],
+    enum: ['pending', 'delivered', 'completed', 'failed', 'cancelled'],
     default: 'pending',
     index: true,
   })
