@@ -44,6 +44,12 @@ import { PetModule } from '../pet/pet.module';
 import { DiaryRepository } from './infrastructure/persistence/diary.repository';
 import { AiModule } from '../ai/ai.module';
 
+import {
+  IdempotencyExecutionDocument,
+  IdempotencyExecutionSchema,
+} from './infrastructure/persistence/idempotency-execution.schema';
+import { IdempotencyExecutionService } from './application/services/idempotency-execution.service';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -53,6 +59,7 @@ import { AiModule } from '../ai/ai.module';
       { name: ReminderDocument.name, schema: ReminderSchema },
       { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
       { name: UserDocument.name, schema: UserSchema },
+      { name: IdempotencyExecutionDocument.name, schema: IdempotencyExecutionSchema },
     ]),
     // BullMQ queues
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
@@ -62,6 +69,7 @@ import { AiModule } from '../ai/ai.module';
   ],
   controllers: [FarmPlotController, DiaryController, ReminderController],
   providers: [
+    IdempotencyExecutionService,
     FarmPlotService,
     DiaryRepository,
     DiaryService,

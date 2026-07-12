@@ -111,9 +111,9 @@ export class PlantScanService {
     const imageKey = `scans/${userId}/${fileId}.webp`;
     const thumbnailKey = `scans/${userId}/${fileId}-thumb.webp`;
 
-    await this.storageService.uploadFile(imageKey, optimizedBuffer, 'image/webp');
+    await this.storageService.uploadFile(optimizedBuffer, imageKey, 'image/webp');
     const thumbnailBuffer = await this.imageProcessor.createThumbnail(optimizedBuffer);
-    await this.storageService.uploadFile(thumbnailKey, thumbnailBuffer, 'image/webp');
+    await this.storageService.uploadFile(thumbnailBuffer, thumbnailKey, 'image/webp');
 
     // 8. Call LLM Vision
     const builtPrompt = this.promptService.buildVisionPrompt({ cropType });

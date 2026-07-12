@@ -8,6 +8,8 @@ import {
   Param,
   HttpCode,
   HttpStatus,
+  Headers,
+  BadRequestException,
 } from '@nestjs/common';
 import { DiaryService } from '../../application/services/diary.service';
 import { CreateDiaryDto } from '../dtos/create-diary.dto';
@@ -78,8 +80,20 @@ export class DiaryController {
     @CurrentUser() user: { id: string },
     @Param('diaryId') diaryId: string,
     @Body() dto: CreateDiaryLogDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-request-hash') requestHash?: string,
   ) {
-    const data = await this.diaryService.createLog(user.id, diaryId, dto);
+    if (!idempotencyKey || !requestHash) {
+      throw new BadRequestException('Idempotency-Key and X-Request-Hash headers are required');
+    }
+    
+    const data = await this.diaryService.createIdempotentLog(
+      user.id,
+      diaryId,
+      idempotencyKey,
+      requestHash,
+      dto
+    );
     return {
       success: true,
       data,
@@ -91,10 +105,17 @@ export class DiaryController {
     @CurrentUser() user: { id: string },
     @Param('diaryId') diaryId: string,
   ) {
-    const data = await this.diaryService.findAllLogs(user.id, diaryId);
+    const logs = await this.diaryService.findAllLogs(user.id, diaryId);
     return {
       success: true,
-      data,
+      data: logs.map((log) => {
+        const json = log.toJSON();
+        return {
+          ...json,
+          logId: log._id,
+          idempotencyKey: log.idempotency_key,
+        };
+      }),
     };
   }
 
