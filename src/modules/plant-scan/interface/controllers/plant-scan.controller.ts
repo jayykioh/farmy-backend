@@ -26,7 +26,7 @@ export class PlantScanController {
   @UseInterceptors(FileInterceptor('image'))
   @HttpCode(HttpStatus.OK)
   async diagnose(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: { id: string; tier?: string },
     @UploadedFile() file: any,
     @Body() body: CreatePlantScanDto,
   ) {
@@ -66,7 +66,7 @@ export class PlantScanController {
       );
     }
 
-    const data = await this.scanService.diagnose(file, body.crop_type, user.id);
+    const data = await this.scanService.diagnose(file, body.crop_type, user.id, user.tier || 'free');
     return {
       success: true,
       data,

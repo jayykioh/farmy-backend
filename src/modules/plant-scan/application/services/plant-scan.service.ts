@@ -6,8 +6,9 @@ import { PlantScanDocument } from '../../infrastructure/persistence/plant-scan.s
 import { RateLimiterService } from '../../../../common/rate-limiter/rate-limiter.service';
 import { LLMService } from '../../../ai/application/services/llm.service';
 import { PromptService } from '../../../ai/application/services/prompt.service';
-import { StorageService } from './storage.service';
+import { R2StorageService } from '../../../storage/r2-storage.service';
 import { ImageProcessorService } from './image-processor.service';
+import { appConfig } from '../../../../config/app.config';
 import { PlantScanGuardrailService, GeminiDiagnosisSchema } from './plant-scan-guardrail.service';
 
 @Injectable()
@@ -20,12 +21,12 @@ export class PlantScanService {
     private readonly rateLimiter: RateLimiterService,
     private readonly llmService: LLMService,
     private readonly promptService: PromptService,
-    private readonly storageService: StorageService,
+    private readonly storageService: R2StorageService,
     private readonly imageProcessor: ImageProcessorService,
     private readonly guardrailService: PlantScanGuardrailService,
   ) {}
 
-  async diagnose(file: any, cropType: string, userId: string) {
+  async diagnose(file: any, cropType: string, userId: string, tier: string = 'free') {
     const startedAt = Date.now();
     // 1. Validate magic bytes
     await this.imageProcessor.validateImageMagicBytes(file.buffer);
@@ -33,11 +34,13 @@ export class PlantScanService {
     // 2. User daily quota check (checked in controller, but we can double check or rely on controller. The spec says enforce in controller, but we'll do it here for encapsulation)
     const dateStr = new Date().toISOString().slice(0, 10);
     const quotaKey = `scan:limit:${userId}:${dateStr}`;
-    const rateLimit = await this.rateLimiter.consume(quotaKey, 3, 86400);
+    const config = appConfig();
+    const dailyLimit = tier === 'premium' ? config.plantScan.premiumDailyLimit : config.plantScan.freeDailyLimit;
+    const rateLimit = await this.rateLimiter.consume(quotaKey, dailyLimit, 86400);
 
     if (!rateLimit.allowed) {
       throw new HttpException(
-        { success: false, statusCode: 429, errorCode: 'SCAN_QUOTA_EXCEEDED', message: 'Đã dùng hết 3 lượt quét hôm nay.' },
+        { success: false, statusCode: 429, errorCode: 'SCAN_QUOTA_EXCEEDED', message: `Đã dùng hết ${dailyLimit} lượt quét hôm nay.` },
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -72,8 +75,8 @@ export class PlantScanService {
       if (distance < 10) {
         this.logger.log(`pHash Cache Hit! Similarity distance: ${distance}`);
         // Cache hit consumes quota but skips LLM/R2
-        const freshImageUrl = scan.image_key ? await this.storageService.generateSignedUrl(scan.image_key) : undefined;
-        const freshThumbnailUrl = scan.thumbnail_key ? await this.storageService.generateSignedUrl(scan.thumbnail_key) : undefined;
+        const freshImageUrl = scan.image_key ? await this.storageService.getSignedUrl(scan.image_key) : undefined;
+        const freshThumbnailUrl = scan.thumbnail_key ? await this.storageService.getSignedUrl(scan.thumbnail_key) : undefined;
         
         return {
           scan_id: scan._id,
@@ -93,8 +96,8 @@ export class PlantScanService {
     const rpdKey = `gemini:vision:rpd:${dateStr}`;
     
     // We assume limits like 15 RPM, 1500 RPD
-    const rpmLimit = await this.rateLimiter.consume(rpmKey, parseInt(process.env.PLANT_SCAN_GEMINI_RPM_LIMIT ?? '15', 10), 60);
-    const rpdLimit = await this.rateLimiter.consume(rpdKey, parseInt(process.env.PLANT_SCAN_GEMINI_RPD_LIMIT ?? '1500', 10), 86400);
+    const rpmLimit = await this.rateLimiter.consume(rpmKey, config.plantScan.geminiRpmLimit, 60);
+    const rpdLimit = await this.rateLimiter.consume(rpdKey, config.plantScan.geminiRpdLimit, 86400);
 
     if (!rpmLimit.allowed || !rpdLimit.allowed) {
       throw new HttpException(
@@ -173,7 +176,7 @@ export class PlantScanService {
       p_hash: pHash,
       crop_type: cropType,
       diagnosis: finalDiagnosis,
-      model_used: 'gemini-2.5-flash',
+      model_used: config.plantScan.model,
       prompt_version: builtPrompt.promptVersion,
       latency_ms: Date.now() - startedAt,
       cached: false,
@@ -191,8 +194,8 @@ export class PlantScanService {
       );
     }
 
-    const imageUrl = await this.storageService.generateSignedUrl(imageKey);
-    const thumbnailUrl = await this.storageService.generateSignedUrl(thumbnailKey);
+    const imageUrl = await this.storageService.getSignedUrl(imageKey);
+    const thumbnailUrl = await this.storageService.getSignedUrl(thumbnailKey);
 
     return {
       scan_id: scanId,
@@ -244,8 +247,8 @@ export class PlantScanService {
       );
     }
 
-    const imageUrl = scan.image_key ? await this.storageService.generateSignedUrl(scan.image_key) : undefined;
-    const thumbnailUrl = scan.thumbnail_key ? await this.storageService.generateSignedUrl(scan.thumbnail_key) : undefined;
+    const imageUrl = scan.image_key ? await this.storageService.getSignedUrl(scan.image_key) : undefined;
+    const thumbnailUrl = scan.thumbnail_key ? await this.storageService.getSignedUrl(scan.thumbnail_key) : undefined;
 
     return {
       scan_id: scan._id,

@@ -84,6 +84,15 @@ export const appConfig = () => ({
     embedModel: process.env.GEMINI_EMBED_MODEL ?? 'text-embedding-004',
   },
 
+  /** Plant Scan API Config */
+  plantScan: {
+    model: process.env.PLANT_SCAN_MODEL ?? 'gemini-2.5-flash',
+    geminiRpmLimit: parseInt(process.env.PLANT_SCAN_GEMINI_RPM_LIMIT ?? '15', 10),
+    geminiRpdLimit: parseInt(process.env.PLANT_SCAN_GEMINI_RPD_LIMIT ?? '1500', 10),
+    freeDailyLimit: parseInt(process.env.PLANT_SCAN_FREE_DAILY_LIMIT ?? '3', 10),
+    premiumDailyLimit: parseInt(process.env.PLANT_SCAN_PREMIUM_DAILY_LIMIT ?? '10', 10),
+  },
+
   /**
    * Supabase / Postgres (pgvector) — used for semantic embedding index only.
    * Prefer PG_CONNECTION_STRING (full DSN) over individual fields.
