@@ -3,14 +3,20 @@ import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-val
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
-import { AiChatDocument, ChatMessageSubdocument } from '../../infrastructure/persistence/ai-chat.schema';
+import {
+  AiChatDocument,
+  ChatMessageSubdocument,
+} from '../../infrastructure/persistence/ai-chat.schema';
 import { AiFeedbackDocument } from '../../infrastructure/persistence/ai-feedback.schema';
 import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 import { PetService } from '../../../pet/application/services/pet.service';
 import { RAGService, Citation } from './rag.service';
 import { PromptService } from './prompt.service';
 import { LLMService } from './llm.service';
-import { LLM_SAFETY_MESSAGE, LLM_FALLBACK_MESSAGE } from '../../domain/llm.constants';
+import {
+  LLM_SAFETY_MESSAGE,
+  LLM_FALLBACK_MESSAGE,
+} from '../../domain/llm.constants';
 
 export class SendMessageDto {
   @IsString()
@@ -44,7 +50,16 @@ export class SubmitFeedbackDto {
   comment?: string;
 }
 
-const PHI_KEYWORDS = ['thuốc', 'phun', 'liều lượng', 'PHI', 'cách ly', 'trừ sâu', 'diệt cỏ', 'bảo vệ thực vật'];
+const PHI_KEYWORDS = [
+  'thuốc',
+  'phun',
+  'liều lượng',
+  'PHI',
+  'cách ly',
+  'trừ sâu',
+  'diệt cỏ',
+  'bảo vệ thực vật',
+];
 const BANNED_PESTICIDES = ['paraquat', 'chlorpyrifos', 'carbofuran'];
 
 @Injectable()
@@ -64,15 +79,26 @@ export class ChatService {
     private readonly llmService: LLMService,
   ) {}
 
-  private async getSession(sessionId: string, userId: string): Promise<AiChatDocument> {
-    const session = await this.chatModel.findOne({ session_id: sessionId, user_id: userId }).exec();
+  private async getSession(
+    sessionId: string,
+    userId: string,
+  ): Promise<AiChatDocument> {
+    const session = await this.chatModel
+      .findOne({ session_id: sessionId, user_id: userId })
+      .exec();
     if (!session) {
-      throw new HttpException('Phiên trò chuyện không tồn tại!', HttpStatus.NOT_FOUND);
+      throw new HttpException(
+        'Phiên trò chuyện không tồn tại!',
+        HttpStatus.NOT_FOUND,
+      );
     }
     return session;
   }
 
-  private async createSession(userId: string, firstMessage: string): Promise<AiChatDocument> {
+  private async createSession(
+    userId: string,
+    firstMessage: string,
+  ): Promise<AiChatDocument> {
     const title = firstMessage.substring(0, 50) || 'Trò chuyện mới';
     const session = new this.chatModel({
       _id: crypto.randomUUID(),
@@ -99,7 +125,10 @@ export class ChatService {
     const petState = await this.petService.getStatus(userId);
 
     // 3. RAG Context retrieval
-    const ragContext = await this.ragService.retrieveContext(dto.content, userId);
+    const ragContext = await this.ragService.retrieveContext(
+      dto.content,
+      userId,
+    );
 
     // 4. Build prompt
     // Format messages for prompt history
@@ -118,8 +147,22 @@ export class ChatService {
     });
 
     // 5. Check Content Moderation: Refuse non-agri topics upfront if needed
-    const nonAgriKeywords = ['code', 'javascript', 'html', 'python', 'chính trị', 'bạo lực', 'phim', 'ca nhạc', 'y tế', 'pháp luật', 'tài chính'];
-    const hasNonAgri = nonAgriKeywords.some((k) => dto.content.toLowerCase().includes(k));
+    const nonAgriKeywords = [
+      'code',
+      'javascript',
+      'html',
+      'python',
+      'chính trị',
+      'bạo lực',
+      'phim',
+      'ca nhạc',
+      'y tế',
+      'pháp luật',
+      'tài chính',
+    ];
+    const hasNonAgri = nonAgriKeywords.some((k) =>
+      dto.content.toLowerCase().includes(k),
+    );
 
     let responseContent: string;
     let isSafetyBlocked = false;
@@ -127,7 +170,8 @@ export class ChatService {
     let citations: Citation[] = ragContext.citations;
 
     if (hasNonAgri) {
-      responseContent = 'Dạ, tôi là chuyên gia nông nghiệp FarmDiaries. Tôi chỉ có thể hỗ trợ bạn về kỹ thuật trồng trọt, chăn nuôi và chăm sóc nhật ký nông trại thôi ạ! 🌱';
+      responseContent =
+        'Dạ, tôi là chuyên gia nông nghiệp FarmDiaries. Tôi chỉ có thể hỗ trợ bạn về kỹ thuật trồng trọt, chăn nuôi và chăm sóc nhật ký nông trại thôi ạ! 🌱';
       isSafetyBlocked = true;
       confidence = 1.0;
       citations = [];
@@ -145,7 +189,8 @@ export class ChatService {
 
       // Handle safety blocked responses
       if (responseContent === LLM_SAFETY_MESSAGE) {
-        responseContent = 'Nội dung câu hỏi chứa các thuật ngữ chưa phù hợp để tư vấn nông nghiệp. Bà con vui lòng đặt câu hỏi rõ ràng hơn về kỹ thuật cây trồng nhé!';
+        responseContent =
+          'Nội dung câu hỏi chứa các thuật ngữ chưa phù hợp để tư vấn nông nghiệp. Bà con vui lòng đặt câu hỏi rõ ràng hơn về kỹ thuật cây trồng nhé!';
         isSafetyBlocked = true;
       }
     }
@@ -156,10 +201,13 @@ export class ChatService {
 
     const lowerResponse = responseContent.toLowerCase();
     if (PHI_KEYWORDS.some((k) => lowerResponse.includes(k))) {
-      phiWarning = '⚠️ Thời gian cách ly PHI: Cần tuân thủ thời gian cách ly tối thiểu 14 ngày trước khi thu hoạch để bảo vệ người tiêu dùng.';
+      phiWarning =
+        '⚠️ Thời gian cách ly PHI: Cần tuân thủ thời gian cách ly tối thiểu 14 ngày trước khi thu hoạch để bảo vệ người tiêu dùng.';
     }
 
-    const matchedBanned = BANNED_PESTICIDES.filter((p) => lowerResponse.includes(p));
+    const matchedBanned = BANNED_PESTICIDES.filter((p) =>
+      lowerResponse.includes(p),
+    );
     if (matchedBanned.length > 0) {
       safetyAlert = `🚨 CẢNH BÁO BẢO VỆ THỰC VẬT: Hoạt chất ${matchedBanned.join(', ')} nằm trong danh mục cấm hoặc hạn chế nghiêm ngặt tại Việt Nam do độc tính cực cao đối với sức khỏe và môi trường. Vui lòng tham khảo ý kiến Chi cục Bảo vệ Thực vật địa phương để thay thế bằng hoạt chất an toàn hơn.`;
     }
@@ -192,7 +240,9 @@ export class ChatService {
       rate_limited: responseContent === LLM_FALLBACK_MESSAGE,
       timestamp: new Date(),
       confidence,
-      sources: citations.map((c) => `${c.title} (Độ tin cậy: ${Math.round(c.score * 100)}%)`),
+      sources: citations.map(
+        (c) => `${c.title} (Độ tin cậy: ${Math.round(c.score * 100)}%)`,
+      ),
       phi_warning: phiWarning,
       safety_alert: safetyAlert,
     } as any;
@@ -212,7 +262,11 @@ export class ChatService {
         sources: assistantMessage.sources,
         phi_warning: phiWarning,
         safety_alert: safetyAlert,
-        mascot_mood: isSafetyBlocked ? 'sleepy' : (phiWarning || safetyAlert ? 'worried' : 'happy'),
+        mascot_mood: isSafetyBlocked
+          ? 'sleepy'
+          : phiWarning || safetyAlert
+            ? 'worried'
+            : 'happy',
       },
       pet_mood_updated: false,
     };

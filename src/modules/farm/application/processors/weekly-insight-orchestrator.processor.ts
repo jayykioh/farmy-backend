@@ -42,7 +42,9 @@ export class WeeklyInsightOrchestratorProcessor extends WorkerHost {
     // Chỉ xử lý job orchestrator
     if (job.name !== INSIGHT_JOB_ORCHESTRATE) return;
 
-    this.logger.log('🚀 [WeeklyInsight] Bắt đầu orchestration weekly insight...');
+    this.logger.log(
+      '🚀 [WeeklyInsight] Bắt đầu orchestration weekly insight...',
+    );
 
     const weekStartDate = this.getWeekStartDate();
     const sevenDaysAgo = new Date(weekStartDate);
@@ -64,7 +66,10 @@ export class WeeklyInsightOrchestratorProcessor extends WorkerHost {
     const weekStartDateStr = weekStartDate.toISOString();
     const jobs = activeUserIds.map((userId) => ({
       name: INSIGHT_JOB_GENERATE,
-      data: { userId, weekStartDate: weekStartDateStr } satisfies GenerateInsightPayload,
+      data: {
+        userId,
+        weekStartDate: weekStartDateStr,
+      } satisfies GenerateInsightPayload,
       opts: {
         delay: Math.floor(Math.random() * INSIGHT_SPREAD_WINDOW_MS),
         priority: 10, // Ưu tiên thấp nhất — không block chat hay embedding

@@ -50,7 +50,8 @@ export class KnowledgeService {
   }): Promise<KnowledgeSourceDocument[]> {
     const filter: Record<string, unknown> = {};
     if (opts?.category) filter.category = opts.category;
-    if (opts?.validationStatus) filter.validation_status = opts.validationStatus;
+    if (opts?.validationStatus)
+      filter.validation_status = opts.validationStatus;
 
     return this.knowledgeModel
       .find(filter)
@@ -58,7 +59,7 @@ export class KnowledgeService {
       .limit(opts?.limit ?? 50)
       .sort({ created_at: -1 })
       .lean()
-      .exec() as Promise<KnowledgeSourceDocument[]>;
+      .exec();
   }
 
   async findOne(id: string): Promise<KnowledgeSourceDocument> {
@@ -66,7 +67,7 @@ export class KnowledgeService {
     if (!doc) {
       throw new NotFoundException(`KnowledgeSource "${id}" not found`);
     }
-    return doc as KnowledgeSourceDocument;
+    return doc;
   }
 
   async update(
@@ -92,7 +93,7 @@ export class KnowledgeService {
       throw new NotFoundException(`KnowledgeSource "${id}" not found`);
     }
     this.logger.log({ action: 'knowledge.update', id });
-    return updated as KnowledgeSourceDocument;
+    return updated;
   }
 
   async remove(id: string): Promise<void> {
@@ -115,10 +116,10 @@ export class KnowledgeService {
     let candidates: KnowledgeSourceDocument[];
 
     if (dto?.ids?.length) {
-      candidates = (await this.knowledgeModel
+      candidates = await this.knowledgeModel
         .find({ _id: { $in: dto.ids } })
         .lean()
-        .exec()) as KnowledgeSourceDocument[];
+        .exec();
 
       const missing = dto.ids.filter(
         (id) => !candidates.find((d) => d._id === id),
@@ -130,13 +131,13 @@ export class KnowledgeService {
       }
     } else {
       // v2: Chỉ embed bài đã confirmed và chưa embed
-      candidates = (await this.knowledgeModel
+      candidates = await this.knowledgeModel
         .find({
           validation_status: 'confirmed',
           embed_status: { $in: ['pending', 'error'] },
         })
         .lean()
-        .exec()) as KnowledgeSourceDocument[];
+        .exec();
     }
 
     // v2: Lọc bài chưa confirmed

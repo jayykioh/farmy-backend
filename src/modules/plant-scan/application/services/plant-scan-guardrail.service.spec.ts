@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PlantScanGuardrailService, GeminiDiagnosis } from './plant-scan-guardrail.service';
+import {
+  PlantScanGuardrailService,
+  GeminiDiagnosis,
+} from './plant-scan-guardrail.service';
 
 describe('PlantScanGuardrailService', () => {
   let service: PlantScanGuardrailService;

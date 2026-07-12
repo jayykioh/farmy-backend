@@ -1,7 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { INSIGHT_QUEUE, INSIGHT_JOB_ORCHESTRATE } from '../../infrastructure/queue/insight-queue.constants';
+import {
+  INSIGHT_QUEUE,
+  INSIGHT_JOB_ORCHESTRATE,
+} from '../../infrastructure/queue/insight-queue.constants';
 
 /**
  * WeeklyInsightSchedulerService

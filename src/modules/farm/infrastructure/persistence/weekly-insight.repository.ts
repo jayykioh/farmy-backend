@@ -55,11 +55,13 @@ export class WeeklyInsightRepository {
       week_start_date: weekStartDate.toISOString().split('T')[0],
     });
 
-    return doc!;
+    return doc;
   }
 
   /** Tìm insight gần nhất của một user */
-  async findLatestByUser(userId: string): Promise<WeeklyInsightDocument | null> {
+  async findLatestByUser(
+    userId: string,
+  ): Promise<WeeklyInsightDocument | null> {
     return this.model
       .findOne({ user_id: userId })
       .sort({ week_start_date: -1 })

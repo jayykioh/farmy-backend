@@ -32,12 +32,22 @@ async function runMigration(): Promise<void> {
   const host = process.env.PG_HOST ?? '127.0.0.1';
 
   if (!connStr && !process.env.PG_HOST) {
-    console.warn('[migrate-pg] ⚠ PG_CONNECTION_STRING is not set. Skipping pgvector migration.');
+    console.warn(
+      '[migrate-pg] ⚠ PG_CONNECTION_STRING is not set. Skipping pgvector migration.',
+    );
     return;
   }
 
-  console.log('[migrate-pg] PG_CONNECTION_STRING loaded:', connStr ? '✔ YES' : '✘ NO (sẽ dùng PG_HOST)');
-  console.log('[migrate-pg] Connecting to:', connStr ? connStr.replace(/:([^:@]+)@/, ':***@') : `${host}:${process.env.PG_PORT ?? 5432}`);
+  console.log(
+    '[migrate-pg] PG_CONNECTION_STRING loaded:',
+    connStr ? '✔ YES' : '✘ NO (sẽ dùng PG_HOST)',
+  );
+  console.log(
+    '[migrate-pg] Connecting to:',
+    connStr
+      ? connStr.replace(/:([^:@]+)@/, ':***@')
+      : `${host}:${process.env.PG_PORT ?? 5432}`,
+  );
 
   const pool = getPgPool();
   let client;
@@ -77,7 +87,9 @@ async function runMigration(): Promise<void> {
         USING hnsw (embedding vector_cosine_ops)
         WITH (m = 16, ef_construction = 64);
     `);
-    console.log('[migrate-pg] ✔ HNSW index "embeddings_hnsw_cosine_idx" ensured.');
+    console.log(
+      '[migrate-pg] ✔ HNSW index "embeddings_hnsw_cosine_idx" ensured.',
+    );
 
     // 4. Partial index for is_active filter
     await client.query(`
@@ -85,7 +97,9 @@ async function runMigration(): Promise<void> {
         ON embeddings (is_active)
         WHERE is_active = TRUE;
     `);
-    console.log('[migrate-pg] ✔ Partial index "embeddings_active_idx" ensured.');
+    console.log(
+      '[migrate-pg] ✔ Partial index "embeddings_active_idx" ensured.',
+    );
 
     // 5. Index on source_id for fast deactivation / lookup
     await client.query(`

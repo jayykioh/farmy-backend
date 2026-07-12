@@ -48,13 +48,20 @@ describe('ReminderService.complete() — idempotency', () => {
       findById: jest.fn().mockImplementation((id: string) => ({
         exec: () => baseFindOne(id),
       })),
-      find: jest.fn().mockReturnValue({ sort: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) }),
+      find: jest.fn().mockReturnValue({
+        sort: jest
+          .fn()
+          .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }),
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReminderService,
-        { provide: getModelToken(ReminderDocument.name), useValue: mockReminderModel },
+        {
+          provide: getModelToken(ReminderDocument.name),
+          useValue: mockReminderModel,
+        },
         { provide: getModelToken(DiaryDocument.name), useValue: {} },
         { provide: getModelToken(FarmPlotDocument.name), useValue: {} },
         { provide: PetService, useValue: mockPetService },

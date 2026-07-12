@@ -13,7 +13,12 @@ export type ReminderType =
 
 export type ScheduleSlot = 'morning' | 'noon' | 'afternoon' | 'evening';
 
-export type ReminderStatus = 'pending' | 'delivered' | 'completed' | 'failed' | 'cancelled';
+export type ReminderStatus =
+  | 'pending'
+  | 'delivered'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
 
 @Schema({
   timestamps: { createdAt: 'created_at', updatedAt: false },

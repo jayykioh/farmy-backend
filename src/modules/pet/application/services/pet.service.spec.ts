@@ -10,7 +10,9 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Build a minimal mock PetStateDocument */
-function buildMockPet(overrides: Partial<PetStateDocument> = {}): PetStateDocument {
+function buildMockPet(
+  overrides: Partial<PetStateDocument> = {},
+): PetStateDocument {
   return {
     _id: 'pet-1',
     user_id: 'user-1',
@@ -81,7 +83,10 @@ describe('PetService', () => {
       mockPet.streak_count = 3;
       mockPet.last_diary_date = todayVN; // already logged today
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.streakCount).toBe(3); // unchanged
       expect(mockPet.missed_days).toBe(0);
@@ -93,7 +98,10 @@ describe('PetService', () => {
       mockPet.streak_count = 2;
       mockPet.last_diary_date = toVnDate(yesterday);
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.streakCount).toBe(3); // incremented
       expect(mockPet.missed_days).toBe(0);
@@ -104,7 +112,10 @@ describe('PetService', () => {
       mockPet.streak_count = 5;
       mockPet.last_diary_date = toVnDate(twoDaysAgo);
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.streakCount).toBe(1); // reset
       expect(mockPet.missed_days).toBe(0);
@@ -114,7 +125,10 @@ describe('PetService', () => {
       mockPet.streak_count = 0;
       mockPet.last_diary_date = undefined;
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.streakCount).toBe(1);
     });
@@ -128,7 +142,10 @@ describe('PetService', () => {
       mockPet.streak_count = 1;
       mockPet.last_diary_date = toVnDate(daysAgo(1));
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.exp).toBe(10);
     });
@@ -138,7 +155,10 @@ describe('PetService', () => {
       mockPet.streak_count = 2;
       mockPet.last_diary_date = toVnDate(daysAgo(1));
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.streakCount).toBe(3);
       expect(result.mood).toBe(PetMood.EXCITED);
@@ -150,7 +170,10 @@ describe('PetService', () => {
       mockPet.streak_count = 1;
       mockPet.last_diary_date = toVnDate(daysAgo(1));
 
-      const result = await service.updateAfterTaskCompleted('user-1', new Date());
+      const result = await service.updateAfterTaskCompleted(
+        'user-1',
+        new Date(),
+      );
 
       expect(result.streakCount).toBe(2);
       expect(result.mood).toBe(PetMood.HAPPY);

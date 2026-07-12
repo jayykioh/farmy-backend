@@ -26,7 +26,17 @@ import { AiModule } from '../ai/ai.module';
     AiModule,
   ],
   controllers: [AdminKnowledgeController],
-  providers: [KnowledgeRepository, KnowledgeService, KnowledgeValidationService, FileParserService],
-  exports: [KnowledgeRepository, KnowledgeService, KnowledgeValidationService, FileParserService],
+  providers: [
+    KnowledgeRepository,
+    KnowledgeService,
+    KnowledgeValidationService,
+    FileParserService,
+  ],
+  exports: [
+    KnowledgeRepository,
+    KnowledgeService,
+    KnowledgeValidationService,
+    FileParserService,
+  ],
 })
 export class KnowledgeModule {}

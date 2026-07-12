@@ -8,7 +8,9 @@ import { Pool } from 'pg';
     {
       provide: 'PG_POOL',
       useFactory: (configService: ConfigService) => {
-        const connectionString = configService.get<string>('PG_CONNECTION_STRING');
+        const connectionString = configService.get<string>(
+          'PG_CONNECTION_STRING',
+        );
         if (!connectionString) {
           const logger = new Logger('PgModule');
           logger.warn(

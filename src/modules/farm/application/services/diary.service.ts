@@ -17,6 +17,7 @@ import { PetService } from '../../../pet/application/services/pet.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { EmbeddingRepository } from '../../../ai/infrastructure/persistence/embedding.repository';
+import { IdempotencyExecutionService } from './idempotency-execution.service';
 
 @Injectable()
 export class DiaryService {
@@ -31,6 +32,7 @@ export class DiaryService {
     @InjectQueue('embedding_queue')
     private readonly embedQueue: Queue,
     private readonly embeddingRepository: EmbeddingRepository,
+    private readonly idempotencyExecutionService: IdempotencyExecutionService,
   ) {}
 
   // Helpers to verify ownership
@@ -125,6 +127,7 @@ export class DiaryService {
     const log = new this.diaryLogModel({
       _id: crypto.randomUUID(),
       diary_id: diaryId,
+      user_id: userId,
       activity_type: dto.activity_type,
       content: dto.content,
       image_url: dto.image_url,
@@ -151,6 +154,95 @@ export class DiaryService {
     );
 
     return savedLog;
+  }
+
+  async createIdempotentLog(
+    userId: string,
+    diaryId: string,
+    idempotencyKey: string,
+    requestHash: string,
+    dto: CreateDiaryLogDto,
+  ): Promise<DiaryLogDocument> {
+    await this.verifyDiaryOwner(userId, diaryId);
+
+    // 1. Acquire Lock
+    const execution =
+      await this.idempotencyExecutionService.acquireOrTakeoverLock(
+        userId,
+        idempotencyKey,
+        requestHash,
+      );
+
+    if (execution.status === 'completed') {
+      return execution.responseData as DiaryLogDocument;
+    }
+
+    // 2. Mock R2 Upload (Save paths to `uploadedKeys`)
+    // execution.uploadedKeys.push('some/path/on/r2');
+    // await execution.save();
+
+    // 3. Mongo Transaction
+    const session = await this.diaryModel.db.startSession();
+    try {
+      let savedLog: DiaryLogDocument;
+      await session.withTransaction(async () => {
+        const log = new this.diaryLogModel({
+          _id: crypto.randomUUID(),
+          diary_id: diaryId,
+          user_id: userId,
+          idempotency_key: idempotencyKey,
+          activity_type: dto.activity_type,
+          content: dto.content,
+          image_url: dto.image_url,
+        });
+
+        await this.petService.updateStreakAndMoodOnDiaryCreated(
+          userId,
+          session,
+        );
+
+        savedLog = await log.save({ session });
+
+        execution.status = 'completed';
+        execution.responseData = savedLog;
+        await execution.save({ session });
+      });
+
+      // 4. Outbox pattern: Background tasks outside the transaction
+      const contentHash = crypto
+        .createHash('sha256')
+        .update(savedLog!.content)
+        .digest('hex');
+      await this.embedQueue.add(
+        'embed_document',
+        {
+          sourceId: savedLog!._id.toString(),
+          sourceType: 'diary_log',
+          text: savedLog!.content,
+          metadata: { user_id: userId },
+        },
+        { jobId: `embed:diary_log:${savedLog!._id}:${contentHash}` },
+      );
+
+      return savedLog!;
+    } catch (error) {
+      // 5. Cleanup R2 if transaction fails (only if we still own the lock)
+      const currentExecution = await this.idempotencyExecutionService[
+        'executionModel'
+      ]
+        .findById(execution._id)
+        .exec();
+      if (
+        currentExecution &&
+        currentExecution.ownerToken === execution.ownerToken
+      ) {
+        currentExecution.status = 'failed';
+        await currentExecution.save();
+      }
+      throw error;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async findAllLogs(

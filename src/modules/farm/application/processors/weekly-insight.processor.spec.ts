@@ -59,7 +59,10 @@ describe('WeeklyInsightProcessor', () => {
         { provide: RAGService, useValue: mockRagService },
         { provide: PromptService, useValue: mockPromptService },
         { provide: LLMService, useValue: mockLlmService },
-        { provide: WeeklyInsightRepository, useValue: mockWeeklyInsightRepository },
+        {
+          provide: WeeklyInsightRepository,
+          useValue: mockWeeklyInsightRepository,
+        },
       ],
     }).compile();
 
@@ -73,7 +76,7 @@ describe('WeeklyInsightProcessor', () => {
   it('should skip insight generation if user has no diary logs in the past 7 days', async () => {
     // Return empty diaries list
     mockDiaryModel.aggregate.mockResolvedValue([]);
-    
+
     const job = {
       name: INSIGHT_JOB_GENERATE,
       id: 'job-1',
@@ -98,8 +101,10 @@ describe('WeeklyInsightProcessor', () => {
 
     // Mock logs
     mockDiaryModel.aggregate.mockResolvedValue([{ _id: 'diary-1' }]);
-    
-    const mockExec = jest.fn().mockResolvedValue([{ content: 'Test log', created_at: new Date() }]);
+
+    const mockExec = jest
+      .fn()
+      .mockResolvedValue([{ content: 'Test log', created_at: new Date() }]);
     mockDiaryLogModel.find.mockReturnValue({
       sort: jest.fn().mockReturnValue({
         limit: jest.fn().mockReturnValue({
@@ -109,7 +114,9 @@ describe('WeeklyInsightProcessor', () => {
     });
 
     // Mock services
-    mockRagService.retrieveContext.mockResolvedValue({ context_text: 'RAG Text' });
+    mockRagService.retrieveContext.mockResolvedValue({
+      context_text: 'RAG Text',
+    });
     mockPromptService.buildWeeklyInsightPrompt.mockReturnValue({
       prompt: 'Built prompt',
       promptVersion: '1',

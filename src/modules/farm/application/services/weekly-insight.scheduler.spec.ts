@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WeeklyInsightSchedulerService } from './weekly-insight.scheduler';
-import { INSIGHT_QUEUE, INSIGHT_JOB_ORCHESTRATE } from '../../infrastructure/queue/insight-queue.constants';
+import {
+  INSIGHT_QUEUE,
+  INSIGHT_JOB_ORCHESTRATE,
+} from '../../infrastructure/queue/insight-queue.constants';
 
 describe('WeeklyInsightSchedulerService', () => {
   let service: WeeklyInsightSchedulerService;
@@ -23,7 +26,9 @@ describe('WeeklyInsightSchedulerService', () => {
       ],
     }).compile();
 
-    service = module.get<WeeklyInsightSchedulerService>(WeeklyInsightSchedulerService);
+    service = module.get<WeeklyInsightSchedulerService>(
+      WeeklyInsightSchedulerService,
+    );
   });
 
   it('should be defined', () => {
@@ -40,8 +45,12 @@ describe('WeeklyInsightSchedulerService', () => {
     await service.onModuleInit();
 
     expect(mockInsightQueue.getRepeatableJobs).toHaveBeenCalled();
-    expect(mockInsightQueue.removeRepeatableByKey).toHaveBeenCalledWith('old-orchestrate-key');
-    expect(mockInsightQueue.removeRepeatableByKey).not.toHaveBeenCalledWith('other-key');
+    expect(mockInsightQueue.removeRepeatableByKey).toHaveBeenCalledWith(
+      'old-orchestrate-key',
+    );
+    expect(mockInsightQueue.removeRepeatableByKey).not.toHaveBeenCalledWith(
+      'other-key',
+    );
 
     expect(mockInsightQueue.add).toHaveBeenCalledWith(
       INSIGHT_JOB_ORCHESTRATE,
@@ -52,7 +61,7 @@ describe('WeeklyInsightSchedulerService', () => {
           tz: 'Asia/Ho_Chi_Minh',
         },
         jobId: 'weekly-insight-orchestrator',
-      })
+      }),
     );
   });
 });

@@ -97,14 +97,16 @@ export class WeeklyInsightProcessor extends WorkerHost {
     await this.weeklyInsightRepository.upsert(userId, weekStartDate, {
       insight_text: llmResult.text,
       model_used: 'gemini-1.5-flash',
-      tokens_used: (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
+      tokens_used:
+        (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
     });
 
     this.logger.log({
       action: 'weekly-insight.done',
       userId,
       week_start_date: weekStartDateStr,
-      tokens_used: (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
+      tokens_used:
+        (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
     });
   }
 

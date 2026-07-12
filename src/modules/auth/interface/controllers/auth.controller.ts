@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Res, Req, Get, Inject, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  Req,
+  Get,
+  Inject,
+  NotFoundException,
+} from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
 import { RegisterDto } from '../dtos/register.dto';

@@ -21,18 +21,23 @@ describe('ImageProcessorService', () => {
     it('should throw an error for non-image files (e.g. PDF/TXT bytes)', async () => {
       // Mocking a text file buffer (not a valid image format)
       const fakeImageBuffer = Buffer.from('this is not an image but just text');
-      
-      await expect(service.validateImageMagicBytes(fakeImageBuffer)).rejects.toThrow(
-        HttpException,
-      );
+
+      await expect(
+        service.validateImageMagicBytes(fakeImageBuffer),
+      ).rejects.toThrow(HttpException);
     });
 
     it('should pass for a valid image format mock', async () => {
       // A simple 1x1 GIF or PNG buffer (GIF is 47 49 46 38 39 61, PNG is 89 50 4E 47 0D 0A 1A 0A)
       // Actually we are testing JPEG/PNG/WEBP.
-      const validPngBytes = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082', 'hex');
-      
-      await expect(service.validateImageMagicBytes(validPngBytes)).resolves.not.toThrow();
+      const validPngBytes = Buffer.from(
+        '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082',
+        'hex',
+      );
+
+      await expect(
+        service.validateImageMagicBytes(validPngBytes),
+      ).resolves.not.toThrow();
     });
   });
 

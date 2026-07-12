@@ -39,7 +39,7 @@ export class LLMService implements IEmbeddingProvider {
   private readonly logger = new Logger(LLMService.name);
   private client?: GeminiClient;
 
-  constructor(private readonly rateLimiter: RateLimiterService) { }
+  constructor(private readonly rateLimiter: RateLimiterService) {}
 
   async complete(options: LLMCompleteOptions): Promise<LLMCompleteResult> {
     const rateLimit = await this.rateLimiter.consume(

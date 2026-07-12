@@ -36,7 +36,9 @@ export class KnowledgeValidationService {
 
     // Không cho validate lại nếu đang trong quá trình hoặc đã confirmed
     if (doc.validation_status === 'validating') {
-      throw new BadRequestException('Bài viết đang trong quá trình validation. Vui lòng chờ.');
+      throw new BadRequestException(
+        'Bài viết đang trong quá trình validation. Vui lòng chờ.',
+      );
     }
     if (doc.validation_status === 'confirmed') {
       throw new BadRequestException(
@@ -67,8 +69,8 @@ export class KnowledgeValidationService {
         parsed.language_detected === 'en'
           ? 'en'
           : parsed.language_detected === 'vi'
-          ? 'vi'
-          : 'unknown';
+            ? 'vi'
+            : 'unknown';
 
       const report: ValidationReport = {
         ...parsed,
@@ -97,8 +99,14 @@ export class KnowledgeValidationService {
     } catch (error) {
       const err = error as Error;
       // Nếu Gemini lỗi → reset về unvalidated để có thể thử lại
-      await this.model.findByIdAndUpdate(id, { validation_status: 'unvalidated' });
-      this.logger.error({ action: 'knowledge.validate.error', id, error: err.message });
+      await this.model.findByIdAndUpdate(id, {
+        validation_status: 'unvalidated',
+      });
+      this.logger.error({
+        action: 'knowledge.validate.error',
+        id,
+        error: err.message,
+      });
       throw new BadRequestException(
         `Validation thất bại: ${err.message}. Vui lòng thử lại.`,
       );
@@ -152,18 +160,24 @@ export class KnowledgeValidationService {
 
   // ─── Private helpers ───────────────────────────────────────────────────────
 
-  private parseGeminiResponse(text: string): Omit<ValidationReport, 'checked_at'> {
+  private parseGeminiResponse(
+    text: string,
+  ): Omit<ValidationReport, 'checked_at'> {
     // Trích xuất JSON từ response (Gemini có thể trả về text thừa)
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) {
-      throw new Error(`Gemini trả về không đúng JSON format. Raw: ${text.slice(0, 200)}`);
+      throw new Error(
+        `Gemini trả về không đúng JSON format. Raw: ${text.slice(0, 200)}`,
+      );
     }
 
     let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(match[0]) as Record<string, unknown>;
     } catch {
-      throw new Error(`Không thể parse JSON từ Gemini: ${match[0].slice(0, 200)}`);
+      throw new Error(
+        `Không thể parse JSON từ Gemini: ${match[0].slice(0, 200)}`,
+      );
     }
 
     // Validate các field bắt buộc
@@ -189,7 +203,9 @@ export class KnowledgeValidationService {
         ? (parsed.warnings as string[]).filter((w) => typeof w === 'string')
         : [],
       rejection_reason:
-        typeof parsed.rejection_reason === 'string' ? parsed.rejection_reason : null,
+        typeof parsed.rejection_reason === 'string'
+          ? parsed.rejection_reason
+          : null,
     };
   }
 }

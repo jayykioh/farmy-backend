@@ -14,7 +14,9 @@ export class PlantScanTreatmentSubdocument {
   phi_warning?: string;
 }
 
-const PlantScanTreatmentSubdocumentSchema = SchemaFactory.createForClass(PlantScanTreatmentSubdocument);
+const PlantScanTreatmentSubdocumentSchema = SchemaFactory.createForClass(
+  PlantScanTreatmentSubdocument,
+);
 
 @Schema({ _id: false })
 export class PlantScanDiagnosisSubdocument {
@@ -46,7 +48,9 @@ export class PlantScanDiagnosisSubdocument {
   disclaimer?: string;
 }
 
-const PlantScanDiagnosisSubdocumentSchema = SchemaFactory.createForClass(PlantScanDiagnosisSubdocument);
+const PlantScanDiagnosisSubdocumentSchema = SchemaFactory.createForClass(
+  PlantScanDiagnosisSubdocument,
+);
 
 @Schema({
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -59,7 +63,12 @@ export class PlantScanDocument extends Document<string> {
   @Prop({ type: String, ref: UserDocument.name, required: true, index: true })
   user_id: string;
 
-  @Prop({ type: String, required: true, enum: ['completed', 'failed'], default: 'completed' })
+  @Prop({
+    type: String,
+    required: true,
+    enum: ['completed', 'failed'],
+    default: 'completed',
+  })
   status: string;
 
   @Prop({ type: String, required: false })
@@ -93,7 +102,8 @@ export class PlantScanDocument extends Document<string> {
   error_code?: string;
 }
 
-export const PlantScanSchema: MongooseSchema = SchemaFactory.createForClass(PlantScanDocument);
+export const PlantScanSchema: MongooseSchema =
+  SchemaFactory.createForClass(PlantScanDocument);
 
 // Indexes
 PlantScanSchema.index({ user_id: 1, created_at: -1 });

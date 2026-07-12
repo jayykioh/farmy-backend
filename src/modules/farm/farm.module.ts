@@ -59,6 +59,12 @@ import { DiaryRepository } from './infrastructure/persistence/diary.repository';
 import { AiModule } from '../ai/ai.module';
 import { StorageModule } from '../storage/storage.module';
 
+import {
+  IdempotencyExecutionDocument,
+  IdempotencyExecutionSchema,
+} from './infrastructure/persistence/idempotency-execution.schema';
+import { IdempotencyExecutionService } from './application/services/idempotency-execution.service';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -71,6 +77,10 @@ import { StorageModule } from '../storage/storage.module';
       { name: SnapReactionDocument.name, schema: SnapReactionSchema },
       { name: SnapCommentDocument.name, schema: SnapCommentSchema },
       { name: UserDocument.name, schema: UserSchema },
+      {
+        name: IdempotencyExecutionDocument.name,
+        schema: IdempotencyExecutionSchema,
+      },
     ]),
     // BullMQ queues
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
@@ -86,6 +96,7 @@ import { StorageModule } from '../storage/storage.module';
     ReminderController,
   ],
   providers: [
+    IdempotencyExecutionService,
     FarmPlotService,
     DiaryRepository,
     DiaryService,
