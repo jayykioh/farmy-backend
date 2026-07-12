@@ -4,7 +4,10 @@ import { Model } from 'mongoose';
 import { LLMService } from './llm.service';
 import { KnowledgeSourceDocument } from '../../../knowledge/infrastructure/persistence/knowledge-source.schema';
 import { DiaryLogDocument } from '../../../farm/infrastructure/persistence/diary-log.schema';
-import { EmbeddingRepository, SearchHit } from '../../infrastructure/persistence/embedding.repository';
+import {
+  EmbeddingRepository,
+  SearchHit,
+} from '../../infrastructure/persistence/embedding.repository';
 
 export interface Citation {
   source_id: string;
@@ -38,7 +41,10 @@ export class RAGService {
     private readonly diaryLogModel: Model<DiaryLogDocument>,
   ) {}
 
-  async retrieveContext(userMessage: string, userId: string): Promise<RAGContext> {
+  async retrieveContext(
+    userMessage: string,
+    userId: string,
+  ): Promise<RAGContext> {
     try {
       // Step 1: Embed query
       const { vector } = await this.llmService.embed(userMessage);
@@ -76,7 +82,9 @@ export class RAGService {
             const dateStr = (log as any).created_at
               ? new Date((log as any).created_at).toLocaleDateString('vi-VN')
               : new Date().toLocaleDateString('vi-VN');
-            contextTexts.push(`[Nhật ký ngày ${dateStr} - ${log.activity_type}] ${log.content}`);
+            contextTexts.push(
+              `[Nhật ký ngày ${dateStr} - ${log.activity_type}] ${log.content}`,
+            );
             citations.push({
               source_id: log._id.toString(),
               source_type: 'diary_entry',

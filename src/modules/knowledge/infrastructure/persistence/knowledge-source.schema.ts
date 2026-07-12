@@ -3,11 +3,11 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 
 // ── Validation Report shape ──────────────────────────────────────────────────
 export interface ValidationReport {
-  score: number;                  // 0–100
+  score: number; // 0–100
   is_agriculture_related: boolean;
-  language_detected: string;      // 'vi' | 'en' | 'other'
+  language_detected: string; // 'vi' | 'en' | 'other'
   category_match: boolean;
-  warnings: string[];             // danh sách cảnh báo
+  warnings: string[]; // danh sách cảnh báo
   rejection_reason: string | null; // null nếu score >= 40
   checked_at: Date;
 }

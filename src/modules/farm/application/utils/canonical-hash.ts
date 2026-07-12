@@ -32,7 +32,9 @@ const normalizeValue = (value: unknown): CanonicalValue | undefined => {
   return undefined;
 };
 
-const canonicalizeObject = (input: Record<string, unknown>): { [key: string]: CanonicalValue } => {
+const canonicalizeObject = (
+  input: Record<string, unknown>,
+): { [key: string]: CanonicalValue } => {
   return Object.keys(input)
     .sort((a, b) => a.localeCompare(b, 'en-US'))
     .reduce<{ [key: string]: CanonicalValue }>((result, key) => {
@@ -60,5 +62,8 @@ export const buildCanonicalDiaryJson = (input: DiaryHashInput): string => {
 };
 
 export const createDiaryRequestHash = (input: DiaryHashInput): string => {
-  return crypto.createHash('sha256').update(buildCanonicalDiaryJson(input), 'utf8').digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(buildCanonicalDiaryJson(input), 'utf8')
+    .digest('hex');
 };

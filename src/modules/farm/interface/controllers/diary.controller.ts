@@ -84,15 +84,17 @@ export class DiaryController {
     @Headers('x-request-hash') requestHash?: string,
   ) {
     if (!idempotencyKey || !requestHash) {
-      throw new BadRequestException('Idempotency-Key and X-Request-Hash headers are required');
+      throw new BadRequestException(
+        'Idempotency-Key and X-Request-Hash headers are required',
+      );
     }
-    
+
     const data = await this.diaryService.createIdempotentLog(
       user.id,
       diaryId,
       idempotencyKey,
       requestHash,
-      dto
+      dto,
     );
     return {
       success: true,

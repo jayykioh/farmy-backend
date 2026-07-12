@@ -3,7 +3,12 @@ import { Job } from 'bullmq';
 import { WeeklyInsightOrchestratorProcessor } from './weekly-insight-orchestrator.processor';
 import { getModelToken } from '@nestjs/mongoose';
 import { DiaryLogDocument } from '../../infrastructure/persistence/diary-log.schema';
-import { INSIGHT_QUEUE, INSIGHT_JOB_ORCHESTRATE, INSIGHT_JOB_GENERATE, INSIGHT_SPREAD_WINDOW_MS } from '../../infrastructure/queue/insight-queue.constants';
+import {
+  INSIGHT_QUEUE,
+  INSIGHT_JOB_ORCHESTRATE,
+  INSIGHT_JOB_GENERATE,
+  INSIGHT_SPREAD_WINDOW_MS,
+} from '../../infrastructure/queue/insight-queue.constants';
 
 describe('WeeklyInsightOrchestratorProcessor', () => {
   let processor: WeeklyInsightOrchestratorProcessor;
@@ -32,7 +37,9 @@ describe('WeeklyInsightOrchestratorProcessor', () => {
       ],
     }).compile();
 
-    processor = module.get<WeeklyInsightOrchestratorProcessor>(WeeklyInsightOrchestratorProcessor);
+    processor = module.get<WeeklyInsightOrchestratorProcessor>(
+      WeeklyInsightOrchestratorProcessor,
+    );
   });
 
   it('should be defined', () => {
@@ -57,7 +64,7 @@ describe('WeeklyInsightOrchestratorProcessor', () => {
       expect(jobData.name).toBe(INSIGHT_JOB_GENERATE);
       expect(jobData.data).toHaveProperty('userId');
       expect(jobData.data).toHaveProperty('weekStartDate');
-      
+
       const delay = jobData.opts.delay;
       expect(delay).toBeGreaterThanOrEqual(0);
       expect(delay).toBeLessThan(INSIGHT_SPREAD_WINDOW_MS);

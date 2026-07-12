@@ -12,7 +12,11 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { ChatService, SendMessageDto, SubmitFeedbackDto } from '../../application/services/chat.service';
+import {
+  ChatService,
+  SendMessageDto,
+  SubmitFeedbackDto,
+} from '../../application/services/chat.service';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 

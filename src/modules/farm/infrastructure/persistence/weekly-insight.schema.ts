@@ -39,8 +39,9 @@ export class WeeklyInsightDocument extends Document<string> {
   tokens_used: number;
 }
 
-export const WeeklyInsightSchema: MongooseSchema =
-  SchemaFactory.createForClass(WeeklyInsightDocument);
+export const WeeklyInsightSchema: MongooseSchema = SchemaFactory.createForClass(
+  WeeklyInsightDocument,
+);
 
 // Unique compound index đảm bảo mỗi user chỉ có một insight mỗi tuần
 WeeklyInsightSchema.index({ user_id: 1, week_start_date: 1 }, { unique: true });

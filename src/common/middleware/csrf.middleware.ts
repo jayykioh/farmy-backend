@@ -24,7 +24,7 @@ export class CsrfMiddleware implements NestMiddleware {
     ];
 
     if (
-      ignoredPaths.some(p => req.originalUrl.startsWith(p)) ||
+      ignoredPaths.some((p) => req.originalUrl.startsWith(p)) ||
       req.originalUrl.startsWith('/admin') ||
       req.originalUrl.startsWith('/api/v1/admin')
     ) {

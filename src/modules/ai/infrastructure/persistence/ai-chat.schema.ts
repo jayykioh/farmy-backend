@@ -44,7 +44,9 @@ export class ChatMessageSubdocument {
   safety_alert?: string;
 }
 
-const ChatMessageSubdocumentSchema = SchemaFactory.createForClass(ChatMessageSubdocument);
+const ChatMessageSubdocumentSchema = SchemaFactory.createForClass(
+  ChatMessageSubdocument,
+);
 
 @Schema({
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -67,7 +69,8 @@ export class AiChatDocument extends Document<string> {
   messages: ChatMessageSubdocument[];
 }
 
-export const AiChatSchema: MongooseSchema = SchemaFactory.createForClass(AiChatDocument);
+export const AiChatSchema: MongooseSchema =
+  SchemaFactory.createForClass(AiChatDocument);
 
 // TTL 90 days index
 AiChatSchema.index({ created_at: 1 }, { expireAfterSeconds: 7776000 });

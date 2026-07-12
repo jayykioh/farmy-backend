@@ -18,10 +18,13 @@ export const GeminiDiagnosisSchema = z.object({
   disease_name: z.string().optional(),
   confidence: z.number().optional(),
   symptoms: z.array(z.string()).optional().default([]),
-  treatment: z.object({
-    chemical: z.string().optional().default(''),
-    organic: z.string().optional().default(''),
-  }).optional().default({ chemical: '', organic: '' }),
+  treatment: z
+    .object({
+      chemical: z.string().optional().default(''),
+      organic: z.string().optional().default(''),
+    })
+    .optional()
+    .default({ chemical: '', organic: '' }),
 });
 
 export type GeminiDiagnosis = z.infer<typeof GeminiDiagnosisSchema>;
@@ -58,7 +61,10 @@ export class PlantScanGuardrailService {
     }
 
     // 3. Low Confidence
-    if (typeof diagnosis.confidence === 'number' && diagnosis.confidence < 0.6) {
+    if (
+      typeof diagnosis.confidence === 'number' &&
+      diagnosis.confidence < 0.6
+    ) {
       enrichedDiagnosis.low_confidence_warning =
         '⚠️ Độ tin cậy thấp (< 60%). Vui lòng chụp lại ảnh rõ nét hơn dưới ánh sáng tự nhiên hoặc bổ sung thêm triệu chứng mô tả.';
     }

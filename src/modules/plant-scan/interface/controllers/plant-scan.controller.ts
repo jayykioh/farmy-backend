@@ -66,7 +66,12 @@ export class PlantScanController {
       );
     }
 
-    const data = await this.scanService.diagnose(file, body.crop_type, user.id, user.tier || 'free');
+    const data = await this.scanService.diagnose(
+      file,
+      body.crop_type,
+      user.id,
+      user.tier || 'free',
+    );
     return {
       success: true,
       data,

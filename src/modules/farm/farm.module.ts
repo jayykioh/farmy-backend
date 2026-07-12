@@ -59,7 +59,10 @@ import { IdempotencyExecutionService } from './application/services/idempotency-
       { name: ReminderDocument.name, schema: ReminderSchema },
       { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
       { name: UserDocument.name, schema: UserSchema },
-      { name: IdempotencyExecutionDocument.name, schema: IdempotencyExecutionSchema },
+      {
+        name: IdempotencyExecutionDocument.name,
+        schema: IdempotencyExecutionSchema,
+      },
     ]),
     // BullMQ queues
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
@@ -92,6 +95,5 @@ import { IdempotencyExecutionService } from './application/services/idempotency-
     WeeklyInsightRepository,
     WebPushService,
   ],
-
 })
 export class FarmModule {}

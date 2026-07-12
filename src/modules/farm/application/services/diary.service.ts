@@ -166,11 +166,12 @@ export class DiaryService {
     await this.verifyDiaryOwner(userId, diaryId);
 
     // 1. Acquire Lock
-    const execution = await this.idempotencyExecutionService.acquireOrTakeoverLock(
-      userId,
-      idempotencyKey,
-      requestHash,
-    );
+    const execution =
+      await this.idempotencyExecutionService.acquireOrTakeoverLock(
+        userId,
+        idempotencyKey,
+        requestHash,
+      );
 
     if (execution.status === 'completed') {
       return execution.responseData as DiaryLogDocument;
@@ -195,7 +196,10 @@ export class DiaryService {
           image_url: dto.image_url,
         });
 
-        await this.petService.updateStreakAndMoodOnDiaryCreated(userId, session);
+        await this.petService.updateStreakAndMoodOnDiaryCreated(
+          userId,
+          session,
+        );
 
         savedLog = await log.save({ session });
 
@@ -223,10 +227,15 @@ export class DiaryService {
       return savedLog!;
     } catch (error) {
       // 5. Cleanup R2 if transaction fails (only if we still own the lock)
-      const currentExecution = await this.idempotencyExecutionService['executionModel']
+      const currentExecution = await this.idempotencyExecutionService[
+        'executionModel'
+      ]
         .findById(execution._id)
         .exec();
-      if (currentExecution && currentExecution.ownerToken === execution.ownerToken) {
+      if (
+        currentExecution &&
+        currentExecution.ownerToken === execution.ownerToken
+      ) {
         currentExecution.status = 'failed';
         await currentExecution.save();
       }

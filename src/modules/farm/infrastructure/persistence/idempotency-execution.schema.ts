@@ -21,7 +21,11 @@ export class IdempotencyExecutionDocument extends Document<string> {
   @Prop({ type: String, required: true })
   requestHash: string;
 
-  @Prop({ type: String, enum: ['processing', 'completed', 'failed'], required: true })
+  @Prop({
+    type: String,
+    enum: ['processing', 'completed', 'failed'],
+    required: true,
+  })
   status: IdempotencyExecutionStatus;
 
   @Prop({ type: String, required: true })
@@ -43,9 +47,10 @@ export class IdempotencyExecutionDocument extends Document<string> {
   responseData?: any;
 }
 
-export const IdempotencyExecutionSchema: MongooseSchema = SchemaFactory.createForClass(IdempotencyExecutionDocument);
+export const IdempotencyExecutionSchema: MongooseSchema =
+  SchemaFactory.createForClass(IdempotencyExecutionDocument);
 
 IdempotencyExecutionSchema.index(
   { userId: 1, idempotencyKey: 1 },
-  { unique: true }
+  { unique: true },
 );

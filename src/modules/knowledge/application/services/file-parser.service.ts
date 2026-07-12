@@ -192,7 +192,11 @@ export class FileParserService {
       );
     }
 
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       throw new UnprocessableEntityException(
         'File JSON phải là một object có dạng { title, content, category, source_url? }.',
       );
@@ -222,9 +226,11 @@ export class FileParserService {
     return {
       content,
       title: typeof data.title === 'string' ? data.title.trim() : undefined,
-      category: (data.category as string).trim(),
+      category: data.category.trim(),
       source_url:
-        typeof data.source_url === 'string' ? data.source_url.trim() : undefined,
+        typeof data.source_url === 'string'
+          ? data.source_url.trim()
+          : undefined,
       sourceFileType: 'json',
       extractedChars: content.length,
     };

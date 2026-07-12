@@ -42,7 +42,8 @@ export class UserConsentDocument extends Document {
   ip_address?: string;
 }
 
-export const UserConsentSchema = SchemaFactory.createForClass(UserConsentDocument);
+export const UserConsentSchema =
+  SchemaFactory.createForClass(UserConsentDocument);
 
 // Compound unique index so each user has at most one record per consent type
 UserConsentSchema.index({ user_id: 1, consent_type: 1 }, { unique: true });

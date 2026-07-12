@@ -23,7 +23,8 @@ export class ImageProcessorService {
     const isPng = hex.startsWith('89504E47');
     // WEBP: 52 49 46 46 ... 57 45 42 50
     // "RIFF" in hex is 52 49 46 46, "WEBP" is 57 45 42 50
-    const isWebp = hex.startsWith('52494646') && hex.substring(16, 24) === '57454250';
+    const isWebp =
+      hex.startsWith('52494646') && hex.substring(16, 24) === '57454250';
 
     if (!isJpeg && !isPng && !isWebp) {
       this.throwInvalidType();
@@ -61,7 +62,7 @@ export class ImageProcessorService {
       // [ 0,  1,  0]
       // [ 1, -4,  1]
       // [ 0,  1,  0]
-      
+
       let sum = 0;
       let sumSq = 0;
       let count = 0;
@@ -75,11 +76,7 @@ export class ImageProcessorService {
           const right = y * width + (x + 1);
 
           const laplacian =
-            data[top] +
-            data[bottom] +
-            data[left] +
-            data[right] -
-            4 * data[idx];
+            data[top] + data[bottom] + data[left] + data[right] - 4 * data[idx];
 
           sum += laplacian;
           sumSq += laplacian * laplacian;
@@ -88,7 +85,7 @@ export class ImageProcessorService {
       }
 
       const mean = sum / count;
-      const variance = (sumSq / count) - (mean * mean);
+      const variance = sumSq / count - mean * mean;
 
       this.logger.debug(`Image variance: ${variance}`);
 
@@ -105,7 +102,12 @@ export class ImageProcessorService {
   async optimizeImage(buffer: Buffer): Promise<Buffer> {
     return sharp(buffer)
       .rotate() // auto-orient based on EXIF
-      .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+      .resize({
+        width: 1024,
+        height: 1024,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .webp({ quality: 80 })
       .toBuffer();
   }
@@ -116,7 +118,12 @@ export class ImageProcessorService {
   async createThumbnail(buffer: Buffer): Promise<Buffer> {
     return sharp(buffer)
       .rotate()
-      .resize({ width: 256, height: 256, fit: 'inside', withoutEnlargement: true })
+      .resize({
+        width: 256,
+        height: 256,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .webp({ quality: 60 })
       .toBuffer();
   }
@@ -153,7 +160,11 @@ export class ImageProcessorService {
       this.logger.error('Failed to compute pHash', e);
       // Fallback
       const crypto = await import('crypto');
-      return crypto.createHash('md5').update(buffer.slice(0, 1024)).digest('hex').substring(0, 16);
+      return crypto
+        .createHash('md5')
+        .update(buffer.slice(0, 1024))
+        .digest('hex')
+        .substring(0, 16);
     }
   }
 

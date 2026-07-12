@@ -158,7 +158,10 @@ export class ReminderService {
     reminder.delivered_at = new Date();
 
     // Cập nhật streak, XP và tâm trạng thú ảo (thay vì chỉ set mood happy)
-    await this.petService.updateAfterTaskCompleted(userId, reminder.delivered_at);
+    await this.petService.updateAfterTaskCompleted(
+      userId,
+      reminder.delivered_at,
+    );
 
     return reminder.save();
   }

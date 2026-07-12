@@ -35,7 +35,8 @@ export class AiFeedbackDocument extends Document<string> {
   prompt_version?: string;
 }
 
-export const AiFeedbackSchema: MongooseSchema = SchemaFactory.createForClass(AiFeedbackDocument);
+export const AiFeedbackSchema: MongooseSchema =
+  SchemaFactory.createForClass(AiFeedbackDocument);
 
 // Indexes
 AiFeedbackSchema.index({ user_id: 1, created_at: -1 });

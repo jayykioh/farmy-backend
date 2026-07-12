@@ -34,5 +34,8 @@ export const DiaryLogSchema: MongooseSchema =
 
 DiaryLogSchema.index(
   { user_id: 1, idempotency_key: 1 },
-  { unique: true, partialFilterExpression: { idempotency_key: { $type: 'string' } } }
+  {
+    unique: true,
+    partialFilterExpression: { idempotency_key: { $type: 'string' } },
+  },
 );

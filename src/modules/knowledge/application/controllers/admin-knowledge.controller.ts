@@ -18,9 +18,7 @@ import { memoryStorage } from 'multer';
 import { Roles } from '../../../../common/decorators/roles.decorator';
 import { KnowledgeService } from '../services/knowledge.service';
 import { KnowledgeValidationService } from '../services/knowledge-validation.service';
-import {
-  FileParserService,
-} from '../services/file-parser.service';
+import { FileParserService } from '../services/file-parser.service';
 import { CreateKnowledgeUnifiedDto } from '../dto/create-knowledge-unified.dto';
 import { UpdateKnowledgeDto } from '../dto/update-knowledge.dto';
 import { BatchEmbedKnowledgeDto } from '../dto/batch-embed-knowledge.dto';
@@ -113,7 +111,9 @@ export class AdminKnowledgeController {
       if (parsed.sourceFileType === 'json') {
         finalCategory = dto.category ?? parsed.category!;
         finalTitle =
-          dto.title ?? parsed.title ?? FileParserService.stripExtension(file.originalname);
+          dto.title ??
+          parsed.title ??
+          FileParserService.stripExtension(file.originalname);
         finalSourceUrl = dto.source_url ?? parsed.source_url;
       } else {
         // PDF / DOCX: category BẮT BUỘC từ form
@@ -124,7 +124,8 @@ export class AdminKnowledgeController {
         }
         finalCategory = dto.category.trim();
         finalTitle =
-          dto.title?.trim() ?? FileParserService.stripExtension(file.originalname);
+          dto.title?.trim() ??
+          FileParserService.stripExtension(file.originalname);
       }
 
       // Lưu metadata file
@@ -147,9 +148,7 @@ export class AdminKnowledgeController {
         );
       }
       if (!dto.category?.trim()) {
-        throw new BadRequestException(
-          'Field "category" là bắt buộc.',
-        );
+        throw new BadRequestException('Field "category" là bắt buộc.');
       }
 
       finalContent = dto.content.trim();
@@ -168,7 +167,9 @@ export class AdminKnowledgeController {
 
     // Tạo message thân thiện dựa vào loại input
     const sourceType = (metadata['source_file_type'] as string) ?? 'text';
-    const charCount = (metadata['extracted_chars'] as number | undefined) ?? finalContent.length;
+    const charCount =
+      (metadata['extracted_chars'] as number | undefined) ??
+      finalContent.length;
     const sourceLabels: Record<string, string> = {
       pdf: 'file PDF',
       docx: 'file DOCX',

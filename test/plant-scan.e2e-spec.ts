@@ -15,7 +15,11 @@ describe('Plant Scan (e2e)', () => {
 
   const mockR2StorageService = {
     uploadFile: jest.fn().mockResolvedValue('mock-key'),
-    getSignedUrl: jest.fn().mockImplementation((key: string) => Promise.resolve(`https://mock-r2.com/${key}`)),
+    getSignedUrl: jest
+      .fn()
+      .mockImplementation((key: string) =>
+        Promise.resolve(`https://mock-r2.com/${key}`),
+      ),
     deleteFile: jest.fn().mockResolvedValue(undefined),
   };
 
@@ -62,7 +66,9 @@ describe('Plant Scan (e2e)', () => {
 
     // Create and log in a secondary user for cross-user tests
     await request(app.getHttpServer()).post('/api/v1/auth/register').send({
-      email: 'other@farmy.com', password: 'Password123', full_name: 'Other User'
+      email: 'other@farmy.com',
+      password: 'Password123',
+      full_name: 'Other User',
     });
     const loginRes2 = await request(app.getHttpServer())
       .post('/api/v1/auth/login')
@@ -90,13 +96,21 @@ describe('Plant Scan (e2e)', () => {
   describe('4.1 Validation & 4.8 API Contract (No double wrapper)', () => {
     it('should reject fake image magic bytes', async () => {
       mockImageProcessor.validateImageMagicBytes.mockRejectedValueOnce(
-        new Error('INVALID_IMAGE_TYPE')
+        new Error('INVALID_IMAGE_TYPE'),
       );
       // We simulate the service throwing an error, but actually in NestJS it throws HttpException.
       // So let's mock it to throw the exact HttpException it normally would
       const { HttpException, HttpStatus } = require('@nestjs/common');
       mockImageProcessor.validateImageMagicBytes.mockRejectedValueOnce(
-        new HttpException({ success: false, statusCode: 415, errorCode: 'INVALID_IMAGE_TYPE', message: 'Err' }, HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+        new HttpException(
+          {
+            success: false,
+            statusCode: 415,
+            errorCode: 'INVALID_IMAGE_TYPE',
+            message: 'Err',
+          },
+          HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+        ),
       );
 
       const res = await uploadScan(accessToken);
@@ -108,7 +122,9 @@ describe('Plant Scan (e2e)', () => {
     });
 
     it('should reject variance < 100 with SCAN_IMAGE_BLURRY', async () => {
-      mockImageProcessor.validateImageMagicBytes.mockResolvedValueOnce(undefined);
+      mockImageProcessor.validateImageMagicBytes.mockResolvedValueOnce(
+        undefined,
+      );
       mockImageProcessor.checkBlurry.mockResolvedValueOnce(true);
 
       const res = await uploadScan(accessToken);
@@ -120,9 +136,13 @@ describe('Plant Scan (e2e)', () => {
 
   describe('4.9 Invalid Gemini JSON', () => {
     it('should handle invalid JSON from LLM and return LLM_ERROR', async () => {
-      mockImageProcessor.validateImageMagicBytes.mockResolvedValueOnce(undefined);
+      mockImageProcessor.validateImageMagicBytes.mockResolvedValueOnce(
+        undefined,
+      );
       mockImageProcessor.checkBlurry.mockResolvedValueOnce(false);
-      mockLLMService.completeVision.mockResolvedValueOnce({ text: 'Not JSON at all' });
+      mockLLMService.completeVision.mockResolvedValueOnce({
+        text: 'Not JSON at all',
+      });
 
       const res = await uploadScan(accessToken);
       expect(res.status).toBe(500);
@@ -132,16 +152,18 @@ describe('Plant Scan (e2e)', () => {
 
   describe('4.3 is_plant = false', () => {
     it('should return 422 NOT_A_PLANT_IMAGE', async () => {
-      mockImageProcessor.validateImageMagicBytes.mockResolvedValueOnce(undefined);
+      mockImageProcessor.validateImageMagicBytes.mockResolvedValueOnce(
+        undefined,
+      );
       mockImageProcessor.checkBlurry.mockResolvedValueOnce(false);
       mockLLMService.completeVision.mockResolvedValueOnce({
         text: JSON.stringify({
           is_plant: false,
           confidence: 0.9,
-          disease_name: "Không",
-          condition_summary: "Không",
-          treatment: { chemical: [], organic: [] }
-        })
+          disease_name: 'Không',
+          condition_summary: 'Không',
+          treatment: { chemical: [], organic: [] },
+        }),
       });
 
       const res = await uploadScan(accessToken);
@@ -155,37 +177,37 @@ describe('Plant Scan (e2e)', () => {
       mockImageProcessor.validateImageMagicBytes.mockResolvedValue(undefined);
       mockImageProcessor.checkBlurry.mockResolvedValue(false);
       mockImageProcessor.computePHash.mockResolvedValue('1111111111111111'); // specific hash for this test
-      
+
       const mockLlmResponse = {
         is_plant: true,
         confidence: 0.5, // Will trigger low_confidence_warning
-        disease_name: "Bệnh lúa",
-        condition_summary: "Mô tả",
+        disease_name: 'Bệnh lúa',
+        condition_summary: 'Mô tả',
         treatment: {
-          chemical: ["paraquat", "thuốc sâu"], // Will trigger safety_alert and phi_warning
-          organic: ["nước"]
-        }
+          chemical: ['paraquat', 'thuốc sâu'], // Will trigger safety_alert and phi_warning
+          organic: ['nước'],
+        },
       };
 
       mockLLMService.completeVision.mockResolvedValueOnce({
-        text: JSON.stringify(mockLlmResponse)
+        text: JSON.stringify(mockLlmResponse),
       });
 
       const res = await uploadScan(accessToken, 'Lúa Test');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.status).toBe('completed');
-      
+
       const diagnosis = res.body.data.diagnosis;
       expect(diagnosis.low_confidence_warning).toBeDefined();
       expect(diagnosis.treatment.safety_alert).toBeDefined();
       expect(diagnosis.treatment.phi_warning).toBeDefined();
       expect(diagnosis.disclaimer).toBeDefined();
-      
+
       // 5.5 No image_key leak
       expect(res.body.data.image_key).toBeUndefined();
       expect(res.body.data.image_url).toContain('mock-r2.com');
-      
+
       scanId = res.body.data.scan_id;
     });
   });
@@ -199,22 +221,22 @@ describe('Plant Scan (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('cached');
       expect(res.body.data.cache_hit_from_scan_id).toBe(scanId);
-      
+
       // Verify LLM not called
       expect(mockLLMService.completeVision).not.toHaveBeenCalled();
     });
 
     it('should MISS cache for same hash but different crop type', async () => {
       mockImageProcessor.computePHash.mockResolvedValue('1111111111111111'); // same hash
-      
+
       mockLLMService.completeVision.mockResolvedValueOnce({
         text: JSON.stringify({
           is_plant: true,
           confidence: 0.9,
-          disease_name: "Bệnh ổi",
-          condition_summary: "Mô tả",
-          treatment: { chemical: [], organic: [] }
-        })
+          disease_name: 'Bệnh ổi',
+          condition_summary: 'Mô tả',
+          treatment: { chemical: [], organic: [] },
+        }),
       });
 
       const res = await uploadScan(accessToken, 'Ổi Test'); // different crop type
@@ -229,7 +251,7 @@ describe('Plant Scan (e2e)', () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/plant-scans/${scanId}`)
         .set('Authorization', `Bearer ${accessToken}`);
-      
+
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.scan_id).toBe(scanId);
@@ -239,10 +261,9 @@ describe('Plant Scan (e2e)', () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/plant-scans/${scanId}`)
         .set('Authorization', `Bearer ${otherUserToken}`);
-      
+
       expect(res.status).toBe(404);
       expect(res.body.errorCode).toBe('SCAN_NOT_FOUND');
     });
   });
-
 });

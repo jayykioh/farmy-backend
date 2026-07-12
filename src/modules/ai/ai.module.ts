@@ -83,4 +83,4 @@ import {
     ChatService,
   ],
 })
-export class AiModule { }
+export class AiModule {}

@@ -156,7 +156,9 @@ export class ReminderProcessor extends WorkerHost {
     try {
       const user = await this.userModel.findById(payload.userId).exec();
       if (user && user.push_subscription) {
-        this.logger.log(`🔔 Sending Web Push notification to user: ${payload.userId}`);
+        this.logger.log(
+          `🔔 Sending Web Push notification to user: ${payload.userId}`,
+        );
         const sent = await this.webPushService.send(user.push_subscription, {
           title: 'Nhắc nhở từ Farm Diary 🍃',
           body: payload.title,
@@ -169,7 +171,9 @@ export class ReminderProcessor extends WorkerHost {
         }
       }
     } catch (err: any) {
-      this.logger.error(`Error checking push subscription or sending push: ${err.message}`);
+      this.logger.error(
+        `Error checking push subscription or sending push: ${err.message}`,
+      );
     }
 
     // Fallback to console logging

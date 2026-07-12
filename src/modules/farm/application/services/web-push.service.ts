@@ -12,10 +12,15 @@ export class WebPushService implements OnModuleInit {
   onModuleInit() {
     let publicKey = this.configService.get<string>('VAPID_PUBLIC_KEY');
     let privateKey = this.configService.get<string>('VAPID_PRIVATE_KEY');
-    const email = this.configService.get<string>('VAPID_EMAIL', 'mailto:support@farmdiaries.com');
+    const email = this.configService.get<string>(
+      'VAPID_EMAIL',
+      'mailto:support@farmdiaries.com',
+    );
 
     if (!publicKey || !privateKey) {
-      this.logger.warn('VAPID keys are not fully configured in environment variables.');
+      this.logger.warn(
+        'VAPID keys are not fully configured in environment variables.',
+      );
       try {
         const generated = webpush.generateVAPIDKeys();
         publicKey = generated.publicKey;
@@ -71,7 +76,9 @@ export class WebPushService implements OnModuleInit {
       this.logger.log(`Web push notification sent successfully.`);
       return true;
     } catch (error: any) {
-      this.logger.error(`Failed to send web push notification: ${error.message}`);
+      this.logger.error(
+        `Failed to send web push notification: ${error.message}`,
+      );
       return false;
     }
   }

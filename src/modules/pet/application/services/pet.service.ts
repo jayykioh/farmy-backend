@@ -188,8 +188,13 @@ export class PetService {
   // ── Core Service Methods ──────────────────────────────────────────────────
 
   /** Ensure pet record exists for user, create if needed */
-  private async ensurePet(userId: string, session?: import('mongoose').ClientSession): Promise<PetStateDocument> {
-    let pet = await this.petModel.findOne({ user_id: userId }, null, { session }).exec();
+  private async ensurePet(
+    userId: string,
+    session?: import('mongoose').ClientSession,
+  ): Promise<PetStateDocument> {
+    let pet = await this.petModel
+      .findOne({ user_id: userId }, null, { session })
+      .exec();
     if (!pet) {
       this.logger.log(`Creating initial pet state for user ${userId}`);
       const todayVN = this.getTodayVN();
@@ -390,8 +395,8 @@ export class PetService {
     diaryDate: Date | import('mongoose').ClientSession = new Date(),
     session?: import('mongoose').ClientSession,
   ): Promise<PetStatusResponse> {
-    let finalDate = diaryDate instanceof Date ? diaryDate : new Date();
-    let finalSession = diaryDate instanceof Date ? session : (diaryDate as import('mongoose').ClientSession);
+    const finalDate = diaryDate instanceof Date ? diaryDate : new Date();
+    const finalSession = diaryDate instanceof Date ? session : diaryDate;
     return this.updateAfterDiaryCreated(userId, finalDate, finalSession);
   }
 

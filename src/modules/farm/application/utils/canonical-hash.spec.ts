@@ -1,4 +1,7 @@
-import { buildCanonicalDiaryJson, createDiaryRequestHash } from './canonical-hash';
+import {
+  buildCanonicalDiaryJson,
+  createDiaryRequestHash,
+} from './canonical-hash';
 
 describe('canonical-hash', () => {
   it('builds the canonical JSON fixture with A-Z keys and NFC text', () => {
@@ -26,6 +29,8 @@ describe('canonical-hash', () => {
       imageDigests: ['abc', 'def'],
     });
 
-    expect(hash).toBe('751d61c46cb61b9a2655ec3da754a50d2fe5be31da64d776f75b8333d732ba36');
+    expect(hash).toBe(
+      '751d61c46cb61b9a2655ec3da754a50d2fe5be31da64d776f75b8333d732ba36',
+    );
   });
 });

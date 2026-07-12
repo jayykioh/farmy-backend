@@ -35,7 +35,10 @@ export class PromptService {
     const history = this.buildHistory(input.chatHistory);
 
     const truncatedMsg = this.truncate(safeMsg, PROMPT_LIMITS.maxUserMsgChars);
-    const truncatedCtx = this.truncateRight(safeCtx, PROMPT_LIMITS.maxContextChars);
+    const truncatedCtx = this.truncateRight(
+      safeCtx,
+      PROMPT_LIMITS.maxContextChars,
+    );
 
     const ragBlock =
       truncatedCtx.length > 0 ? truncatedCtx : '(Không có dữ liệu tham khảo)';
@@ -87,7 +90,10 @@ export class PromptService {
   buildWeeklyInsightPrompt(input: BuildWeeklyInsightPromptInput): BuiltPrompt {
     const diarySummary = this.formatDiaries(input.diaries);
     const safeCtx = this.sanitizeContext(input.ragContext);
-    const truncatedCtx = this.truncateRight(safeCtx, PROMPT_LIMITS.maxContextChars);
+    const truncatedCtx = this.truncateRight(
+      safeCtx,
+      PROMPT_LIMITS.maxContextChars,
+    );
 
     const ragBlock =
       truncatedCtx.length > 0
@@ -203,9 +209,7 @@ export class PromptService {
     return diaries
       .map((d) => {
         const dateObj =
-          d.created_at instanceof Date
-            ? d.created_at
-            : new Date(d.created_at);
+          d.created_at instanceof Date ? d.created_at : new Date(d.created_at);
         const day = String(dateObj.getUTCDate()).padStart(2, '0');
         const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
         const year = dateObj.getUTCFullYear();

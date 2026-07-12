@@ -14,7 +14,10 @@
 /** Số ký tự tối đa của content gửi cho Gemini để tránh vượt context window */
 const MAX_CONTENT_LENGTH = 3000;
 
-export function buildValidationPrompt(content: string, category: string): string {
+export function buildValidationPrompt(
+  content: string,
+  category: string,
+): string {
   const truncated = content.slice(0, MAX_CONTENT_LENGTH);
   const isTruncated = content.length > MAX_CONTENT_LENGTH;
 

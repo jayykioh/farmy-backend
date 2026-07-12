@@ -81,14 +81,16 @@ export class UserController {
     @Body() dto: UserConsentDto,
   ) {
     // Upsert consent record
-    const consent = await this.consentModel.findOneAndUpdate(
-      { user_id: currentUser.id, consent_type: dto.consent_type } as any,
-      {
-        granted: dto.granted,
-        policy_version: dto.policy_version,
-      },
-      { upsert: true, new: true },
-    ).exec();
+    const consent = await this.consentModel
+      .findOneAndUpdate(
+        { user_id: currentUser.id, consent_type: dto.consent_type } as any,
+        {
+          granted: dto.granted,
+          policy_version: dto.policy_version,
+        },
+        { upsert: true, new: true },
+      )
+      .exec();
 
     return {
       success: true,
@@ -128,11 +130,14 @@ export class UserController {
     );
 
     // 4. Pino logging (Audit log)
-    this.logger.log(`Audit Log: user.delete_account | UserID: ${currentUser.id}`);
+    this.logger.log(
+      `Audit Log: user.delete_account | UserID: ${currentUser.id}`,
+    );
 
     return {
       success: true,
-      message: 'Tài khoản đã được xóa mềm. Mọi dữ liệu liên quan sẽ hoàn toàn bị xóa sau 30 ngày.',
+      message:
+        'Tài khoản đã được xóa mềm. Mọi dữ liệu liên quan sẽ hoàn toàn bị xóa sau 30 ngày.',
     };
   }
 
@@ -170,7 +175,9 @@ export class UserController {
 
     // Find diaries for user plots
     const plotIds = plots.map((p) => p._id);
-    const diaries = await this.diaryModel.find({ plot_id: { $in: plotIds } }).exec();
+    const diaries = await this.diaryModel
+      .find({ plot_id: { $in: plotIds } })
+      .exec();
     const diaryIds = diaries.map((d) => d._id);
 
     // Find diary logs
