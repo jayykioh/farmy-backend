@@ -15,12 +15,46 @@ import { UpdateDiaryDto } from '../dtos/update-diary.dto';
 import { CreateDiaryLogDto } from '../dtos/create-diary-log.dto';
 import { UpdateDiaryLogDto } from '../dtos/update-diary-log.dto';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
+import { R2StorageService } from '../../../storage/r2-storage.service';
+import * as crypto from 'crypto';
 
 @Controller('api/v1/diaries')
 export class DiaryController {
-  constructor(private readonly diaryService: DiaryService) {}
+  constructor(
+    private readonly diaryService: DiaryService,
+    private readonly r2StorageService: R2StorageService,
+  ) {}
 
   // Diary endpoints
+  @Post('upload-url')
+  async createUploadUrl(
+    @CurrentUser() user: { id: string },
+    @Body() dto: { fileName?: string; contentType: string },
+  ) {
+    const fileExtension = dto.fileName?.split('.').pop()?.toLowerCase();
+    let extension = 'jpeg';
+    if (fileExtension && ['jpg', 'jpeg', 'png', 'webp'].includes(fileExtension)) {
+      extension = fileExtension === 'jpg' ? 'jpeg' : fileExtension;
+    } else {
+      switch (dto.contentType) {
+        case 'image/png': extension = 'png'; break;
+        case 'image/webp': extension = 'webp'; break;
+        default: extension = 'jpeg';
+      }
+    }
+    const key = `diaries/${user.id}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
+    const uploadUrl = await this.r2StorageService.getPresignedUploadUrl(key, dto.contentType);
+    return {
+      success: true,
+      data: {
+        key,
+        uploadUrl,
+        publicUrl: this.r2StorageService.getPublicUrl(key),
+        expiresIn: 300,
+      },
+    };
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(

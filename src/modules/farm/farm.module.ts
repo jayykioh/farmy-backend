@@ -42,12 +42,14 @@ import { DiaryService } from './application/services/diary.service';
 import { FarmSnapService } from './application/services/farm-snap.service';
 import { ReminderService } from './application/services/reminder.service';
 import { ReminderSchedulerService } from './application/services/reminder-scheduler.service';
+import { R2StorageService } from '../storage/r2-storage.service';
 import { WebPushService } from './application/services/web-push.service';
 import { WeeklyInsightSchedulerService } from './application/services/weekly-insight.scheduler';
 import { FarmPlotController } from './interface/controllers/farm-plot.controller';
 import { DiaryController } from './interface/controllers/diary.controller';
 import { FarmSnapController } from './interface/controllers/farm-snap.controller';
 import { ReminderController } from './interface/controllers/reminder.controller';
+import { WeeklyInsightController } from './interface/controllers/weekly-insight.controller';
 import { ReminderProcessor } from './infrastructure/queue/reminder.processor';
 import { REMINDER_QUEUE } from './infrastructure/queue/reminder-queue.constants';
 import { INSIGHT_QUEUE } from './infrastructure/queue/insight-queue.constants';
@@ -84,6 +86,7 @@ import { StorageModule } from '../storage/storage.module';
     DiaryController,
     FarmSnapController,
     ReminderController,
+    WeeklyInsightController,
   ],
   providers: [
     FarmPlotService,
