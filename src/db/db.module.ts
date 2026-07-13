@@ -28,6 +28,10 @@ import {
   AiChatMemoryDocument,
   AiChatMemorySchema,
 } from '../modules/ai/infrastructure/persistence/ai-chat-memory.schema';
+import {
+  WeeklyInsightDocument,
+  WeeklyInsightSchema,
+} from '../modules/farm/infrastructure/persistence/weekly-insight.schema';
 import { MigrationDocument, MigrationSchema } from './migration.schema';
 import { DatabaseMigrationService } from './database-migration.service';
 import { DatabaseSeedService } from './database-seed.service';
@@ -42,6 +46,7 @@ import { DatabaseSeedService } from './database-seed.service';
       { name: ReminderDocument.name, schema: ReminderSchema },
       { name: KnowledgeSourceDocument.name, schema: KnowledgeSourceSchema },
       { name: AiChatMemoryDocument.name, schema: AiChatMemorySchema },
+      { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
       { name: MigrationDocument.name, schema: MigrationSchema },
     ]),
   ],
