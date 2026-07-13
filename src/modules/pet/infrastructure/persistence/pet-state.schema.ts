@@ -72,6 +72,12 @@ export class PetStateDocument extends Document<string> {
   @Prop({ type: String, required: false, default: '' })
   mood_reason?: string;
 
+  @Prop({ type: [String], default: [] })
+  owned_items: string[];
+
+  @Prop({ type: [String], default: [] })
+  equipped_items: string[];
+
   /** @deprecated – kept for backward compat, use mood_reason instead */
   @Prop({ type: Date, required: false })
   last_diary_at?: Date;
