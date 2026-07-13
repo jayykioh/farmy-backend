@@ -9,6 +9,7 @@ export class User {
   private pushSubscription?: any;
   private isDeleted?: boolean;
   private deletedAt?: Date;
+  private phoneNumber?: string;
 
   constructor(
     id: string,
@@ -19,6 +20,7 @@ export class User {
     pushSubscription?: any,
     isDeleted?: boolean,
     deletedAt?: Date,
+    phoneNumber?: string,
   ) {
     this.id = id;
     this.email = email;
@@ -28,6 +30,7 @@ export class User {
     this.pushSubscription = pushSubscription;
     this.isDeleted = isDeleted;
     this.deletedAt = deletedAt;
+    this.phoneNumber = phoneNumber;
   }
 
   public getId(): string {
@@ -77,5 +80,13 @@ export class User {
 
   public updatePassword(newPasswordHash: string): void {
     this.passwordHash = newPasswordHash;
+  }
+
+  public getPhoneNumber(): string | undefined {
+    return this.phoneNumber;
+  }
+
+  public setPhoneNumber(phoneNumber: string): void {
+    this.phoneNumber = phoneNumber;
   }
 }

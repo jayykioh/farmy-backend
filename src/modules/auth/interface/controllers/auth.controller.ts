@@ -7,6 +7,7 @@ import {
   Get,
   Inject,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
@@ -24,6 +25,7 @@ import { Roles } from '../../../../common/decorators/roles.decorator';
 import { User } from '../../domain/user.aggregate';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
+import { SmsService } from '../../application/services/sms.service';
 
 interface AuthCommandResult {
   accessToken: string;
@@ -37,6 +39,7 @@ export class AuthController {
     private readonly commandBus: CommandBus,
     @Inject(IUserRepositoryToken)
     private readonly userRepository: IUserRepository,
+    private readonly zaloService: SmsService,
   ) {}
 
   @Public()
@@ -99,6 +102,7 @@ export class AuthController {
           email: result.user.getEmail(),
           name: result.user.getName(),
           role: result.user.getRole(),
+          phoneNumber: result.user.getPhoneNumber(),
         },
       },
     };
@@ -136,20 +140,25 @@ export class AuthController {
           email: result.user.getEmail(),
           name: result.user.getName(),
           role: result.user.getRole(),
+          phoneNumber: result.user.getPhoneNumber(),
         },
       },
     };
   }
 
   @Get('me')
-  getMe(@CurrentUser() user: AuthenticatedUser) {
+  async getMe(@CurrentUser() currentUser: AuthenticatedUser) {
+    const user = await this.userRepository.findById(currentUser.id);
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+
     return {
       success: true,
       data: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+        id: user.getId(),
+        email: user.getEmail(),
+        name: user.getName(),
+        role: user.getRole(),
+        phoneNumber: user.getPhoneNumber(),
       },
     };
   }
@@ -208,6 +217,33 @@ export class AuthController {
     return {
       success: true,
       message: 'Cập nhật đăng ký nhận thông báo thành công!',
+    };
+  }
+
+  @Post('zalo-notification/test')
+  async testZaloNotification(
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const userAggregate = await this.userRepository.findById(user.id);
+    if (!userAggregate) {
+      throw new NotFoundException('Không tìm thấy người dùng!');
+    }
+
+    const phone = userAggregate.getPhoneNumber();
+    if (!phone) {
+      throw new BadRequestException('Người dùng chưa cập nhật số điện thoại.');
+    }
+
+    const success = await this.zaloService.sendNotificationTest(phone);
+    if (!success) {
+      throw new BadRequestException('Không thể gửi tin nhắn Zalo test lúc này.');
+    }
+
+    // TODO: Cập nhật user-consent notification_zalo = true nếu cần thiết
+
+    return {
+      success: true,
+      message: 'Gửi thông báo SMS test thành công!',
     };
   }
 }

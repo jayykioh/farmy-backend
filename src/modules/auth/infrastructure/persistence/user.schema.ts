@@ -37,6 +37,9 @@ export class UserDocument extends Document<string> {
 
   @Prop({ type: Date, required: false })
   deleted_at?: Date;
+
+  @Prop()
+  phone_number?: string;
 }
 
 export const UserSchema: MongooseSchema =

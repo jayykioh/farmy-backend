@@ -67,6 +67,7 @@ import { IRefreshTokenRepositoryToken } from './domain/repositories/refresh-toke
 import { MongooseRefreshTokenRepository } from './infrastructure/persistence/mongoose-refresh-token.repository';
 import { PrivacyProcessor } from './infrastructure/queue/privacy.processor';
 import { StorageModule } from '../storage/storage.module';
+import { SmsService } from './application/services/sms.service';
 
 const CommandHandlers = [
   RegisterUserHandler,
@@ -116,6 +117,7 @@ const CommandHandlers = [
       provide: IRefreshTokenRepositoryToken,
       useClass: MongooseRefreshTokenRepository,
     },
+    SmsService,
   ],
   exports: [
     IUserRepositoryToken,
