@@ -11,11 +11,16 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   const cfg = appConfig();
 
-  // CORS — origins are loaded from ALLOWED_ORIGINS env variable
   app.enableCors({
     origin: cfg.allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-XSRF-TOKEN',
+      'Idempotency-Key',
+      'X-Request-Hash',
+    ],
     credentials: true, // Required for HttpOnly cookie (refresh_token)
   });
 

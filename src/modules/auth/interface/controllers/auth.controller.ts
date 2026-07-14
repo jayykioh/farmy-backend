@@ -25,6 +25,8 @@ import { User } from '../../domain/user.aggregate';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
 
+import { appConfig } from '../../../../config/app.config';
+
 interface AuthCommandResult {
   accessToken: string;
   refreshToken: string;
@@ -49,11 +51,12 @@ export class AuthController {
       new RegisterUserCommand(dto),
     )) as unknown as AuthCommandResult;
 
+    const cfg = appConfig();
     // Set refresh token in HttpOnly cookie as required
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
+      sameSite: cfg.cookieSameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -80,11 +83,12 @@ export class AuthController {
       new LoginUserCommand(dto),
     )) as unknown as AuthCommandResult;
 
+    const cfg = appConfig();
     // Set refresh token in HttpOnly cookie
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
+      sameSite: cfg.cookieSameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -117,11 +121,12 @@ export class AuthController {
       new RefreshTokenCommand(refreshToken),
     )) as unknown as AuthCommandResult;
 
+    const cfg = appConfig();
     // Rotate refresh token
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
+      sameSite: cfg.cookieSameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -183,8 +188,12 @@ export class AuthController {
       await this.commandBus.execute(new LogoutCommand(refreshToken));
     }
 
+    const cfg = appConfig();
     // Clear cookies
     response.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
+      sameSite: cfg.cookieSameSite,
       path: '/api/v1/auth',
     });
 
