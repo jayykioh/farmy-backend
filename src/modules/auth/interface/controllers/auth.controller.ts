@@ -8,7 +8,10 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
 import { RegisterDto } from '../dtos/register.dto';
@@ -18,6 +21,7 @@ import { RegisterUserCommand } from '../../application/commands/register-user.co
 import { LoginUserCommand } from '../../application/commands/login-user.command';
 import { RefreshTokenCommand } from '../../application/commands/refresh-token.command';
 import { LogoutCommand } from '../../application/commands/logout.command';
+import { GoogleLoginCommand } from '../../application/commands/google-login.command';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../common/decorators/current-user.decorator';
@@ -40,6 +44,7 @@ export class AuthController {
     @Inject(IUserRepositoryToken)
     private readonly userRepository: IUserRepository,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Public()
@@ -194,6 +199,17 @@ export class AuthController {
 
     // Clear cookies
     response.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict', // Standard login uses strict
+      path: '/api/v1/auth',
+    });
+    
+    // Also clear with lax in case they logged in via Google OAuth
+    response.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       path: '/api/v1/auth',
     });
 
@@ -245,5 +261,48 @@ export class AuthController {
       success: true,
       message: 'Gửi email test thành công!',
     };
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth(@Req() req: Request) {
+    // Initiates the Google OAuth flow
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(
+    @Req() req: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    // req.user contains the user info returned from GoogleStrategy.validate
+    const googleUser = req.user as any;
+    
+    if (!googleUser) {
+      throw new BadRequestException('No user from google');
+    }
+
+    const result = (await this.commandBus.execute(
+      new GoogleLoginCommand(googleUser),
+    )) as unknown as AuthCommandResult;
+
+    // Set refresh token in HttpOnly cookie
+    response.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax', // Must be lax or none for OAuth redirect to work depending on domains, lax is safe
+      path: '/api/v1/auth',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    
+    // Redirect to frontend callback page with tokens in URL
+    // In a real production app, sending tokens via URL can be a security risk.
+    // An alternative is short-lived code or relying entirely on cookies if Same-Site configuration allows.
+    // We pass accessToken via URL and refreshToken via cookie.
+    return response.redirect(`${frontendUrl}/oauth-callback?accessToken=${result.accessToken}`);
   }
 }

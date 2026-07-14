@@ -10,6 +10,8 @@ import { RegisterUserHandler } from './application/commands/register-user.handle
 import { LoginUserHandler } from './application/commands/login-user.handler';
 import { RefreshTokenHandler } from './application/commands/refresh-token.handler';
 import { LogoutHandler } from './application/commands/logout.handler';
+import { GoogleLoginHandler } from './application/commands/google-login.handler';
+import { GoogleStrategy } from './infrastructure/strategies/google.strategy';
 import { IUserRepositoryToken } from './domain/repositories/user-repository.interface';
 import { MongooseUserRepository } from './infrastructure/persistence/mongoose-user.repository';
 import {
@@ -76,6 +78,7 @@ const CommandHandlers = [
   LoginUserHandler,
   RefreshTokenHandler,
   LogoutHandler,
+  GoogleLoginHandler,
 ];
 
 @Module({
@@ -124,6 +127,7 @@ const CommandHandlers = [
   providers: [
     ...CommandHandlers,
     JwtStrategy,
+    GoogleStrategy,
     PrivacyProcessor,
     {
       provide: IUserRepositoryToken,
