@@ -317,13 +317,23 @@ export class AuthController {
     console.log('googleAuthRedirect - Callback query:', req.query);
     const state = req.query.state as string;
     let targetUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    let isMobileRedirect = false;
     
-    // Nếu request đến từ mobile (state=mobile), chuyển hướng về custom scheme của mobile
-    if (state === 'mobile') {
-      targetUrl = 'farmy://';
+    // Hỗ trợ dynamic redirect URL gửi từ mobile (bắt đầu bằng exp:// hoặc farmy://)
+    if (state && (state.startsWith('exp://') || state.startsWith('farmy://'))) {
+      targetUrl = state;
+      isMobileRedirect = true;
+    } else if (state === 'mobile') {
+      targetUrl = 'farmy://oauth-callback';
+      isMobileRedirect = true;
     }
 
-    const separator = targetUrl.endsWith('/') ? '' : '/';
-    return response.redirect(`${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`);
+    if (isMobileRedirect) {
+      const connector = targetUrl.includes('?') ? '&' : '?';
+      return response.redirect(`${targetUrl}${connector}accessToken=${result.accessToken}`);
+    } else {
+      const separator = targetUrl.endsWith('/') ? '' : '/';
+      return response.redirect(`${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`);
+    }
   }
 }
