@@ -14,8 +14,17 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { CommandBus } from '@nestjs/cqrs';
-import * as passport from 'passport';
 import type { Response, Request } from 'express';
+
+@Injectable()
+class GoogleAuthGuard extends AuthGuard('google') {
+  getAuthorizeOptions(context: any) {
+    const request = context.switchToHttp().getRequest();
+    return {
+      state: request.query.state,
+    };
+  }
+}
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { PushSubscriptionDto } from '../dtos/push-subscription.dto';
@@ -271,10 +280,9 @@ export class AuthController {
 
   @Public()
   @Get('google')
-  async googleAuth(@Req() req: Request, @Res() res: Response) {
-    passport.authenticate('google', {
-      state: req.query.state as string,
-    })(req, res);
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth(@Req() req: Request) {
+    // Initiates the Google OAuth flow
   }
 
   @Public()
