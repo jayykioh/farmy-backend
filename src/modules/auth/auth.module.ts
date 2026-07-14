@@ -67,6 +67,9 @@ import { IRefreshTokenRepositoryToken } from './domain/repositories/refresh-toke
 import { MongooseRefreshTokenRepository } from './infrastructure/persistence/mongoose-refresh-token.repository';
 import { PrivacyProcessor } from './infrastructure/queue/privacy.processor';
 import { StorageModule } from '../storage/storage.module';
+import { EmailService } from './application/services/email.service';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 const CommandHandlers = [
   RegisterUserHandler,
@@ -98,6 +101,24 @@ const CommandHandlers = [
       name: 'privacy',
     }),
     StorageModule,
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        transport: {
+          host: configService.get<string>('SMTP_HOST'),
+          port: configService.get<number>('SMTP_PORT'),
+          secure: configService.get<number>('SMTP_PORT') == 465, // true for 465, false for other ports
+          auth: {
+            user: configService.get<string>('SMTP_USER'),
+            pass: configService.get<string>('SMTP_PASS'),
+          },
+        },
+        defaults: {
+          from: `"Farmy" <${configService.get<string>('SMTP_USER')}>`,
+        },
+      }),
+    }),
   ],
   controllers: [AuthController, UserController],
   providers: [
@@ -116,6 +137,7 @@ const CommandHandlers = [
       provide: IRefreshTokenRepositoryToken,
       useClass: MongooseRefreshTokenRepository,
     },
+    EmailService,
   ],
   exports: [
     IUserRepositoryToken,
@@ -123,6 +145,7 @@ const CommandHandlers = [
     IRefreshTokenRepositoryToken,
     PassportModule,
     JwtStrategy,
+    EmailService,
   ],
 })
 export class AuthModule {}

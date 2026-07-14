@@ -5,7 +5,6 @@ export class UserConsentDto {
     [
       'data_storage',
       'ai_analysis',
-      'notification_zalo',
       'notification_email',
       'notification_push',
       'social_sharing',
