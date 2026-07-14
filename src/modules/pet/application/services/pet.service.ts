@@ -30,6 +30,8 @@ export interface PetStatusResponse {
   missedDays: number;
   moodReason: PetMoodReason | string;
   bubbleMessage: string;
+  ownedItems: string[];
+  equippedItems: string[];
   updatedAt?: Date;
 }
 
@@ -265,6 +267,8 @@ export class PetService {
       missedDays: pet.missed_days,
       moodReason: pet.mood_reason ?? reason,
       bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      ownedItems: pet.owned_items,
+      equippedItems: pet.equipped_items,
       updatedAt: (pet as any).updated_at,
     };
   }
@@ -316,6 +320,8 @@ export class PetService {
       missedDays: pet.missed_days,
       moodReason: reason,
       bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      ownedItems: pet.owned_items,
+      equippedItems: pet.equipped_items,
       updatedAt: (pet as any).updated_at,
     };
   }
@@ -375,6 +381,8 @@ export class PetService {
       missedDays: pet.missed_days,
       moodReason: reason,
       bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      ownedItems: pet.owned_items,
+      equippedItems: pet.equipped_items,
       updatedAt: (pet as any).updated_at,
     };
   }
