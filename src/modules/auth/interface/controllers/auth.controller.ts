@@ -20,8 +20,10 @@ import type { Response, Request } from 'express';
 class GoogleAuthGuard extends AuthGuard('google') {
   getAuthorizeOptions(context: any) {
     const request = context.switchToHttp().getRequest();
+    const state = request.query.state;
+    console.log('GoogleAuthGuard - Lấy state từ query:', state);
     return {
-      state: request.query.state,
+      state: state,
     };
   }
 }
@@ -312,6 +314,7 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
+    console.log('googleAuthRedirect - Callback query:', req.query);
     const state = req.query.state as string;
     let targetUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     
