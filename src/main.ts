@@ -15,7 +15,13 @@ async function bootstrap() {
   app.enableCors({
     origin: cfg.allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-XSRF-TOKEN',
+      'Idempotency-Key',
+      'X-Request-Hash',
+    ],
     credentials: true, // Required for HttpOnly cookie (refresh_token)
   });
 
