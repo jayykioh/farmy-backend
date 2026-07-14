@@ -247,12 +247,26 @@ export class FarmSnapService {
       this.commentModel.countDocuments({ snap_id: snap._id }).exec(),
     ]);
 
+    let imageUrl = snap.image_url;
+    if (imageUrl && !imageUrl.startsWith('data:')) {
+      if (!imageUrl.startsWith('http') || imageUrl.includes('pub-xxx.r2.dev')) {
+        const key = imageUrl.includes('pub-xxx.r2.dev')
+          ? imageUrl.split('pub-xxx.r2.dev/')[1]
+          : imageUrl;
+        try {
+          imageUrl = await this.r2StorageService.getSignedUrl(key);
+        } catch (err) {
+          // Fallback to original if signing fails
+        }
+      }
+    }
+
     return {
       id: snap._id,
       userId: snap.user_id,
       userName: user?.name ?? 'Nhà nông Farmy',
       userAvatar: user?.avatar_url,
-      imageUrl: snap.image_url,
+      imageUrl,
       caption: snap.caption,
       cropType: snap.crop_type,
       condition: snap.condition,

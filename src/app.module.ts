@@ -87,14 +87,20 @@ import { ShopModule } from './modules/shop/shop.module';
       useFactory: () => {
         const cfg = appConfig();
         const redisUrl = cfg.redis.url;
+        
+        // BullMQ requires maxRetriesPerRequest to be null
         if (redisUrl) {
-          return { connection: { url: redisUrl } };
+          // If URL is provided, we must pass an ioredis instance to BullMQ
+          // because BullMQ's connection options object doesn't directly support a 'url' property
+          const Redis = require('ioredis');
+          return { connection: new Redis(redisUrl, { maxRetriesPerRequest: null }) };
         }
         return {
           connection: {
             host: cfg.redis.host,
             port: cfg.redis.port,
             ...(cfg.redis.password ? { password: cfg.redis.password } : {}),
+            maxRetriesPerRequest: null,
           },
         };
       },
