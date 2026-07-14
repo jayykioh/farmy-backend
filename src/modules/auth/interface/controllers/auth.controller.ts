@@ -6,6 +6,7 @@ import {
   Req,
   Get,
   Inject,
+  Injectable,
   NotFoundException,
   BadRequestException,
   UseGuards,
@@ -269,7 +270,12 @@ export class AuthController {
 
   @Public()
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(new (class extends AuthGuard('google') {
+    getAuthorizeOptions(context: any) {
+      const req = context.switchToHttp().getRequest();
+      return { state: req.query.state };
+    }
+  })())
   async googleAuth(@Req() req: Request) {
     // Initiates the Google OAuth flow
   }
@@ -301,12 +307,15 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    const state = req.query.state as string;
+    let targetUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     
-    // Redirect to frontend callback page with tokens in URL
-    // In a real production app, sending tokens via URL can be a security risk.
-    // An alternative is short-lived code or relying entirely on cookies if Same-Site configuration allows.
-    // We pass accessToken via URL and refreshToken via cookie.
-    return response.redirect(`${frontendUrl}/oauth-callback?accessToken=${result.accessToken}`);
+    // Nếu request đến từ mobile (state=mobile), chuyển hướng về custom scheme của mobile
+    if (state === 'mobile') {
+      targetUrl = 'farmy://';
+    }
+
+    const separator = targetUrl.endsWith('/') ? '' : '/';
+    return response.redirect(`${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`);
   }
 }
