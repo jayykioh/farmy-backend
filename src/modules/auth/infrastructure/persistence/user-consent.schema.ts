@@ -5,7 +5,6 @@ import { UserDocument } from './user.schema';
 export type ConsentType =
   | 'data_storage'
   | 'ai_analysis'
-  | 'notification_zalo'
   | 'notification_email'
   | 'notification_push'
   | 'social_sharing';
@@ -24,7 +23,6 @@ export class UserConsentDocument extends Document {
     enum: [
       'data_storage',
       'ai_analysis',
-      'notification_zalo',
       'notification_email',
       'notification_push',
       'social_sharing',

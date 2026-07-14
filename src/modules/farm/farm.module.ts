@@ -60,6 +60,8 @@ import { PetModule } from '../pet/pet.module';
 import { DiaryRepository } from './infrastructure/persistence/diary.repository';
 import { AiModule } from '../ai/ai.module';
 import { StorageModule } from '../storage/storage.module';
+import { AuthModule } from '../auth/auth.module';
+import { forwardRef } from '@nestjs/common';
 
 import {
   IdempotencyExecutionDocument,
@@ -90,6 +92,7 @@ import { IdempotencyExecutionService } from './application/services/idempotency-
     PetModule,
     AiModule,
     StorageModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [
     FarmPlotController,

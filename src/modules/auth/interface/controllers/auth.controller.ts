@@ -25,7 +25,7 @@ import { Roles } from '../../../../common/decorators/roles.decorator';
 import { User } from '../../domain/user.aggregate';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
-import { SmsService } from '../../application/services/sms.service';
+import { EmailService } from '../../application/services/email.service';
 
 interface AuthCommandResult {
   accessToken: string;
@@ -39,7 +39,7 @@ export class AuthController {
     private readonly commandBus: CommandBus,
     @Inject(IUserRepositoryToken)
     private readonly userRepository: IUserRepository,
-    private readonly zaloService: SmsService,
+    private readonly emailService: EmailService,
   ) {}
 
   @Public()
@@ -220,8 +220,8 @@ export class AuthController {
     };
   }
 
-  @Post('zalo-notification/test')
-  async testZaloNotification(
+  @Post('email-notification/test')
+  async testEmailNotification(
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const userAggregate = await this.userRepository.findById(user.id);
@@ -229,21 +229,21 @@ export class AuthController {
       throw new NotFoundException('Không tìm thấy người dùng!');
     }
 
-    const phone = userAggregate.getPhoneNumber();
-    if (!phone) {
-      throw new BadRequestException('Người dùng chưa cập nhật số điện thoại.');
+    const email = userAggregate.getEmail();
+    if (!email) {
+      throw new BadRequestException('Người dùng chưa cập nhật email.');
     }
 
-    const success = await this.zaloService.sendNotificationTest(phone);
+    const success = await this.emailService.sendEmailNotificationTest(email);
     if (!success) {
-      throw new BadRequestException('Không thể gửi tin nhắn Zalo test lúc này.');
+      throw new BadRequestException('Không thể gửi email test lúc này.');
     }
 
-    // TODO: Cập nhật user-consent notification_zalo = true nếu cần thiết
+    // TODO: Cập nhật user-consent notification_email = true nếu cần thiết
 
     return {
       success: true,
-      message: 'Gửi thông báo SMS test thành công!',
+      message: 'Gửi email test thành công!',
     };
   }
 }
