@@ -10,6 +10,7 @@ export class User {
   private isDeleted?: boolean;
   private deletedAt?: Date;
   private phoneNumber?: string;
+  private onboardingCompleted: boolean;
 
   constructor(
     id: string,
@@ -21,6 +22,7 @@ export class User {
     isDeleted?: boolean,
     deletedAt?: Date,
     phoneNumber?: string,
+    onboardingCompleted?: boolean,
   ) {
     this.id = id;
     this.email = email;
@@ -31,6 +33,7 @@ export class User {
     this.isDeleted = isDeleted;
     this.deletedAt = deletedAt;
     this.phoneNumber = phoneNumber;
+    this.onboardingCompleted = onboardingCompleted ?? false;
   }
 
   public getId(): string {
@@ -88,5 +91,13 @@ export class User {
 
   public setPhoneNumber(phoneNumber: string): void {
     this.phoneNumber = phoneNumber;
+  }
+
+  public isOnboardingCompleted(): boolean {
+    return this.onboardingCompleted;
+  }
+
+  public completeOnboarding(): void {
+    this.onboardingCompleted = true;
   }
 }

@@ -77,18 +77,40 @@ export class DiaryService {
     return diary.save();
   }
 
-  async findAll(userId: string): Promise<DiaryDocument[]> {
+  async findAll(userId: string): Promise<any[]> {
     // Get all plot IDs of the user
     const plots = await this.farmPlotModel.find({ user_id: userId }).exec();
     const plotIds = plots.map((p) => p._id);
 
     // Find all diaries belonging to these plots (exclude status: deleted)
-    return this.diaryModel
+    const diaries = await this.diaryModel
       .find({
         plot_id: { $in: plotIds },
         status: { $ne: 'deleted' },
       })
       .exec();
+
+    const result: any[] = [];
+    for (const diary of diaries) {
+      const latestLog = await this.diaryLogModel
+        .findOne({ diary_id: diary._id })
+        .sort({ created_at: -1 })
+        .exec();
+
+      result.push({
+        ...diary.toObject(),
+        latest_log: latestLog
+          ? {
+              _id: latestLog._id,
+              activity_type: latestLog.activity_type,
+              content: latestLog.content,
+              created_at: latestLog.created_at,
+            }
+          : null,
+      });
+    }
+
+    return result;
   }
 
   async findOne(userId: string, id: string): Promise<DiaryDocument> {

@@ -74,6 +74,7 @@ export class AuthController {
         email: result.user.getEmail(),
         name: result.user.getName(),
         access_token: result.accessToken,
+        onboardingCompleted: false,
       },
     };
   }
@@ -108,6 +109,7 @@ export class AuthController {
           name: result.user.getName(),
           role: result.user.getRole(),
           phoneNumber: result.user.getPhoneNumber(),
+          onboardingCompleted: result.user.isOnboardingCompleted(),
         },
       },
     };
@@ -146,6 +148,7 @@ export class AuthController {
           name: result.user.getName(),
           role: result.user.getRole(),
           phoneNumber: result.user.getPhoneNumber(),
+          onboardingCompleted: result.user.isOnboardingCompleted(),
         },
       },
     };
@@ -164,6 +167,7 @@ export class AuthController {
         name: user.getName(),
         role: user.getRole(),
         phoneNumber: user.getPhoneNumber(),
+        onboardingCompleted: user.isOnboardingCompleted(),
       },
     };
   }

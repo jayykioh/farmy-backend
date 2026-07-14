@@ -35,6 +35,9 @@ export class UserDocument extends Document<string> {
   @Prop({ type: Boolean, default: false })
   is_deleted?: boolean;
 
+  @Prop({ type: Boolean, default: false })
+  onboarding_completed?: boolean;
+
   @Prop({ type: Date, required: false })
   deleted_at?: Date;
 
