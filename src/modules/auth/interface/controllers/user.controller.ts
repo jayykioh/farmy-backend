@@ -71,63 +71,71 @@ export class UserController {
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body() dto: { onboarding_completed?: boolean; farmName?: string; primaryCrops?: string },
   ) {
-    const userAggregate = await this.userRepository.findById(currentUser.id);
-    if (!userAggregate) {
-      throw new NotFoundException('Người dùng không tồn tại');
-    }
-
-    if (dto.onboarding_completed !== undefined) {
-      if (dto.onboarding_completed) {
-        userAggregate.completeOnboarding();
+    try {
+      this.logger.log(`updateProfile starting for user ${currentUser.id} with DTO: ${JSON.stringify(dto)}`);
+      const userAggregate = await this.userRepository.findById(currentUser.id);
+      if (!userAggregate) {
+        throw new NotFoundException('Người dùng không tồn tại');
       }
-    }
 
-    await this.userRepository.save(userAggregate);
+      if (dto.onboarding_completed !== undefined) {
+        if (dto.onboarding_completed) {
+          userAggregate.completeOnboarding();
+        }
+      }
 
-    let plot: FarmPlotDocument | null = null;
-    let diary: DiaryDocument | null = null;
+      await this.userRepository.save(userAggregate);
 
-    if (dto.farmName) {
-      // Create a default plot
-      const plotId = crypto.randomUUID();
-      const newPlot = new this.farmPlotModel({
-        _id: plotId,
-        user_id: currentUser.id,
-        name: dto.farmName,
-        area_size: 1,
-        description: 'Mảnh vườn mặc định được tạo từ onboarding',
-      });
-      plot = await newPlot.save();
+      let plot: FarmPlotDocument | null = null;
+      let diary: DiaryDocument | null = null;
 
-      if (dto.primaryCrops) {
-        // Create a default diary log/diary cycle for this plot
-        const diaryId = crypto.randomUUID();
-        const newDiary = new this.diaryModel({
-          _id: diaryId,
-          plot_id: plotId,
-          crop_type: dto.primaryCrops,
-          start_date: new Date(),
-          status: 'active',
-          metadata: {},
+      if (dto.farmName) {
+        // Create a default plot
+        const plotId = crypto.randomUUID();
+        const newPlot = new this.farmPlotModel({
+          _id: plotId,
+          user_id: currentUser.id,
+          name: dto.farmName,
+          area_size: 1,
+          description: 'Mảnh vườn mặc định được tạo từ onboarding',
         });
-        diary = await newDiary.save();
-      }
-    }
+        plot = await newPlot.save();
 
-    return {
-      success: true,
-      message: 'Cập nhật thông tin tài khoản thành công',
-      data: {
-        id: userAggregate.getId(),
-        email: userAggregate.getEmail(),
-        name: userAggregate.getName(),
-        role: userAggregate.getRole(),
-        phoneNumber: userAggregate.getPhoneNumber(),
-        onboardingCompleted: userAggregate.isOnboardingCompleted(),
-        plot,
-        diary,
-      },
-    };
+        if (dto.primaryCrops) {
+          // Create a default diary log/diary cycle for this plot
+          const diaryId = crypto.randomUUID();
+          const newDiary = new this.diaryModel({
+            _id: diaryId,
+            plot_id: plotId,
+            crop_type: dto.primaryCrops,
+            start_date: new Date(),
+            status: 'active',
+            metadata: {},
+          });
+          diary = await newDiary.save();
+        }
+      }
+
+      this.logger.log(`updateProfile successfully completed for user ${currentUser.id}`);
+
+      return {
+        success: true,
+        message: 'Cập nhật thông tin tài khoản thành công',
+        data: {
+          id: userAggregate.getId(),
+          email: userAggregate.getEmail(),
+          name: userAggregate.getName(),
+          role: userAggregate.getRole(),
+          phoneNumber: userAggregate.getPhoneNumber(),
+          onboardingCompleted: userAggregate.isOnboardingCompleted(),
+          plot,
+          diary,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error in updateProfile for user ${currentUser.id}: ${error instanceof Error ? error.stack : error}`);
+      throw error;
+    }
   }
 
   @Get('me/consents')

@@ -9,6 +9,7 @@ import {
   NotFoundException,
   BadRequestException,
   UseGuards,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -39,6 +40,8 @@ interface AuthCommandResult {
 
 @Controller('api/v1/auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly commandBus: CommandBus,
     @Inject(IUserRepositoryToken)
@@ -244,27 +247,33 @@ export class AuthController {
   async testEmailNotification(
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const userAggregate = await this.userRepository.findById(user.id);
-    if (!userAggregate) {
-      throw new NotFoundException('Không tìm thấy người dùng!');
+    try {
+      this.logger.log(`testEmailNotification starting for user ${user.id}`);
+      const userAggregate = await this.userRepository.findById(user.id);
+      if (!userAggregate) {
+        throw new NotFoundException('Không tìm thấy người dùng!');
+      }
+
+      const email = userAggregate.getEmail();
+      if (!email) {
+        throw new BadRequestException('Người dùng chưa cập nhật email.');
+      }
+
+      const success = await this.emailService.sendEmailNotificationTest(email);
+      if (!success) {
+        throw new BadRequestException('Không thể gửi email test lúc này.');
+      }
+
+      // TODO: Cập nhật user-consent notification_email = true nếu cần thiết
+
+      return {
+        success: true,
+        message: 'Gửi email test thành công!',
+      };
+    } catch (error) {
+      this.logger.error(`Error in testEmailNotification for user ${user.id}: ${error instanceof Error ? error.stack : error}`);
+      throw error;
     }
-
-    const email = userAggregate.getEmail();
-    if (!email) {
-      throw new BadRequestException('Người dùng chưa cập nhật email.');
-    }
-
-    const success = await this.emailService.sendEmailNotificationTest(email);
-    if (!success) {
-      throw new BadRequestException('Không thể gửi email test lúc này.');
-    }
-
-    // TODO: Cập nhật user-consent notification_email = true nếu cần thiết
-
-    return {
-      success: true,
-      message: 'Gửi email test thành công!',
-    };
   }
 
   @Public()
