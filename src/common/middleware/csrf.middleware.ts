@@ -1,6 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import csurf from 'csurf';
+import { appConfig } from '../../config/app.config';
 
 @Injectable()
 export class CsrfMiddleware implements NestMiddleware {
@@ -8,8 +9,8 @@ export class CsrfMiddleware implements NestMiddleware {
     cookie: {
       key: 'XSRF-TOKEN',
       httpOnly: false, // Must be false so frontend can read it
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production' || appConfig().cookieSameSite === 'none',
+      sameSite: appConfig().cookieSameSite,
       path: '/',
     },
     value: (req: Request) => req.headers['x-xsrf-token'] as string,

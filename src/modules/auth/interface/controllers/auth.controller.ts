@@ -61,10 +61,12 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Set refresh token in HttpOnly cookie as required
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure,
+      sameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -93,10 +95,12 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Set refresh token in HttpOnly cookie
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure,
+      sameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -132,10 +136,12 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Rotate refresh token
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure,
+      sameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -205,20 +211,32 @@ export class AuthController {
     }
 
     // Clear cookies
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.clearCookie('refresh_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict', // Standard login uses strict
+      secure,
+      sameSite,
       path: '/api/v1/auth',
     });
     
-    // Also clear with lax in case they logged in via Google OAuth
-    response.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/api/v1/auth',
-    });
+    // Also clear with other policies in case sameSite changed/OAuth
+    if (sameSite !== 'strict') {
+      response.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure,
+        sameSite: 'strict',
+        path: '/api/v1/auth',
+      });
+    }
+    if (sameSite !== 'lax') {
+      response.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure,
+        sameSite: 'lax',
+        path: '/api/v1/auth',
+      });
+    }
 
     return {
       success: true,
@@ -302,10 +320,12 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Set refresh token in HttpOnly cookie
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Must be lax or none for OAuth redirect to work depending on domains, lax is safe
+      secure,
+      sameSite: sameSite === 'strict' ? 'lax' : sameSite, // Strict is not allowed on OAuth redirect redirecting across domains, use lax as fallback
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
