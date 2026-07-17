@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Query,
@@ -15,6 +17,7 @@ import type { AuthenticatedUser } from '../../../common/decorators/current-user.
 import { ChatService } from '../application/chat.service';
 import { MessagesQueryDto, SessionsQueryDto } from './dtos/pagination.dto';
 import { StreamChatDto } from './dtos/stream-chat.dto';
+import { SubmitFeedbackDto } from './dtos/feedback.dto';
 
 interface StreamErrorPayload {
   code: string;
@@ -82,6 +85,19 @@ export class ChatController {
       this.writeEvent(response, 'error', this.toStreamError(error));
       response.end();
     }
+  }
+
+  @Post('feedback')
+  @HttpCode(HttpStatus.CREATED)
+  async submitFeedback(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SubmitFeedbackDto,
+  ) {
+    const data = await this.chatService.submitFeedback(dto, user.id);
+    return {
+      success: true,
+      data,
+    };
   }
 
   @Get('sessions')

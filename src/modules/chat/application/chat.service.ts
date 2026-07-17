@@ -6,6 +6,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { LLMService } from '../../ai/application/services/llm.service';
@@ -13,12 +14,14 @@ import { PromptService } from '../../ai/application/services/prompt.service';
 import { PetMoodInput } from '../../ai/domain/prompt.types';
 import { PetService } from '../../pet/application/services/pet.service';
 import { RagService } from '../../rag/application/rag.service';
+import { SubmitFeedbackDto } from '../interface/dtos/feedback.dto';
 import { StreamChatDto } from '../interface/dtos/stream-chat.dto';
 import {
   ChatMessageDocument,
   ChatMessageStatus,
 } from '../infrastructure/persistence/chat-message.schema';
 import { ChatSessionDocument } from '../infrastructure/persistence/chat-session.schema';
+import { AiFeedbackDocument } from '../../ai/infrastructure/persistence/ai-feedback.schema';
 import {
   BoundedChatHistory,
   CompletedTurn,
@@ -39,6 +42,8 @@ export class ChatService {
     private readonly promptService: PromptService,
     private readonly llmService: LLMService,
     private readonly petService: PetService,
+    @InjectModel(AiFeedbackDocument.name)
+    private readonly feedbackModel: Model<AiFeedbackDocument>,
   ) {}
 
   async prepareTurn(
@@ -324,6 +329,24 @@ export class ChatService {
       this.messageModel.countDocuments(filter).exec(),
     ]);
     return { items, page, limit, total };
+  }
+
+  async submitFeedback(dto: SubmitFeedbackDto, userId: string) {
+    const feedback = new this.feedbackModel({
+      _id: crypto.randomUUID(),
+      session_id: dto.session_id,
+      message_id: dto.message_id,
+      user_id: userId,
+      rating: dto.rating,
+      helpful: dto.helpful,
+      comment: dto.comment,
+      model_used: 'gemini-1.5-flash',
+      prompt_version: 'v1.0',
+    });
+    await feedback.save();
+    return {
+      success: true,
+    };
   }
 
   private async getOwnedSession(
