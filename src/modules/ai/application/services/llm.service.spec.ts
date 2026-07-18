@@ -216,6 +216,46 @@ describe('LLMService', () => {
     ).resolves.toMatchObject({ value: 'stream response' });
   });
 
+  it('streams vision completions with inline image data', async () => {
+    rateLimiter.consume.mockResolvedValue({ allowed: true });
+    mockGenerateContentStream.mockResolvedValue(
+      (async function* () {
+        yield { text: 'lá lúa' };
+        yield { text: ' bị vàng' };
+      })(),
+    );
+
+    const chunks: string[] = [];
+    for await (const chunk of (service as any).streamCompleteVision({
+      prompt: 'Quan sát ảnh này',
+      imageBuffer: Buffer.from([1, 2, 3]),
+      mimeType: 'image/png',
+      promptVersion: 'vision-v1',
+      userId: 'user-1',
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual(['lá lúa', ' bị vàng']);
+    expect(mockGenerateContentStream).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'gemini-1.5-flash',
+        contents: {
+          role: 'user',
+          parts: [
+            { text: 'Quan sát ảnh này' },
+            {
+              inlineData: {
+                data: Buffer.from([1, 2, 3]).toString('base64'),
+                mimeType: 'image/png',
+              },
+            },
+          ],
+        },
+      }),
+    );
+  });
+
   it('throws EmbedQuotaExceededException when embed RPM is denied', async () => {
     rateLimiter.consume.mockResolvedValue({ allowed: false });
 

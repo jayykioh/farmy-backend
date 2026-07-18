@@ -10,6 +10,7 @@ export interface PreparedChatTurn {
   retrievalStatus: RAGContext['retrieval_status'];
   citations: RAGContext['citations'];
   isFirstTurn?: boolean;
+  imageUrl?: string;
 }
 
 export interface CompletedTurn {

@@ -189,6 +189,106 @@ export class LLMService implements IEmbeddingProvider {
     throw new LLMProviderException(this.errorMessage(lastError));
   }
 
+  async *streamCompleteVision(
+    options: VisionCompleteOptions,
+  ): AsyncGenerator<string, void, void> {
+    const cfg = appConfig();
+    const onRateLimit = options.onRateLimit ?? 'throw';
+
+    const rateLimit = await this.rateLimiter.consume(
+      LLM_FLASH_RPM_KEY,
+      LLM_FLASH_RPM_LIMIT,
+      LLM_RPM_WINDOW_SECONDS,
+    );
+
+    if (!rateLimit.allowed) {
+      if (onRateLimit === 'throw') {
+        throw new LLMRateLimitedException();
+      }
+      this.logFallback('llm.stream_complete_vision', options);
+      yield LLM_FALLBACK_MESSAGE;
+      return;
+    }
+
+    const contents: Content = {
+      role: 'user',
+      parts: [
+        { text: options.prompt },
+        {
+          inlineData: {
+            data: options.imageBuffer.toString('base64'),
+            mimeType: options.mimeType,
+          },
+        },
+      ],
+    };
+    const startedAt = Date.now();
+    const delays = [1000, 2000, 4000];
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      let yieldedChunks = 0;
+      try {
+        const stream = await this.getClient().models.generateContentStream({
+          model: cfg.gemini.visionModel,
+          contents,
+          config: {
+            maxOutputTokens: options.maxTokens ?? 1000,
+            temperature: 0.2,
+            safetySettings: this.safetySettings(),
+          },
+        });
+
+        for await (const chunk of stream) {
+          if (this.isSafetyBlocked(chunk)) {
+            this.logSafetyBlock('llm.stream_complete_vision', options);
+            yield LLM_SAFETY_MESSAGE;
+            return;
+          }
+          if (chunk.text) {
+            yield chunk.text;
+            yieldedChunks++;
+          }
+        }
+
+        this.logger.log({
+          action: 'llm.stream_complete_vision',
+          userId: options.userId,
+          model: cfg.gemini.visionModel,
+          promptVersion: options.promptVersion,
+          latencyMs: Date.now() - startedAt,
+          rateLimited: false,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof LLMConfigurationException) {
+          throw error;
+        }
+
+        if (yieldedChunks > 0) {
+          throw new LLMProviderException(this.errorMessage(error));
+        }
+
+        lastError = error;
+        if (!this.isRetryable(error) || attempt === delays.length) {
+          break;
+        }
+        await this.sleep(delays[attempt]);
+      }
+    }
+
+    if (onRateLimit !== 'throw') {
+      this.logFallback('llm.stream_complete_vision', options, lastError);
+      yield LLM_FALLBACK_MESSAGE;
+      return;
+    }
+
+    if (this.isRateLimitError(lastError)) {
+      throw new LLMRateLimitedException();
+    }
+    throw new LLMProviderException(this.errorMessage(lastError));
+  }
+
   async completeVision(
     options: VisionCompleteOptions,
   ): Promise<LLMCompleteResult> {
