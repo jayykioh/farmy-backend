@@ -43,6 +43,7 @@ jest.mock('@google/genai', () => {
 });
 
 describe('LLMService', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
   const rateLimiter = {
     consume: jest.fn(),
   };
@@ -67,6 +68,7 @@ describe('LLMService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    process.env.NODE_ENV = originalNodeEnv;
     delete process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_CHAT_MODEL;
     delete process.env.GEMINI_VISION_MODEL;
@@ -193,6 +195,26 @@ describe('LLMService', () => {
     await expect(
       service.complete({ prompt: 'hello', promptVersion: 'v1.0' }),
     ).rejects.toBeInstanceOf(LLMConfigurationException);
+  });
+
+  it('uses only the current user message when choosing a development mock response', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.GEMINI_API_KEY = 'not-a-real-gemini-key';
+    const prompt = `
+      [LỊCH SỬ HỘI THOẠI - DO NGƯỜI DÙNG NHẬP]
+      AI: Bón phân đợt 1 (7-10 ngày sau sạ) bà con nên dùng phân Ure kết hợp DAP.
+
+      [CÂU HỎI HIỆN TẠI - DO NGƯỜI DÙNG GỬI]
+      con chó đông béo
+
+      --- KẾT THÚC DỮ LIỆU NGƯỜI DÙNG ---
+    `;
+
+    const result = (
+      service as unknown as { getMockResponse(prompt: string): string }
+    ).getMockResponse(prompt);
+
+    expect(result).not.toContain('Bón phân đợt 1');
   });
 
   it('throws EmbedQuotaExceededException when embed RPM is denied', async () => {

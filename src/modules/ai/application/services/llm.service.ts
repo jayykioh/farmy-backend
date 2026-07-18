@@ -375,7 +375,7 @@ export class LLMService implements IEmbeddingProvider {
   }
 
   private getMockResponse(prompt: string): string {
-    const promptLower = prompt.toLowerCase();
+    const promptLower = this.extractCurrentUserMessage(prompt).toLowerCase();
     
     if (promptLower.includes('tưới') || promptLower.includes('nước')) {
       return 'Dạ bà con nhớ tưới nước đầy đủ cho ruộng lúa nha! Nước là nguồn sống chính giúp lúa đẻ nhánh khỏe và trổ bông đều đó ạ. 🌱💦';
@@ -394,6 +394,23 @@ export class LLMService implements IEmbeddingProvider {
     }
     
     return 'Dạ Bé Thóc nghe rõ rồi ạ! Bà con nhớ chăm chỉ ghi nhật ký đồng ruộng hằng ngày để em theo dõi sức khỏe cây lúa nha. Chúc bà con một ngày tốt lành! 🌾💚';
+  }
+
+  private extractCurrentUserMessage(prompt: string): string {
+    const marker = '[CÂU HỎI HIỆN TẠI - DO NGƯỜI DÙNG GỬI]';
+    const markerIndex = prompt.indexOf(marker);
+    if (markerIndex === -1) return prompt;
+
+    const afterMarker = prompt.slice(markerIndex + marker.length);
+    const endMarker = '--- KẾT THÚC DỮ LIỆU NGƯỜI DÙNG ---';
+    const endIndex = afterMarker.indexOf(endMarker);
+    const currentBlock = endIndex === -1 ? afterMarker : afterMarker.slice(0, endIndex);
+
+    return currentBlock
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('QUAN TRỌNG:'))
+      .join('\n');
   }
 
   private getClient(): GeminiClient {
