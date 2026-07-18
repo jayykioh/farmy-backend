@@ -2,7 +2,6 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -24,6 +23,7 @@ import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { PlantScanModule } from './modules/plant-scan/plant-scan.module';
+import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
 
 @Module({
   imports: [
@@ -49,17 +49,8 @@ import { PlantScanModule } from './modules/plant-scan/plant-scan.module';
       load: [appConfig],
     }),
 
-    // PostgreSQL / Supabase
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get<string>('SUPABASE_DB_URL'),
-        autoLoadEntities: true,
-        synchronize: false, // We use migrations
-      }),
-      inject: [ConfigService],
-    }),
+    // PostgreSQL / pgvector search index is optional for local CRUD development.
+    ...createPgvectorTypeOrmImports(process.env.PG_CONNECTION_STRING),
 
     // MongoDB
     MongooseModule.forRootAsync({

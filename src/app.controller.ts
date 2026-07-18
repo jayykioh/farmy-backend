@@ -1,7 +1,10 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { AppService } from './app.service';
 import { Public } from './common/decorators/public.decorator';
 import { HealthService } from './common/health/health.service';
+
+type CsrfRequest = Request & { csrfToken: () => string };
 
 @Controller()
 export class AppController {
@@ -29,6 +32,15 @@ export class AppController {
         mongo: report.mongo,
         redis: report.redis,
       },
+    };
+  }
+
+  @Public()
+  @Get('api/v1/csrf-token')
+  getCsrfToken(@Req() req: CsrfRequest) {
+    return {
+      success: true,
+      data: { csrfToken: req.csrfToken() },
     };
   }
 }

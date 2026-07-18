@@ -57,6 +57,7 @@ export class ChatService {
 
     let session: ChatSessionDocument;
     let userMessage: ChatMessageDocument;
+    let isFirstTurn = false;
 
     if (existing) {
       this.rejectNonRetryable(existing.status);
@@ -85,6 +86,7 @@ export class ChatService {
       }
       userMessage = retried;
     } else {
+      isFirstTurn = !dto.session_id;
       session = await this.getOrCreateSession(
         userId,
         dto.session_id,
@@ -143,6 +145,7 @@ export class ChatService {
       promptVersion: builtPrompt.promptVersion,
       retrievalStatus: ragContext.retrieval_status,
       citations: ragContext.citations,
+      isFirstTurn,
     };
   }
 
@@ -265,9 +268,16 @@ export class ChatService {
           );
         }
 
+        const sessionSet: Record<string, unknown> = {
+          last_message_at: new Date(),
+        };
+        if (turn.isFirstTurn !== false) {
+          sessionSet.title = this.summarizeConversationTitle(assistantContent);
+        }
+
         const sessionUpdate = await this.sessionModel.updateOne(
           { _id: new Types.ObjectId(turn.sessionId), user_id: turn.userId },
-          { $set: { last_message_at: new Date() } },
+          { $set: sessionSet },
           { session: mongoSession },
         );
         if (sessionUpdate.matchedCount !== 1) {
@@ -329,6 +339,44 @@ export class ChatService {
       this.messageModel.countDocuments(filter).exec(),
     ]);
     return { items, page, limit, total };
+  }
+
+  async deleteSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<{ deleted: true }> {
+    const session = await this.getOwnedSession(userId, sessionId);
+    await this.messageModel
+      .deleteMany({ session_id: session._id, user_id: userId })
+      .exec();
+    await this.sessionModel
+      .deleteOne({ _id: session._id, user_id: userId })
+      .exec();
+
+    return { deleted: true };
+  }
+
+  async renameSession(
+    userId: string,
+    sessionId: string,
+    title: string,
+  ): Promise<Pick<ChatSessionDocument, '_id' | 'title' | 'last_message_at'>> {
+    const session = await this.getOwnedSession(userId, sessionId);
+    const normalizedTitle = title.trim();
+    if (!normalizedTitle) {
+      throw new BadRequestException('Chat session title is required.');
+    }
+
+    const updated = await this.sessionModel
+      .findOneAndUpdate(
+        { _id: session._id, user_id: userId },
+        { $set: { title: normalizedTitle } },
+        { new: true, projection: '_id title last_message_at created_at updated_at' },
+      )
+      .exec();
+    if (!updated) throw new NotFoundException('Chat session not found.');
+
+    return updated;
   }
 
   async submitFeedback(dto: SubmitFeedbackDto, userId: string) {
@@ -402,5 +450,37 @@ export class ChatService {
   private positiveEnvInt(name: string, fallback: number): number {
     const parsed = Number.parseInt(process.env[name] ?? '', 10);
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private summarizeConversationTitle(content: string): string {
+    const normalized = content
+      .replace(/[#*_`>~]/g, '')
+      .replace(/\[[0-9]+\]/g, '')
+      .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const cleaned = normalized
+      .replace(/^(dạ[,!\s]+)?(chào|xin chào).+?(ạ|nhé)[,.!\s]+/i, '')
+      .replace(/^dạ[,!\s]+/i, '')
+      .trim();
+
+    const sentence =
+      cleaned
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map((part) => part.replace(/[.!?]+$/g, '').trim())
+        .find((part) => part.length >= 12) ?? cleaned;
+
+    const title = this.capitalizeFirst(
+      sentence || 'Cuộc trò chuyện với Bé Thóc',
+    );
+    if (title.length <= 60) return title;
+
+    const truncated = title.slice(0, 57).replace(/\s+\S*$/g, '').trim();
+    return truncated || title.slice(0, 57).trim();
+  }
+
+  private capitalizeFirst(value: string): string {
+    return value.charAt(0).toLocaleUpperCase('vi-VN') + value.slice(1);
   }
 }

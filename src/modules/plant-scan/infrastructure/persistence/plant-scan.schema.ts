@@ -24,7 +24,7 @@ export class PlantScanDiagnosisSubdocument {
   is_plant: boolean;
 
   @Prop({ type: String, required: false })
-  disease?: string;
+  disease_name?: string;
 
   @Prop({ type: Number, required: false })
   confidence?: number;

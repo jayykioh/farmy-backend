@@ -344,6 +344,12 @@ describe('PromptService', () => {
         service.buildVisionPrompt(input).prompt,
       );
     });
+
+    it('TC-PROMPT-23d: prompt uses disease_name to match the Plant Scan API contract', () => {
+      const result = service.buildVisionPrompt(makeVisionInput());
+      expect(result.prompt).toContain('"disease_name"');
+      expect(result.prompt).not.toContain('"disease"');
+    });
   });
 
   // =========================================================================

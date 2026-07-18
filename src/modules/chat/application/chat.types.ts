@@ -9,6 +9,7 @@ export interface PreparedChatTurn {
   promptVersion: string;
   retrievalStatus: RAGContext['retrieval_status'];
   citations: RAGContext['citations'];
+  isFirstTurn?: boolean;
 }
 
 export interface CompletedTurn {
