@@ -335,14 +335,7 @@ export class LLMService implements IEmbeddingProvider {
     }
 
     const cfg = appConfig();
-    if (!cfg.gemini.apiKey) {
-      throw new LLMConfigurationException();
-    }
-    if (!cfg.gemini.apiKey.startsWith('AIzaSy')) {
-      throw new LLMConfigurationException(
-        'Gemini API key is invalid or uses a mock value.',
-      );
-    }
+    if (!cfg.gemini.apiKey) throw new LLMConfigurationException();
 
     this.client = new GoogleGenAI({ apiKey: cfg.gemini.apiKey });
     return this.client;
