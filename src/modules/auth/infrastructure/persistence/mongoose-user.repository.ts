@@ -41,6 +41,8 @@ export class MongooseUserRepository implements IUserRepository {
         push_subscription: user.getPushSubscription(),
         is_deleted: user.isDeletedUser(),
         deleted_at: user.getDeletedAt(),
+        phone_number: user.getPhoneNumber(),
+        onboarding_completed: user.isOnboardingCompleted(),
       })
       .exec();
   }
@@ -55,6 +57,8 @@ export class MongooseUserRepository implements IUserRepository {
       push_subscription: user.getPushSubscription(),
       is_deleted: user.isDeletedUser(),
       deleted_at: user.getDeletedAt(),
+      phone_number: user.getPhoneNumber(),
+      onboarding_completed: user.isOnboardingCompleted(),
     });
     await newUser.save();
   }
@@ -69,6 +73,8 @@ export class MongooseUserRepository implements IUserRepository {
       doc.push_subscription,
       doc.is_deleted,
       doc.deleted_at,
+      doc.phone_number,
+      doc.onboarding_completed,
     );
   }
 }

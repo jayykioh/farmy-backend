@@ -9,6 +9,8 @@ export class User {
   private pushSubscription?: any;
   private isDeleted?: boolean;
   private deletedAt?: Date;
+  private phoneNumber?: string;
+  private onboardingCompleted: boolean;
 
   constructor(
     id: string,
@@ -19,6 +21,8 @@ export class User {
     pushSubscription?: any,
     isDeleted?: boolean,
     deletedAt?: Date,
+    phoneNumber?: string,
+    onboardingCompleted?: boolean,
   ) {
     this.id = id;
     this.email = email;
@@ -28,6 +32,8 @@ export class User {
     this.pushSubscription = pushSubscription;
     this.isDeleted = isDeleted;
     this.deletedAt = deletedAt;
+    this.phoneNumber = phoneNumber;
+    this.onboardingCompleted = onboardingCompleted ?? false;
   }
 
   public getId(): string {
@@ -77,5 +83,21 @@ export class User {
 
   public updatePassword(newPasswordHash: string): void {
     this.passwordHash = newPasswordHash;
+  }
+
+  public getPhoneNumber(): string | undefined {
+    return this.phoneNumber;
+  }
+
+  public setPhoneNumber(phoneNumber: string): void {
+    this.phoneNumber = phoneNumber;
+  }
+
+  public isOnboardingCompleted(): boolean {
+    return this.onboardingCompleted;
+  }
+
+  public completeOnboarding(): void {
+    this.onboardingCompleted = true;
   }
 }

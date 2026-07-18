@@ -4,7 +4,9 @@ import { AppService } from './app.service';
 import { Public } from './common/decorators/public.decorator';
 import { HealthService } from './common/health/health.service';
 
-type CsrfRequest = Request & { csrfToken: () => string };
+type CsrfRequest = Request & {
+  csrfToken?: () => string;
+};
 
 @Controller()
 export class AppController {
@@ -37,10 +39,12 @@ export class AppController {
 
   @Public()
   @Get('api/v1/csrf-token')
-  getCsrfToken(@Req() req: CsrfRequest) {
+  getCsrfToken(@Req() request: CsrfRequest) {
     return {
       success: true,
-      data: { csrfToken: req.csrfToken() },
+      data: {
+        csrfToken: request.csrfToken?.() ?? '',
+      },
     };
   }
 }

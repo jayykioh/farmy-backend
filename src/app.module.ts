@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
@@ -23,7 +24,7 @@ import { appConfig } from './config/app.config';
 import { AiModule } from './modules/ai/ai.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { PlantScanModule } from './modules/plant-scan/plant-scan.module';
-import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
+import { ShopModule } from './modules/shop/shop.module';
 
 @Module({
   imports: [
@@ -49,17 +50,34 @@ import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
       load: [appConfig],
     }),
 
-    // PostgreSQL / pgvector search index is optional for local CRUD development.
-    ...createPgvectorTypeOrmImports(process.env.PG_CONNECTION_STRING),
+    // PostgreSQL / Supabase
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        url:
+          process.env.NODE_ENV === 'test'
+            ? configService.get<string>('TEST_SUPABASE_DB_URL') ||
+              configService.get<string>('SUPABASE_DB_URL')
+            : configService.get<string>('SUPABASE_DB_URL'),
+        autoLoadEntities: true,
+        synchronize: false, // We use migrations
+      }),
+      inject: [ConfigService],
+    }),
 
     // MongoDB
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>(
-          'MONGO_URI',
-          'mongodb+srv://adnparr_db_user:Dong1234@farmdiaries.ytxyxvl.mongodb.net/?appName=FarmDiaries',
-        ),
+        uri:
+          process.env.NODE_ENV === 'test'
+            ? configService.get<string>('TEST_MONGO_URI') ||
+              configService.get<string>('MONGO_URI')
+            : configService.get<string>(
+                'MONGO_URI',
+                'mongodb+srv://adnparr_db_user:Dong1234@farmdiaries.ytxyxvl.mongodb.net/?appName=FarmDiaries',
+              ),
       }),
       inject: [ConfigService],
     }),
@@ -69,14 +87,20 @@ import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
       useFactory: () => {
         const cfg = appConfig();
         const redisUrl = cfg.redis.url;
+        
+        // BullMQ requires maxRetriesPerRequest to be null
         if (redisUrl) {
-          return { connection: { url: redisUrl } };
+          // If URL is provided, we must pass an ioredis instance to BullMQ
+          // because BullMQ's connection options object doesn't directly support a 'url' property
+          const Redis = require('ioredis');
+          return { connection: new Redis(redisUrl, { maxRetriesPerRequest: null }) };
         }
         return {
           connection: {
             host: cfg.redis.host,
             port: cfg.redis.port,
             ...(cfg.redis.password ? { password: cfg.redis.password } : {}),
+            maxRetriesPerRequest: null,
           },
         };
       },
@@ -96,6 +120,7 @@ import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
     AiModule,
     ChatModule,
     PlantScanModule,
+    ShopModule,
   ],
   controllers: [AppController],
   providers: [

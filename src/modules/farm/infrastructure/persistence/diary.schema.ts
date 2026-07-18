@@ -21,6 +21,9 @@ export class DiaryDocument extends Document<string> {
   @Prop({ required: true })
   crop_type: string;
 
+  @Prop({ required: true, default: 'Chưa xác định' })
+  season: string;
+
   @Prop({ type: Date, required: true })
   start_date: Date;
 

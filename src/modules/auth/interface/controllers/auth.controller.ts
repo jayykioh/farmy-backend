@@ -6,10 +6,28 @@ import {
   Req,
   Get,
   Inject,
+  Injectable,
   NotFoundException,
+  BadRequestException,
+  UseGuards,
+  Logger,
 } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
+
+@Injectable()
+class GoogleAuthGuard extends AuthGuard('google') {
+  getAuthorizeOptions(context: any) {
+    const request = context.switchToHttp().getRequest();
+    const state = request.query.state;
+    console.log('GoogleAuthGuard - Lấy state từ query:', state);
+    return {
+      state: state,
+    };
+  }
+}
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { PushSubscriptionDto } from '../dtos/push-subscription.dto';
@@ -17,6 +35,7 @@ import { RegisterUserCommand } from '../../application/commands/register-user.co
 import { LoginUserCommand } from '../../application/commands/login-user.command';
 import { RefreshTokenCommand } from '../../application/commands/refresh-token.command';
 import { LogoutCommand } from '../../application/commands/logout.command';
+import { GoogleLoginCommand } from '../../application/commands/google-login.command';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../common/decorators/current-user.decorator';
@@ -24,8 +43,7 @@ import { Roles } from '../../../../common/decorators/roles.decorator';
 import { User } from '../../domain/user.aggregate';
 import { IUserRepositoryToken } from '../../domain/repositories/user-repository.interface';
 import type { IUserRepository } from '../../domain/repositories/user-repository.interface';
-
-import { appConfig } from '../../../../config/app.config';
+import { EmailService } from '../../application/services/email.service';
 
 interface AuthCommandResult {
   accessToken: string;
@@ -35,10 +53,14 @@ interface AuthCommandResult {
 
 @Controller('api/v1/auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly commandBus: CommandBus,
     @Inject(IUserRepositoryToken)
     private readonly userRepository: IUserRepository,
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Public()
@@ -51,12 +73,13 @@ export class AuthController {
       new RegisterUserCommand(dto),
     )) as unknown as AuthCommandResult;
 
-    const cfg = appConfig();
     // Set refresh token in HttpOnly cookie as required
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
-      sameSite: cfg.cookieSameSite,
+      secure,
+      sameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -69,6 +92,7 @@ export class AuthController {
         email: result.user.getEmail(),
         name: result.user.getName(),
         access_token: result.accessToken,
+        onboardingCompleted: false,
       },
     };
   }
@@ -83,12 +107,13 @@ export class AuthController {
       new LoginUserCommand(dto),
     )) as unknown as AuthCommandResult;
 
-    const cfg = appConfig();
     // Set refresh token in HttpOnly cookie
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
-      sameSite: cfg.cookieSameSite,
+      secure,
+      sameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -103,6 +128,8 @@ export class AuthController {
           email: result.user.getEmail(),
           name: result.user.getName(),
           role: result.user.getRole(),
+          phoneNumber: result.user.getPhoneNumber(),
+          onboardingCompleted: result.user.isOnboardingCompleted(),
         },
       },
     };
@@ -121,12 +148,13 @@ export class AuthController {
       new RefreshTokenCommand(refreshToken),
     )) as unknown as AuthCommandResult;
 
-    const cfg = appConfig();
     // Rotate refresh token
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
-      sameSite: cfg.cookieSameSite,
+      secure,
+      sameSite,
       path: '/api/v1/auth',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
@@ -141,20 +169,27 @@ export class AuthController {
           email: result.user.getEmail(),
           name: result.user.getName(),
           role: result.user.getRole(),
+          phoneNumber: result.user.getPhoneNumber(),
+          onboardingCompleted: result.user.isOnboardingCompleted(),
         },
       },
     };
   }
 
   @Get('me')
-  getMe(@CurrentUser() user: AuthenticatedUser) {
+  async getMe(@CurrentUser() currentUser: AuthenticatedUser) {
+    const user = await this.userRepository.findById(currentUser.id);
+    if (!user) throw new NotFoundException('Người dùng không tồn tại');
+
     return {
       success: true,
       data: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+        id: user.getId(),
+        email: user.getEmail(),
+        name: user.getName(),
+        role: user.getRole(),
+        phoneNumber: user.getPhoneNumber(),
+        onboardingCompleted: user.isOnboardingCompleted(),
       },
     };
   }
@@ -188,14 +223,33 @@ export class AuthController {
       await this.commandBus.execute(new LogoutCommand(refreshToken));
     }
 
-    const cfg = appConfig();
     // Clear cookies
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.clearCookie('refresh_token', {
       httpOnly: true,
-      secure: cfg.cookieSameSite === 'none' ? true : process.env.NODE_ENV === 'production',
-      sameSite: cfg.cookieSameSite,
+      secure,
+      sameSite,
       path: '/api/v1/auth',
     });
+    
+    // Also clear with other policies in case sameSite changed/OAuth
+    if (sameSite !== 'strict') {
+      response.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure,
+        sameSite: 'strict',
+        path: '/api/v1/auth',
+      });
+    }
+    if (sameSite !== 'lax') {
+      response.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure,
+        sameSite: 'lax',
+        path: '/api/v1/auth',
+      });
+    }
 
     return {
       success: true,
@@ -218,5 +272,97 @@ export class AuthController {
       success: true,
       message: 'Cập nhật đăng ký nhận thông báo thành công!',
     };
+  }
+
+  @Post('email-notification/test')
+  async testEmailNotification(
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    try {
+      this.logger.log(`testEmailNotification starting for user ${user.id}`);
+      const userAggregate = await this.userRepository.findById(user.id);
+      if (!userAggregate) {
+        throw new NotFoundException('Không tìm thấy người dùng!');
+      }
+
+      const email = userAggregate.getEmail();
+      if (!email) {
+        throw new BadRequestException('Người dùng chưa cập nhật email.');
+      }
+
+      const success = await this.emailService.sendEmailNotificationTest(email);
+      if (!success) {
+        throw new BadRequestException('Không thể gửi email test lúc này.');
+      }
+
+      // TODO: Cập nhật user-consent notification_email = true nếu cần thiết
+
+      return {
+        success: true,
+        message: 'Gửi email test thành công!',
+      };
+    } catch (error) {
+      this.logger.error(`Error in testEmailNotification for user ${user.id}: ${error instanceof Error ? error.stack : error}`);
+      throw error;
+    }
+  }
+
+  @Public()
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth(@Req() req: Request) {
+    // Initiates the Google OAuth flow
+  }
+
+  @Public()
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(
+    @Req() req: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    // req.user contains the user info returned from GoogleStrategy.validate
+    const googleUser = req.user as any;
+    
+    if (!googleUser) {
+      throw new BadRequestException('No user from google');
+    }
+
+    const result = (await this.commandBus.execute(
+      new GoogleLoginCommand(googleUser),
+    )) as unknown as AuthCommandResult;
+
+    // Set refresh token in HttpOnly cookie
+    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
+    response.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure,
+      sameSite: sameSite === 'strict' ? 'lax' : sameSite, // Strict is not allowed on OAuth redirect redirecting across domains, use lax as fallback
+      path: '/api/v1/auth',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    });
+
+    console.log('googleAuthRedirect - Callback query:', req.query);
+    const state = req.query.state as string;
+    let targetUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    let isMobileRedirect = false;
+    
+    // Hỗ trợ dynamic redirect URL gửi từ mobile (bắt đầu bằng exp:// hoặc farmy://)
+    if (state && (state.startsWith('exp://') || state.startsWith('farmy://'))) {
+      targetUrl = state;
+      isMobileRedirect = true;
+    } else if (state === 'mobile') {
+      targetUrl = 'farmy://oauth-callback';
+      isMobileRedirect = true;
+    }
+
+    if (isMobileRedirect) {
+      const connector = targetUrl.includes('?') ? '&' : '?';
+      return response.redirect(`${targetUrl}${connector}accessToken=${result.accessToken}`);
+    } else {
+      const separator = targetUrl.endsWith('/') ? '' : '/';
+      return response.redirect(`${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`);
+    }
   }
 }

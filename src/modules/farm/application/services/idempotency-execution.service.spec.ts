@@ -14,7 +14,6 @@ describe('IdempotencyExecutionService', () => {
       findOneAndUpdate: jest.fn(),
       create: jest.fn(),
     };
-    mockExecutionModel.prototype.save = jest.fn();
 
     // Mock constructor for new this.executionModel()
     const ModelClass = function (this: any, data: any) {

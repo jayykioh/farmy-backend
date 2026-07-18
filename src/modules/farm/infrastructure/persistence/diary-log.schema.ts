@@ -7,6 +7,8 @@ import { DiaryDocument } from './diary.schema';
   collection: 'diary_logs',
 })
 export class DiaryLogDocument extends Document<string> {
+  created_at?: Date;
+
   @Prop({ type: String, required: true })
   declare _id: string;
 

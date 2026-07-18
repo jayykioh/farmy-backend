@@ -45,7 +45,7 @@ export class KnowledgeRepository {
           sourceType: 'knowledge_source',
           text: saved.content,
         },
-        { jobId: `embed:knowledge_source:${saved._id}:${contentHash}` },
+        { jobId: `embed-knowledge_source-${saved._id}-${contentHash}` },
       );
     }
 

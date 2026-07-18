@@ -8,6 +8,7 @@ import { ReminderDocument } from '../persistence/reminder.schema';
 import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 import { PetService } from '../../../pet/application/services/pet.service';
 import { WebPushService } from '../../application/services/web-push.service';
+import { EmailService } from '../../../auth/application/services/email.service';
 
 import {
   REMINDER_QUEUE,
@@ -35,6 +36,7 @@ export class ReminderProcessor extends WorkerHost {
     private readonly userModel: Model<UserDocument>,
     private readonly petService: PetService,
     private readonly webPushService: WebPushService,
+    private readonly emailService: EmailService,
   ) {
     super();
   }
@@ -59,7 +61,7 @@ export class ReminderProcessor extends WorkerHost {
 
       // === Gửi thông báo ===
       // Hiện tại: Console log (mock Web Push)
-      // Tương lai: Tích hợp Zalo ZNS / Firebase FCM / Email
+      // Tương lai: Tích hợp Email / Firebase FCM
       await this.sendNotification({
         reminderId,
         userId,
@@ -174,6 +176,21 @@ export class ReminderProcessor extends WorkerHost {
       this.logger.error(
         `Error checking push subscription or sending push: ${err.message}`,
       );
+    }
+
+    try {
+      const user = await this.userModel.findById(payload.userId).exec();
+      if (user && user.email) {
+        this.logger.log(`📧 Sending Email notification to user: ${user.email}`);
+        await this.emailService.sendReminderEmail(
+          user.email,
+          payload.title,
+          payload.action_detail
+        );
+        return;
+      }
+    } catch (err: any) {
+      this.logger.error(`Error sending email reminder: ${err.message}`);
     }
 
     // Fallback to console logging

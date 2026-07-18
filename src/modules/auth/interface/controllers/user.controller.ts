@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Inject,
@@ -9,6 +10,7 @@ import {
   Res,
   Logger,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -63,6 +65,78 @@ export class UserController {
     @InjectQueue('privacy')
     private readonly privacyQueue: Queue,
   ) {}
+
+  @Patch('me')
+  async updateProfile(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() dto: { onboarding_completed?: boolean; farmName?: string; primaryCrops?: string },
+  ) {
+    try {
+      this.logger.log(`updateProfile starting for user ${currentUser.id} with DTO: ${JSON.stringify(dto)}`);
+      const userAggregate = await this.userRepository.findById(currentUser.id);
+      if (!userAggregate) {
+        throw new NotFoundException('Người dùng không tồn tại');
+      }
+
+      if (dto.onboarding_completed !== undefined) {
+        if (dto.onboarding_completed) {
+          userAggregate.completeOnboarding();
+        }
+      }
+
+      await this.userRepository.save(userAggregate);
+
+      let plot: FarmPlotDocument | null = null;
+      let diary: DiaryDocument | null = null;
+
+      if (dto.farmName) {
+        // Create a default plot
+        const plotId = crypto.randomUUID();
+        const newPlot = new this.farmPlotModel({
+          _id: plotId,
+          user_id: currentUser.id,
+          name: dto.farmName,
+          area_size: 1,
+          description: 'Mảnh vườn mặc định được tạo từ onboarding',
+        });
+        plot = await newPlot.save();
+
+        if (dto.primaryCrops) {
+          // Create a default diary log/diary cycle for this plot
+          const diaryId = crypto.randomUUID();
+          const newDiary = new this.diaryModel({
+            _id: diaryId,
+            plot_id: plotId,
+            crop_type: dto.primaryCrops,
+            start_date: new Date(),
+            status: 'active',
+            metadata: {},
+          });
+          diary = await newDiary.save();
+        }
+      }
+
+      this.logger.log(`updateProfile successfully completed for user ${currentUser.id}`);
+
+      return {
+        success: true,
+        message: 'Cập nhật thông tin tài khoản thành công',
+        data: {
+          id: userAggregate.getId(),
+          email: userAggregate.getEmail(),
+          name: userAggregate.getName(),
+          role: userAggregate.getRole(),
+          phoneNumber: userAggregate.getPhoneNumber(),
+          onboardingCompleted: userAggregate.isOnboardingCompleted(),
+          plot,
+          diary,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error in updateProfile for user ${currentUser.id}: ${error instanceof Error ? error.stack : error}`);
+      throw error;
+    }
+  }
 
   @Get('me/consents')
   async getConsents(@CurrentUser() currentUser: AuthenticatedUser) {

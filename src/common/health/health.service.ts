@@ -2,6 +2,7 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, ConnectionStates, Model } from 'mongoose';
 import * as net from 'net';
+import * as tls from 'tls';
 import { MigrationDocument } from '../../db/migration.schema';
 
 export interface DependencyHealth {
@@ -87,12 +88,13 @@ export class HealthService {
       const host = parsed?.hostname ?? redisHost;
       const port = parsed?.port ? Number(parsed.port) : redisPort;
       const password = parsed?.password || process.env.REDIS_PASSWORD;
+      const isTls = parsed ? parsed.protocol === 'rediss:' : false;
 
       if (!host || !Number.isFinite(port)) {
         return { status: 'down', details: 'Redis configuration is missing' };
       }
 
-      const ping = await this.redisPing(host, port, password);
+      const ping = await this.redisPing(host, port, isTls, password);
       return ping
         ? { status: 'up' }
         : { status: 'down', details: 'PING failed' };
@@ -107,10 +109,13 @@ export class HealthService {
   private async redisPing(
     host: string,
     port: number,
+    isTls: boolean,
     password?: string,
   ): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
-      const socket = net.createConnection({ host, port });
+      const socket = isTls
+        ? (tls.connect({ host, port, rejectUnauthorized: false }) as net.Socket)
+        : net.createConnection({ host, port });
       const timeoutMs = 1500;
       let settled = false;
 
@@ -136,8 +141,16 @@ export class HealthService {
       const timer = setTimeout(() => finish(false), timeoutMs);
 
       socket.once('connect', () => {
-        socket.write(commands);
+        if (!isTls) {
+          socket.write(commands);
+        }
       });
+
+      if (isTls) {
+        socket.once('secureConnect', () => {
+          socket.write(commands);
+        });
+      }
 
       socket.on('data', (chunk) => {
         const response = chunk.toString('utf8');

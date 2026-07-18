@@ -1,4 +1,5 @@
 import { Injectable, Logger, HttpStatus, HttpException } from '@nestjs/common';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as crypto from 'crypto';
@@ -18,15 +19,34 @@ import {
 } from '../../domain/llm.constants';
 
 export class SendMessageDto {
+  @IsString()
+  @IsNotEmpty()
   content: string;
+
+  @IsString()
+  @IsOptional()
   session_id?: string;
 }
 
 export class SubmitFeedbackDto {
+  @IsString()
+  @IsNotEmpty()
   session_id: string;
+
+  @IsString()
+  @IsNotEmpty()
   message_id: string;
+
+  @IsNumber()
+  @IsNotEmpty()
   rating: number;
+
+  @IsBoolean()
+  @IsOptional()
   helpful?: boolean;
+
+  @IsString()
+  @IsOptional()
   comment?: string;
 }
 

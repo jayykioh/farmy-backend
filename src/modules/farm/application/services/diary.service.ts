@@ -68,6 +68,7 @@ export class DiaryService {
       _id: crypto.randomUUID(),
       plot_id: dto.plot_id,
       crop_type: dto.crop_type,
+      season: dto.season,
       start_date: new Date(dto.start_date),
       status: 'active',
       metadata: {
@@ -77,18 +78,40 @@ export class DiaryService {
     return diary.save();
   }
 
-  async findAll(userId: string): Promise<DiaryDocument[]> {
+  async findAll(userId: string): Promise<any[]> {
     // Get all plot IDs of the user
     const plots = await this.farmPlotModel.find({ user_id: userId }).exec();
     const plotIds = plots.map((p) => p._id);
 
     // Find all diaries belonging to these plots (exclude status: deleted)
-    return this.diaryModel
+    const diaries = await this.diaryModel
       .find({
         plot_id: { $in: plotIds },
         status: { $ne: 'deleted' },
       })
       .exec();
+
+    const result: any[] = [];
+    for (const diary of diaries) {
+      const latestLog = await this.diaryLogModel
+        .findOne({ diary_id: diary._id })
+        .sort({ created_at: -1 })
+        .exec();
+
+      result.push({
+        ...diary.toObject(),
+        latest_log: latestLog
+          ? {
+              _id: latestLog._id,
+              activity_type: latestLog.activity_type,
+              content: latestLog.content,
+              created_at: latestLog.created_at,
+            }
+          : null,
+      });
+    }
+
+    return result;
   }
 
   async findOne(userId: string, id: string): Promise<DiaryDocument> {
@@ -103,6 +126,7 @@ export class DiaryService {
     const diary = await this.verifyDiaryOwner(userId, id);
 
     if (dto.crop_type !== undefined) diary.crop_type = dto.crop_type;
+    if (dto.season !== undefined) diary.season = dto.season;
     if (dto.start_date !== undefined)
       diary.start_date = new Date(dto.start_date);
     if (dto.status !== undefined) diary.status = dto.status;
@@ -150,7 +174,7 @@ export class DiaryService {
         text: savedLog.content,
         metadata: { user_id: userId },
       },
-      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` },
+      { jobId: `embed-diary_log-${savedLog._id}-${contentHash}` },
     );
 
     return savedLog;
@@ -290,7 +314,7 @@ export class DiaryService {
         text: savedLog.content,
         metadata: { user_id: userId },
       },
-      { jobId: `embed:diary_log:${savedLog._id}:${contentHash}` },
+      { jobId: `embed-diary_log-${savedLog._id}-${contentHash}` },
     );
 
     return savedLog;

@@ -19,10 +19,15 @@ export interface RAGContext {
     source_type: 'diary_log' | 'knowledge_source';
     chunk_index: number;
     score: number;
+    title?: string;
+    url?: string;
   }>;
   has_context: boolean;
   retrieval_status: 'success' | 'no_match' | 'degraded';
 }
+
+import { DiaryRepository } from '../../farm/infrastructure/persistence/diary.repository';
+import { KnowledgeRepository } from '../../knowledge/infrastructure/persistence/knowledge.repository';
 
 @Injectable()
 export class RagService {
@@ -32,6 +37,8 @@ export class RagService {
     @Inject('IEmbeddingProvider')
     private readonly embeddingProvider: IEmbeddingProvider,
     private readonly embeddingRepository: EmbeddingRepository,
+    private readonly diaryRepository: DiaryRepository,
+    private readonly knowledgeRepository: KnowledgeRepository,
   ) {}
 
   async retrieveContext(
@@ -78,6 +85,33 @@ export class RagService {
           chunk_index: hit.chunk_index,
           score: hit.score,
         });
+      }
+
+      // Populate metadata for citations
+      const knowledgeIds = citations.filter(c => c.source_type === 'knowledge_source').map(c => c.source_id);
+      const diaryIds = citations.filter(c => c.source_type === 'diary_log').map(c => c.source_id);
+
+      const [knowledgeSources, diaryLogs] = await Promise.all([
+        knowledgeIds.length > 0 ? this.knowledgeRepository.findByIds(knowledgeIds) : Promise.resolve([]),
+        diaryIds.length > 0 ? this.diaryRepository.findLogsByIds(diaryIds) : Promise.resolve([])
+      ]);
+
+      const knowledgeMap = new Map(knowledgeSources.map(s => [s._id.toString(), s]));
+      const diaryMap = new Map(diaryLogs.map(l => [l._id.toString(), l]));
+
+      for (const citation of citations) {
+        if (citation.source_type === 'knowledge_source') {
+          const source = knowledgeMap.get(citation.source_id);
+          if (source) {
+            citation.title = source.title;
+            citation.url = source.source_url;
+          }
+        } else if (citation.source_type === 'diary_log') {
+          const log = diaryMap.get(citation.source_id);
+          if (log) {
+            citation.title = `Nhật ký: ${log.activity_type}`;
+          }
+        }
       }
 
       return {
