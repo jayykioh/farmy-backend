@@ -41,25 +41,7 @@ export class LLMService implements IEmbeddingProvider {
 
   constructor(private readonly rateLimiter: RateLimiterService) {}
 
-  private shouldUseMockKeyFallback(): boolean {
-    const cfg = appConfig();
-    const isMockKey =
-      !cfg.gemini.apiKey || !cfg.gemini.apiKey.startsWith('AIzaSy');
-    return isMockKey && process.env.NODE_ENV !== 'test';
-  }
-
   async complete(options: LLMCompleteOptions): Promise<LLMCompleteResult> {
-    if (this.shouldUseMockKeyFallback()) {
-      const text = this.getMockResponse(options.prompt);
-      return {
-        text,
-        promptTokens: 0,
-        completionTokens: 0,
-        latencyMs: 50,
-        rateLimited: false,
-      };
-    }
-
     const cfg = appConfig();
 
     const rateLimit = await this.rateLimiter.consume(
@@ -85,13 +67,6 @@ export class LLMService implements IEmbeddingProvider {
   }
 
   async embed(text: string): Promise<LLMEmbedResult> {
-    if (this.shouldUseMockKeyFallback()) {
-      return {
-        vector: new Array(768).fill(0),
-        latencyMs: 10,
-      };
-    }
-
     const cfg = appConfig();
 
     const rateLimit = await this.rateLimiter.consume(
@@ -130,16 +105,6 @@ export class LLMService implements IEmbeddingProvider {
   async *streamComplete(
     options: LLMCompleteOptions,
   ): AsyncGenerator<string, void, void> {
-    if (this.shouldUseMockKeyFallback()) {
-      const mockText = this.getMockResponse(options.prompt);
-      const chunks = mockText.match(/.{1,3}/g) || [mockText];
-      for (const chunk of chunks) {
-        await this.sleep(40);
-        yield chunk;
-      }
-      return;
-    }
-
     const cfg = appConfig();
 
     const rateLimit = await this.rateLimiter.consume(
@@ -227,16 +192,6 @@ export class LLMService implements IEmbeddingProvider {
   async completeVision(
     options: VisionCompleteOptions,
   ): Promise<LLMCompleteResult> {
-    if (this.shouldUseMockKeyFallback()) {
-      return {
-        text: 'Dạ qua hình ảnh bà con gửi, Bé Thóc thấy cây trồng của mình trông khá khỏe mạnh và phát triển tốt ạ! Bà con tiếp tục duy trì tưới nước và theo dõi sâu bệnh nha. 🌾✨',
-        promptTokens: 0,
-        completionTokens: 0,
-        latencyMs: 50,
-        rateLimited: false,
-      };
-    }
-
     const cfg = appConfig();
 
     const rateLimit = await this.rateLimiter.consume(
@@ -374,28 +329,6 @@ export class LLMService implements IEmbeddingProvider {
     };
   }
 
-  private getMockResponse(prompt: string): string {
-    const promptLower = prompt.toLowerCase();
-    
-    if (promptLower.includes('tưới') || promptLower.includes('nước')) {
-      return 'Dạ bà con nhớ tưới nước đầy đủ cho ruộng lúa nha! Nước là nguồn sống chính giúp lúa đẻ nhánh khỏe và trổ bông đều đó ạ. 🌱💦';
-    }
-    if (promptLower.includes('phân') || promptLower.includes('bón')) {
-      return 'Bón phân đợt 1 (7-10 ngày sau sạ) bà con nên dùng phân Ure kết hợp DAP để lúa bén rễ nhanh nhé! Bón đúng liều lượng nha bà con. 🌾';
-    }
-    if (promptLower.includes('sâu') || promptLower.includes('bệnh') || promptLower.includes('rầy')) {
-      return 'Ôi, lúa nhà mình có dấu hiệu sâu bệnh hả bà con? Bà con kiểm tra kỹ lá và gốc lúa xem có rầy nâu hay đạo ôn không nhé. Chụp hình gửi Bé Thóc xem thử nha! 🐛🍂';
-    }
-    if (promptLower.includes('thời tiết') || promptLower.includes('nhiệt độ')) {
-      return 'Dạ dạo này thời tiết thay đổi thất thường lắm, bà con nhớ theo dõi dự báo thời tiết để chủ động lượng nước tưới tiêu nhé! ☀️🌧️';
-    }
-    if (promptLower.includes('remind') || promptLower.includes('nhắc nhở') || promptLower.includes('lịch')) {
-      return 'Bà con có thể nhấn vào nút Đặt nhắc nhở ở màn hình chính hoặc bảo em để em tạo lịch tưới nước, bón phân tự động nha! 📅⏰';
-    }
-    
-    return 'Dạ Bé Thóc nghe rõ rồi ạ! Bà con nhớ chăm chỉ ghi nhật ký đồng ruộng hằng ngày để em theo dõi sức khỏe cây lúa nha. Chúc bà con một ngày tốt lành! 🌾💚';
-  }
-
   private getClient(): GeminiClient {
     if (this.client) {
       return this.client;
@@ -404,6 +337,11 @@ export class LLMService implements IEmbeddingProvider {
     const cfg = appConfig();
     if (!cfg.gemini.apiKey) {
       throw new LLMConfigurationException();
+    }
+    if (!cfg.gemini.apiKey.startsWith('AIzaSy')) {
+      throw new LLMConfigurationException(
+        'Gemini API key is invalid or uses a mock value.',
+      );
     }
 
     this.client = new GoogleGenAI({ apiKey: cfg.gemini.apiKey });
