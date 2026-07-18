@@ -78,7 +78,7 @@ export const appConfig = () => ({
 
   /** Gemini AI */
   gemini: {
-    apiKey: process.env.GEMINI_API_KEY ?? '',
+    apiKey: (process.env.GEMINI_API_KEY ?? process.env.GEMINI_KEY ?? '').trim(),
     chatModel: process.env.GEMINI_CHAT_MODEL ?? 'gemini-1.5-flash',
     visionModel: process.env.GEMINI_VISION_MODEL ?? 'gemini-1.5-flash',
     embedModel: process.env.GEMINI_EMBED_MODEL ?? 'text-embedding-004',

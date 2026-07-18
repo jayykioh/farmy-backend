@@ -197,17 +197,23 @@ describe('LLMService', () => {
     ).rejects.toBeInstanceOf(LLMConfigurationException);
   });
 
-  it('throws configuration errors in development instead of returning canned mock responses', async () => {
+  it('calls the provider in development instead of returning canned mock responses', async () => {
     process.env.NODE_ENV = 'development';
     process.env.GEMINI_API_KEY = 'not-a-real-gemini-key';
     rateLimiter.consume.mockResolvedValue({ allowed: true });
+    mockGenerateContent.mockResolvedValue({ text: 'provider response' });
+    mockGenerateContentStream.mockResolvedValue(
+      (async function* () {
+        yield { text: 'stream response' };
+      })(),
+    );
 
     await expect(
       service.complete({ prompt: 'hello', promptVersion: 'v1.0' }),
-    ).rejects.toBeInstanceOf(LLMConfigurationException);
+    ).resolves.toMatchObject({ text: 'provider response' });
     await expect(
       service.streamComplete({ prompt: 'hello', promptVersion: 'v1.0' }).next(),
-    ).rejects.toBeInstanceOf(LLMConfigurationException);
+    ).resolves.toMatchObject({ value: 'stream response' });
   });
 
   it('throws EmbedQuotaExceededException when embed RPM is denied', async () => {
