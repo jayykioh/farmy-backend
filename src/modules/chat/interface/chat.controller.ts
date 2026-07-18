@@ -1,8 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpException,
+  HttpCode,
+  HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -14,7 +19,9 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
 import { ChatService } from '../application/chat.service';
 import { MessagesQueryDto, SessionsQueryDto } from './dtos/pagination.dto';
+import { RenameSessionDto } from './dtos/rename-session.dto';
 import { StreamChatDto } from './dtos/stream-chat.dto';
+import { SubmitFeedbackDto } from './dtos/feedback.dto';
 
 interface StreamErrorPayload {
   code: string;
@@ -101,6 +108,19 @@ export class ChatController {
     }
   }
 
+  @Post('feedback')
+  @HttpCode(HttpStatus.CREATED)
+  async submitFeedback(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SubmitFeedbackDto,
+  ) {
+    const data = await this.chatService.submitFeedback(dto, user.id);
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Get('sessions')
   listSessions(
     @CurrentUser('id') userId: string,
@@ -123,6 +143,35 @@ export class ChatController {
     );
   }
 
+  @Delete('sessions/:session_id')
+  async deleteSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('session_id') sessionId: string,
+  ) {
+    const data = await this.chatService.deleteSession(user.id, sessionId);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Patch('sessions/:session_id')
+  async renameSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('session_id') sessionId: string,
+    @Body() dto: RenameSessionDto,
+  ) {
+    const data = await this.chatService.renameSession(
+      user.id,
+      sessionId,
+      dto.title,
+    );
+    return {
+      success: true,
+      data,
+    };
+  }
+
   private writeEvent(response: Response, event: string, payload: object): void {
     response.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
   }
@@ -130,11 +179,35 @@ export class ChatController {
   private toStreamError(error: unknown): StreamErrorPayload {
     const disconnected =
       error instanceof Error && error.message === 'CLIENT_DISCONNECTED';
+    if (disconnected) {
+      return {
+        code: 'CLIENT_DISCONNECTED',
+        message: 'The client disconnected before generation completed.',
+        retryable: true,
+      };
+    }
+
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (response && typeof response === 'object') {
+        const payload = response as { errorCode?: string; message?: string | string[] };
+        const message = Array.isArray(payload.message)
+          ? payload.message.join('; ')
+          : payload.message;
+        return {
+          code: payload.errorCode ?? error.name,
+          message: message ?? error.message,
+          retryable: error.getStatus() !== HttpStatus.INTERNAL_SERVER_ERROR,
+        };
+      }
+    }
+
     return {
-      code: disconnected ? 'CLIENT_DISCONNECTED' : 'GENERATION_FAILED',
-      message: disconnected
-        ? 'The client disconnected before generation completed.'
-        : 'The assistant response could not be generated.',
+      code: error instanceof Error ? error.name : 'GENERATION_FAILED',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'The assistant response could not be generated.',
       retryable: true,
     };
   }

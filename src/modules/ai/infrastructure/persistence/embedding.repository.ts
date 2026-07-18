@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 export interface UpsertEmbeddingDto {
@@ -25,13 +25,25 @@ export interface SearchHit {
 
 @Injectable()
 export class EmbeddingRepository {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(@Optional() private readonly dataSource?: DataSource) {}
+
+  private getDataSource(): DataSource {
+    if (!this.dataSource) {
+      throw new ServiceUnavailableException({
+        error_code: 'PGVECTOR_DISABLED',
+        message:
+          'pgvector/RAG features are disabled because PG_CONNECTION_STRING is not configured.',
+      });
+    }
+
+    return this.dataSource;
+  }
 
   async findActiveChunkStates(
     sourceId: string,
     sourceType: string,
   ): Promise<Map<number, { contentHash: string }>> {
-    const rows = await this.dataSource.query(
+    const rows = await this.getDataSource().query(
       `SELECT chunk_index, content_hash
        FROM "embeddings"
        WHERE source_id = $1 AND source_type = $2 AND is_active = true`,
@@ -50,7 +62,7 @@ export class EmbeddingRepository {
     const metadataString = dto.metadata ? JSON.stringify(dto.metadata) : null;
     const isActive = dto.isActive !== undefined ? dto.isActive : true;
 
-    await this.dataSource.query(
+    await this.getDataSource().query(
       `INSERT INTO "embeddings" ("source_id", "source_type", "chunk_index", "content_hash", "text", "embedding", "metadata", "is_active")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT ("source_id", "source_type", "chunk_index")
@@ -80,7 +92,7 @@ export class EmbeddingRepository {
   ): Promise<void> {
     if (dtos.length === 0 && staleIndices.length === 0) return;
 
-    const queryRunner = this.dataSource.createQueryRunner();
+    const queryRunner = this.getDataSource().createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -124,7 +136,7 @@ export class EmbeddingRepository {
         // To be safe, we can add sourceId and sourceType as parameters, but we can assume they are same.
         if (sourceId && sourceType) {
           await queryRunner.query(
-            `UPDATE "embeddings" SET "is_active" = false 
+            `UPDATE "embeddings" SET "is_active" = false
              WHERE "source_id" = $1 AND "source_type" = $2 AND "chunk_index" = ANY($3)`,
             [sourceId, sourceType, staleIndices],
           );
@@ -141,10 +153,36 @@ export class EmbeddingRepository {
   }
 
   async deactivateBySourceId(sourceId: string): Promise<void> {
-    await this.dataSource.query(
+    await this.getDataSource().query(
       `UPDATE "embeddings" SET "is_active" = false WHERE "source_id" = $1`,
       [sourceId],
     );
+  }
+
+  async deactivateChunkIndices(
+    sourceId: string,
+    sourceType: string,
+    chunkIndices: number[],
+  ): Promise<void> {
+    if (chunkIndices.length === 0) return;
+
+    const queryRunner = this.getDataSource().createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.query(
+        `UPDATE "embeddings" SET "is_active" = false
+         WHERE "source_id" = $1 AND "source_type" = $2 AND "chunk_index" = ANY($3)`,
+        [sourceId, sourceType, chunkIndices],
+      );
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async searchSimilar(
@@ -153,7 +191,7 @@ export class EmbeddingRepository {
     userId: string,
   ): Promise<SearchHit[]> {
     const vectorString = `[${vector.join(',')}]`;
-    const rows = await this.dataSource.query(
+    const rows = await this.getDataSource().query(
       `SELECT source_id, source_type, chunk_index, text, content_hash, metadata,
               1 - (embedding <=> $1::vector) AS score
        FROM "embeddings"

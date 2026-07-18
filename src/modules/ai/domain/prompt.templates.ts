@@ -64,7 +64,7 @@ QUAN TRỌNG:
 Trả về JSON theo cấu trúc:
 {
   "is_plant": true,
-  "disease": "...",
+  "disease_name": "...",
   "confidence": 0.0,
   "symptoms": ["..."],
   "treatment": {

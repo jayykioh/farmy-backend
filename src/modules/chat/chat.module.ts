@@ -12,6 +12,10 @@ import {
   ChatSessionDocument,
   ChatSessionSchema,
 } from './infrastructure/persistence/chat-session.schema';
+import {
+  AiFeedbackDocument,
+  AiFeedbackSchema,
+} from '../ai/infrastructure/persistence/ai-feedback.schema';
 import { ChatController } from './interface/chat.controller';
 
 @Module({
@@ -22,6 +26,7 @@ import { ChatController } from './interface/chat.controller';
     MongooseModule.forFeature([
       { name: ChatSessionDocument.name, schema: ChatSessionSchema },
       { name: ChatMessageDocument.name, schema: ChatMessageSchema },
+      { name: AiFeedbackDocument.name, schema: AiFeedbackSchema },
     ]),
   ],
   controllers: [ChatController],

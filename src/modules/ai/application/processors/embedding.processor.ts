@@ -86,24 +86,11 @@ export class EmbeddingProcessor extends WorkerHost {
       if (vectorsToUpsert.length > 0 || staleIndices.length > 0) {
         // If dtos is empty, we just run deactivate directly since upsertMany might fail to guess sourceId
         if (vectorsToUpsert.length === 0) {
-          // Deactivate only
-          const queryRunner =
-            this.embeddingRepository['dataSource'].createQueryRunner();
-          await queryRunner.connect();
-          await queryRunner.startTransaction();
-          try {
-            await queryRunner.query(
-              `UPDATE "embeddings" SET "is_active" = false 
-               WHERE "source_id" = $1 AND "source_type" = $2 AND "chunk_index" = ANY($3)`,
-              [sourceId, sourceType, staleIndices],
-            );
-            await queryRunner.commitTransaction();
-          } catch (err) {
-            await queryRunner.rollbackTransaction();
-            throw err;
-          } finally {
-            await queryRunner.release();
-          }
+          await this.embeddingRepository.deactivateChunkIndices(
+            sourceId,
+            sourceType,
+            staleIndices,
+          );
         } else {
           await this.embeddingRepository.upsertMany(
             vectorsToUpsert,

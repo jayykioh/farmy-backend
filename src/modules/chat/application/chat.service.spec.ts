@@ -49,6 +49,24 @@ describe('ChatService', () => {
     const sessionModel = {
       findById: jest.fn().mockReturnValue(queryResult(session)),
       create: jest.fn().mockResolvedValue(session),
+      updateOne: jest.fn().mockResolvedValue({ matchedCount: 1 }),
+      findOneAndUpdate: jest.fn().mockReturnValue(
+        queryResult({
+          _id: sessionId,
+          user_id: 'user-1',
+          title: 'Ruộng lúa vụ hè',
+          last_message_at: session.last_message_at,
+        }),
+      ),
+      deleteOne: jest.fn().mockReturnValue(queryResult({ deletedCount: 1 })),
+      db: {
+        startSession: jest.fn().mockResolvedValue({
+          withTransaction: jest.fn(async (callback: () => Promise<void>) => {
+            await callback();
+          }),
+          endSession: jest.fn(),
+        }),
+      },
     };
     const messageModel = {
       findOne: jest
@@ -60,6 +78,7 @@ describe('ChatService', () => {
       create: jest.fn().mockResolvedValue(userMessage),
       find: jest.fn().mockReturnValue(historyQuery(options?.history ?? [])),
       updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+      deleteMany: jest.fn().mockReturnValue(queryResult({ deletedCount: 2 })),
     };
     const ragService = {
       retrieveContext: jest.fn().mockResolvedValue({
@@ -237,5 +256,75 @@ describe('ChatService', () => {
     await expect(
       service.listMessages('user-2', session._id.toString(), 1, 30),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('deletes an owned session and all of its messages', async () => {
+    const { service, session, sessionModel, messageModel } = createService();
+
+    await expect(
+      service.deleteSession('user-1', session._id.toString()),
+    ).resolves.toEqual({ deleted: true });
+
+    expect(messageModel.deleteMany).toHaveBeenCalledWith({
+      session_id: session._id,
+      user_id: 'user-1',
+    });
+    expect(sessionModel.deleteOne).toHaveBeenCalledWith({
+      _id: session._id,
+      user_id: 'user-1',
+    });
+  });
+
+  it('renames an owned session with a trimmed title', async () => {
+    const { service, session, sessionModel } = createService();
+
+    await expect(
+      service.renameSession(
+        'user-1',
+        session._id.toString(),
+        '  Ruộng lúa vụ hè  ',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        _id: session._id,
+        title: 'Ruộng lúa vụ hè',
+      }),
+    );
+
+    expect(sessionModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: session._id, user_id: 'user-1' },
+      { $set: { title: 'Ruộng lúa vụ hè' } },
+      { new: true, projection: '_id title last_message_at created_at updated_at' },
+    );
+  });
+
+  it('updates the first-turn session title from the assistant response', async () => {
+    const { service, session, userMessage, sessionModel, messageModel } =
+      createService();
+    const assistantId = new Types.ObjectId();
+    messageModel.create.mockResolvedValueOnce([{ _id: assistantId }]);
+
+    await service.completeTurn(
+      {
+        sessionId: session._id.toString(),
+        userMessageId: userMessage._id.toString(),
+        userId: 'user-1',
+        prompt: 'prompt',
+        promptVersion: 'chat-v1',
+        retrievalStatus: 'no_match',
+        citations: [],
+      },
+      'Dạ, lá lúa bị vàng thường do thiếu đạm hoặc nấm bệnh. Bà con nên kiểm tra đất và quan sát vết bệnh.',
+    );
+
+    expect(sessionModel.updateOne).toHaveBeenCalledWith(
+      { _id: session._id, user_id: 'user-1' },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          title: 'Lá lúa bị vàng thường do thiếu đạm hoặc nấm bệnh',
+        }),
+      }),
+      expect.any(Object),
+    );
   });
 });

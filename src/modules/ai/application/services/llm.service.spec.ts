@@ -43,6 +43,7 @@ jest.mock('@google/genai', () => {
 });
 
 describe('LLMService', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
   const rateLimiter = {
     consume: jest.fn(),
   };
@@ -52,7 +53,7 @@ describe('LLMService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.GEMINI_API_KEY = 'test-key';
+    process.env.GEMINI_API_KEY = 'AIzaSy-test-key';
     process.env.GEMINI_CHAT_MODEL = 'gemini-1.5-flash';
     process.env.GEMINI_VISION_MODEL = 'gemini-1.5-flash';
     process.env.GEMINI_EMBED_MODEL = 'text-embedding-004';
@@ -67,6 +68,7 @@ describe('LLMService', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    process.env.NODE_ENV = originalNodeEnv;
     delete process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_CHAT_MODEL;
     delete process.env.GEMINI_VISION_MODEL;
@@ -193,6 +195,25 @@ describe('LLMService', () => {
     await expect(
       service.complete({ prompt: 'hello', promptVersion: 'v1.0' }),
     ).rejects.toBeInstanceOf(LLMConfigurationException);
+  });
+
+  it('calls the provider in development instead of returning canned mock responses', async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.GEMINI_API_KEY = 'not-a-real-gemini-key';
+    rateLimiter.consume.mockResolvedValue({ allowed: true });
+    mockGenerateContent.mockResolvedValue({ text: 'provider response' });
+    mockGenerateContentStream.mockResolvedValue(
+      (async function* () {
+        yield { text: 'stream response' };
+      })(),
+    );
+
+    await expect(
+      service.complete({ prompt: 'hello', promptVersion: 'v1.0' }),
+    ).resolves.toMatchObject({ text: 'provider response' });
+    await expect(
+      service.streamComplete({ prompt: 'hello', promptVersion: 'v1.0' }).next(),
+    ).resolves.toMatchObject({ value: 'stream response' });
   });
 
   it('throws EmbedQuotaExceededException when embed RPM is denied', async () => {
