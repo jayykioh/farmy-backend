@@ -17,11 +17,22 @@ export class CsrfMiddleware implements NestMiddleware {
   });
 
   use(req: Request, res: Response, next: NextFunction) {
+
+    const userAgent = req.headers['user-agent'] || '';
+    if (
+      userAgent.includes('Expo') || 
+      userAgent.includes('Darwin') || 
+      userAgent.includes('okhttp')
+    ) {
+      return next();
+    }
+
     // Exclude login, register, and refresh from CSRF verification
     const ignoredPaths = [
       '/api/v1/auth/login',
       '/api/v1/auth/register',
       '/api/v1/auth/refresh',
+      '/api/v1/auth/logout',
     ];
 
     if (process.env.NODE_ENV === 'test') {

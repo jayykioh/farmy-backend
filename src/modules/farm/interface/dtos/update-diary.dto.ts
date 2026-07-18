@@ -5,6 +5,10 @@ export class UpdateDiaryDto {
   @IsOptional()
   crop_type?: string;
 
+  @IsString()
+  @IsOptional()
+  season?: string;
+
   @IsDateString(
     {},
     { message: 'start_date phải là định dạng ngày tháng hợp lệ!' },
