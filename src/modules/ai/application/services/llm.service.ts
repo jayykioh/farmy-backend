@@ -44,12 +44,19 @@ export class LLMService implements IEmbeddingProvider {
   private shouldUseMockKeyFallback(): boolean {
     const cfg = appConfig();
     const isMockKey =
-      !cfg.gemini.apiKey || !cfg.gemini.apiKey.startsWith('AIzaSy');
+      !cfg.gemini.apiKey || 
+      cfg.gemini.apiKey === 'mock' || 
+      cfg.gemini.apiKey.startsWith('mock_') ||
+      cfg.gemini.apiKey.includes('your_jwt_') ||
+      cfg.gemini.apiKey === 'your_gemini_api_key_here';
     return isMockKey && process.env.NODE_ENV !== 'test';
   }
 
   async complete(options: LLMCompleteOptions): Promise<LLMCompleteResult> {
-    if (this.shouldUseMockKeyFallback()) {
+    const isMock = this.shouldUseMockKeyFallback();
+    const apiKey = appConfig().gemini.apiKey;
+    this.logger.log(`LLM complete requested. isMock fallback: ${isMock}, Key (length): ${apiKey?.length || 0}`);
+    if (isMock) {
       const text = this.getMockResponse(options.prompt);
       return {
         text,
