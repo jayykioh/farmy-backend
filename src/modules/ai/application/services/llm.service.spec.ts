@@ -53,7 +53,7 @@ describe('LLMService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.GEMINI_API_KEY = 'test-key';
+    process.env.GEMINI_API_KEY = 'AIzaSy-test-key';
     process.env.GEMINI_CHAT_MODEL = 'gemini-1.5-flash';
     process.env.GEMINI_VISION_MODEL = 'gemini-1.5-flash';
     process.env.GEMINI_EMBED_MODEL = 'text-embedding-004';
@@ -197,24 +197,17 @@ describe('LLMService', () => {
     ).rejects.toBeInstanceOf(LLMConfigurationException);
   });
 
-  it('uses only the current user message when choosing a development mock response', async () => {
+  it('throws configuration errors in development instead of returning canned mock responses', async () => {
     process.env.NODE_ENV = 'development';
     process.env.GEMINI_API_KEY = 'not-a-real-gemini-key';
-    const prompt = `
-      [LỊCH SỬ HỘI THOẠI - DO NGƯỜI DÙNG NHẬP]
-      AI: Bón phân đợt 1 (7-10 ngày sau sạ) bà con nên dùng phân Ure kết hợp DAP.
+    rateLimiter.consume.mockResolvedValue({ allowed: true });
 
-      [CÂU HỎI HIỆN TẠI - DO NGƯỜI DÙNG GỬI]
-      con chó đông béo
-
-      --- KẾT THÚC DỮ LIỆU NGƯỜI DÙNG ---
-    `;
-
-    const result = (
-      service as unknown as { getMockResponse(prompt: string): string }
-    ).getMockResponse(prompt);
-
-    expect(result).not.toContain('Bón phân đợt 1');
+    await expect(
+      service.complete({ prompt: 'hello', promptVersion: 'v1.0' }),
+    ).rejects.toBeInstanceOf(LLMConfigurationException);
+    await expect(
+      service.streamComplete({ prompt: 'hello', promptVersion: 'v1.0' }).next(),
+    ).rejects.toBeInstanceOf(LLMConfigurationException);
   });
 
   it('throws EmbedQuotaExceededException when embed RPM is denied', async () => {

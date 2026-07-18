@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
   HttpCode,
   HttpStatus,
   Param,
@@ -178,11 +179,35 @@ export class ChatController {
   private toStreamError(error: unknown): StreamErrorPayload {
     const disconnected =
       error instanceof Error && error.message === 'CLIENT_DISCONNECTED';
+    if (disconnected) {
+      return {
+        code: 'CLIENT_DISCONNECTED',
+        message: 'The client disconnected before generation completed.',
+        retryable: true,
+      };
+    }
+
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+      if (response && typeof response === 'object') {
+        const payload = response as { errorCode?: string; message?: string | string[] };
+        const message = Array.isArray(payload.message)
+          ? payload.message.join('; ')
+          : payload.message;
+        return {
+          code: payload.errorCode ?? error.name,
+          message: message ?? error.message,
+          retryable: error.getStatus() !== HttpStatus.INTERNAL_SERVER_ERROR,
+        };
+      }
+    }
+
     return {
-      code: disconnected ? 'CLIENT_DISCONNECTED' : 'GENERATION_FAILED',
-      message: disconnected
-        ? 'The client disconnected before generation completed.'
-        : 'The assistant response could not be generated.',
+      code: error instanceof Error ? error.name : 'GENERATION_FAILED',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'The assistant response could not be generated.',
       retryable: true,
     };
   }
