@@ -6,6 +6,7 @@ import {
   PetMood,
   PetMoodReason,
 } from '../../infrastructure/persistence/pet-state.schema';
+import { ShopItemDocument } from '../../../shop/infrastructure/persistence/shop-item.schema';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,12 +63,26 @@ describe('PetService', () => {
     // Make `new mockPetModel(...)` work for ensurePet creation path
     Object.setPrototypeOf(mockPetModel, Function.prototype);
 
+    const mockShopItemModel = {
+      find: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockReturnValue({
+            exec: jest.fn().mockResolvedValue([]),
+          }),
+        }),
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PetService,
         {
           provide: getModelToken(PetStateDocument.name),
           useValue: mockPetModel,
+        },
+        {
+          provide: getModelToken(ShopItemDocument.name),
+          useValue: mockShopItemModel,
         },
       ],
     }).compile();

@@ -8,6 +8,7 @@ import {
   PetMood,
   PetMoodReason,
 } from '../../infrastructure/persistence/pet-state.schema';
+import { ShopItemDocument } from '../../../shop/infrastructure/persistence/shop-item.schema';
 
 // ─── DTOs / Response Shape ────────────────────────────────────────────────────
 
@@ -32,6 +33,12 @@ export interface PetStatusResponse {
   bubbleMessage: string;
   ownedItems: string[];
   equippedItems: string[];
+  equippedItemsDetails?: Array<{
+    _id: string;
+    name: string;
+    category: string;
+    image_url: string;
+  }>;
   updatedAt?: Date;
 }
 
@@ -44,7 +51,41 @@ export class PetService {
   constructor(
     @InjectModel(PetStateDocument.name)
     private readonly petModel: Model<PetStateDocument>,
+    @InjectModel(ShopItemDocument.name)
+    private readonly shopItemModel: Model<ShopItemDocument>,
   ) {}
+
+  private async mapToResponseWithDetails(
+    pet: PetStateDocument,
+    reason?: string,
+  ): Promise<PetStatusResponse> {
+    const equippedItemsDetails = await this.shopItemModel
+      .find({ _id: { $in: pet.equipped_items } })
+      .select('_id name category image_url')
+      .lean()
+      .exec();
+
+    return {
+      mood: pet.mood,
+      previousMood: pet.previous_mood,
+      streakCount: pet.streak_count,
+      level: pet.level,
+      exp: pet.xp,
+      lastDiaryDate: pet.last_diary_date,
+      missedDays: pet.missed_days,
+      moodReason: pet.mood_reason ?? reason ?? 'DEFAULT_STATE',
+      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
+      ownedItems: pet.owned_items,
+      equippedItems: pet.equipped_items,
+      equippedItemsDetails: equippedItemsDetails.map((item: any) => ({
+        _id: item._id,
+        name: item.name,
+        category: item.category,
+        image_url: item.image_url,
+      })),
+      updatedAt: (pet as any).updated_at,
+    };
+  }
 
   // ── Mood Calculation Engine (source of truth) ─────────────────────────────
 
@@ -257,20 +298,7 @@ export class PetService {
       await pet.save();
     }
 
-    return {
-      mood: pet.mood,
-      previousMood: pet.previous_mood,
-      streakCount: pet.streak_count,
-      level: pet.level,
-      exp: pet.xp,
-      lastDiaryDate: pet.last_diary_date,
-      missedDays: pet.missed_days,
-      moodReason: pet.mood_reason ?? reason,
-      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
-      ownedItems: pet.owned_items,
-      equippedItems: pet.equipped_items,
-      updatedAt: (pet as any).updated_at,
-    };
+    return this.mapToResponseWithDetails(pet, reason);
   }
 
   /**
@@ -310,20 +338,7 @@ export class PetService {
       `Pet updated for user ${userId}: mood=${mood}, streak=${pet.streak_count}, xp=${pet.xp}`,
     );
 
-    return {
-      mood: pet.mood,
-      previousMood: pet.previous_mood,
-      streakCount: pet.streak_count,
-      level: pet.level,
-      exp: pet.xp,
-      lastDiaryDate: pet.last_diary_date,
-      missedDays: pet.missed_days,
-      moodReason: reason,
-      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
-      ownedItems: pet.owned_items,
-      equippedItems: pet.equipped_items,
-      updatedAt: (pet as any).updated_at,
-    };
+    return this.mapToResponseWithDetails(pet, reason);
   }
 
   /**
@@ -371,20 +386,7 @@ export class PetService {
       `Pet updated (task) for user ${userId}: mood=${mood}, streak=${pet.streak_count}, xp=${pet.xp}`,
     );
 
-    return {
-      mood: pet.mood,
-      previousMood: pet.previous_mood,
-      streakCount: pet.streak_count,
-      level: pet.level,
-      exp: pet.xp,
-      lastDiaryDate: pet.last_diary_date,
-      missedDays: pet.missed_days,
-      moodReason: reason,
-      bubbleMessage: this.generateBubbleMessage(pet.mood, pet.streak_count),
-      ownedItems: pet.owned_items,
-      equippedItems: pet.equipped_items,
-      updatedAt: (pet as any).updated_at,
-    };
+    return this.mapToResponseWithDetails(pet, reason);
   }
 
   // ── Legacy / Backward-Compat Methods ─────────────────────────────────────

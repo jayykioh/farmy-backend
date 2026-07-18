@@ -26,7 +26,7 @@ export class ShopService implements OnModuleInit {
       this.logger.log('Seeding initial shop items...');
       const seedItems = [
         {
-          _id: randomUUID(),
+          _id: 'hat_non_la_001',
           name: 'Nón Lá Truyền Thống',
           category: ShopItemCategory.HAT,
           price: 300,
@@ -34,7 +34,7 @@ export class ShopService implements OnModuleInit {
           image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzSmV6cdrTVHzXBG0N7bXXKN3XoZOzRMPXfVSxi0cvLV86eZCvMCQUZfvsIwGmGFQCrdkVZZ0fPQlcFxA7lT7026GIQqk5q37hMvRuTScXcwmvL2MxEFkY_EjgDBSeSHb7xTRqUPbj1MRY_BqwkhLCcAZ36PrGji9H9EPDb67uNr4UmWBqmiirxAhuuidfFZvbiQYTWZytovpLIpFDBOt949vcQkwFPZijhl9qeWhHM_-dZdg6jkw_Rc8N5-0j2r42RYKLnkeCUeC1'
         },
         {
-          _id: randomUUID(),
+          _id: 'hat_mu_rom_002',
           name: 'Mũ Rơm Đi Biển',
           category: ShopItemCategory.HAT,
           price: 450,
@@ -42,7 +42,7 @@ export class ShopService implements OnModuleInit {
           image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuARFPmbrP2z0o6zbdd7uP-bPyY-SYnnTKkCOADA4RXRYqu2DrDeYGWguF5cykN1-ipwc2P6p6Cdq96yLVJvgR1oqfJAvNSKCfqQBg_SSujhyLfnD2BgmghulIgXOt3-E7AF3ZQncims2yYMtwOubGUkLpo2UYElzRRbTXkWTIi2CCPypLVhBOKihE9dsp9a2IqHkXPe3bJtg8mF2y3G-fvmq7x0mHfYBvnuEy3WPQy9N0Eg5LVtORi1oHeGPGOIlDBT-CRD8PEElFRL'
         },
         {
-          _id: randomUUID(),
+          _id: 'hat_kinh_ram_003',
           name: 'Kính Râm Ngầu',
           category: ShopItemCategory.HAT,
           price: 200,
@@ -50,14 +50,15 @@ export class ShopService implements OnModuleInit {
           image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9cOVVDdur_i-PyVaZ5wgi_eWdCMep-I4DMSFJWI7uVcGdz5kFluH_59odvnj3HLiPOr8nZO2JAQhoVYU_T8hJ1ZPy0aL2Ufn-32LWyqO_inFt5Xk9aP1MUiR-l1odRI2kNKJ0blEaFsLoV6MGeYjhWz0QNUtERuxYcgICpIbiSQdTgCdjb_5N5Ao-tMDNIi23DK2xmSunDTB3D4fvQgPX_QpgYfxiugGxZTJPeTFFA7qBvhkQeo0NVUo4nMaeFLa6r96NpTBGOJaY'
         },
         {
-          _id: randomUUID(),
+          _id: 'hat_ao_thuat_004',
           name: 'Mũ Ảo Thuật',
           category: ShopItemCategory.HAT,
           price: 800,
           required_level: 5,
-          image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzSmV6cdrTVHzXBG0N7bXXKN3XoZOzRMPXfVSxi0cvLV86eZCvMCQUZfvsIwGmGFQCrdkVZZ0fPQlcFxA7lT7026GIQqk5q37hMvRuTScXcwmvL2MxEFkY_EjgDBSeSHb7xTRqUPbj1MRY_BqwkhLCcAZ36PrGji9H9EPDb67uNr4UmWBqmiirxAhuuidfFZvbiQYTWZytovpLIpFDBOt949vcQkwFPZijhl9qeWhHM_-dZdg6jkw_Rc8N5-0j2r42RYKLnkeCUeC1' // Same image as non-la for demo purposes, since it was locked
+          image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzSmV6cdrTVHzXBG0N7bXXKN3XoZOzRMPXfVSxi0cvLV86eZCvMCQUZfvsIwGmGFQCrdkVZZ0fPQlcFxA7lT7026GIQqk5q37hMvRuTScXcwmvL2MxEFkY_EjgDBSeSHb7xTRqUPbj1MRY_BqwkhLCcAZ36PrGji9H9EPDb67uNr4UmWBqmiirxAhuuidfFZvbiQYTWZytovpLIpFDBOt949vcQkwFPZijhl9qeWhHM_-dZdg6jkw_Rc8N5-0j2r42RYKLnkeCUeC1'
         }
       ];
+      await this.shopItemModel.deleteMany({}); // clear previous seed with dynamic UUIDs
       await this.shopItemModel.insertMany(seedItems);
       this.logger.log('Shop items seeded successfully.');
     }
