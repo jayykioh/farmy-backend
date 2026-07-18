@@ -11,7 +11,6 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   const cfg = appConfig();
 
-  // CORS — origins are loaded from ALLOWED_ORIGINS env variable
   app.enableCors({
     origin: cfg.allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

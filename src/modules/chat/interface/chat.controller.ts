@@ -1,8 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Res,
@@ -14,7 +18,9 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
 import { ChatService } from '../application/chat.service';
 import { MessagesQueryDto, SessionsQueryDto } from './dtos/pagination.dto';
+import { RenameSessionDto } from './dtos/rename-session.dto';
 import { StreamChatDto } from './dtos/stream-chat.dto';
+import { SubmitFeedbackDto } from './dtos/feedback.dto';
 
 interface StreamErrorPayload {
   code: string;
@@ -101,6 +107,19 @@ export class ChatController {
     }
   }
 
+  @Post('feedback')
+  @HttpCode(HttpStatus.CREATED)
+  async submitFeedback(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SubmitFeedbackDto,
+  ) {
+    const data = await this.chatService.submitFeedback(dto, user.id);
+    return {
+      success: true,
+      data,
+    };
+  }
+
   @Get('sessions')
   listSessions(
     @CurrentUser('id') userId: string,
@@ -121,6 +140,35 @@ export class ChatController {
       query.page,
       query.limit,
     );
+  }
+
+  @Delete('sessions/:session_id')
+  async deleteSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('session_id') sessionId: string,
+  ) {
+    const data = await this.chatService.deleteSession(user.id, sessionId);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Patch('sessions/:session_id')
+  async renameSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('session_id') sessionId: string,
+    @Body() dto: RenameSessionDto,
+  ) {
+    const data = await this.chatService.renameSession(
+      user.id,
+      sessionId,
+      dto.title,
+    );
+    return {
+      success: true,
+      data,
+    };
   }
 
   private writeEvent(response: Response, event: string, payload: object): void {

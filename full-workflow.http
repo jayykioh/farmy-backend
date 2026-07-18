@@ -1,0 +1,89 @@
+@baseUrl = http://localhost:3000/api/v1
+@email = user@farmy.com
+@password = UserPassword123
+
+### 1. Register a new user (Optional if seed data exists)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "full_name": "Test User"
+}
+
+### 2. Login to get Access Token
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+### Extract Token
+@token = {{login.response.body.data.accessToken}}
+
+### 3. Create a Plot (Farm)
+# @name createPlot
+POST {{baseUrl}}/plots
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Integration Test Plot",
+  "area_size": 100.5,
+  "description": "Plot created for full workflow testing"
+}
+
+### Extract Plot ID
+@plotId = {{createPlot.response.body.data._id}}
+
+### 4. Create a Crop Diary for the Plot
+# @name createDiary
+POST {{baseUrl}}/diaries
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "plot_id": "{{plotId}}",
+  "crop_type": "Dưa lưới",
+  "start_date": "2024-03-20T00:00:00Z"
+}
+
+### Extract Diary ID
+@diaryId = {{createDiary.response.body.data._id}}
+
+### 5. Add a Log to the Diary
+POST {{baseUrl}}/diaries/{{diaryId}}/logs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "activity_type": "Tưới nước",
+  "content": "Tưới nước lần 1 trong ngày",
+  "image_url": "https://example.com/water.jpg"
+}
+
+### 6. Create a Chat Session
+# @name createChat
+POST {{baseUrl}}/chat/sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Tư vấn bệnh cho dưa lưới"
+}
+
+### Extract Chat Session ID
+@sessionId = {{createChat.response.body.data._id}}
+
+### 7. Send a Message to Chat Session (RAG integrated)
+POST {{baseUrl}}/chat/sessions/{{sessionId}}/messages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "Dưa lưới bị héo lá thì dùng thuốc gì?"
+}

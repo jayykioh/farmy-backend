@@ -128,4 +128,53 @@ describe('ChatController streaming contract', () => {
     expect(writes.some((value) => value.startsWith('event: error'))).toBe(true);
     expect(writes.some((value) => value.startsWith('event: done'))).toBe(false);
   });
+
+  it('deletes the current user chat session', async () => {
+    const service = {
+      deleteSession: jest.fn().mockResolvedValue({ deleted: true }),
+    };
+    const controller = new ChatController(service as unknown as ChatService);
+
+    await expect(
+      controller.deleteSession(
+        { id: 'user-1', name: 'Farmer', email: 'a@b.c', role: 'user' },
+        '507f1f77bcf86cd799439011',
+      ),
+    ).resolves.toEqual({ success: true, data: { deleted: true } });
+
+    expect(service.deleteSession).toHaveBeenCalledWith(
+      'user-1',
+      '507f1f77bcf86cd799439011',
+    );
+  });
+
+  it('renames the current user chat session', async () => {
+    const service = {
+      renameSession: jest.fn().mockResolvedValue({
+        _id: '507f1f77bcf86cd799439011',
+        title: 'Ruộng lúa vụ hè',
+      }),
+    };
+    const controller = new ChatController(service as unknown as ChatService);
+
+    await expect(
+      controller.renameSession(
+        { id: 'user-1', name: 'Farmer', email: 'a@b.c', role: 'user' },
+        '507f1f77bcf86cd799439011',
+        { title: 'Ruộng lúa vụ hè' },
+      ),
+    ).resolves.toEqual({
+      success: true,
+      data: {
+        _id: '507f1f77bcf86cd799439011',
+        title: 'Ruộng lúa vụ hè',
+      },
+    });
+
+    expect(service.renameSession).toHaveBeenCalledWith(
+      'user-1',
+      '507f1f77bcf86cd799439011',
+      'Ruộng lúa vụ hè',
+    );
+  });
 });

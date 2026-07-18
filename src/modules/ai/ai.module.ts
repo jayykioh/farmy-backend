@@ -7,7 +7,7 @@ import { PromptService } from './application/services/prompt.service';
 import { ChunkingService } from './application/services/chunking.service';
 import { RAGService } from './application/services/rag.service';
 import { ChatService } from './application/services/chat.service';
-import { ChatController } from './interface/controllers/chat.controller';
+
 import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   AiChatMemoryDocument,
@@ -57,7 +57,7 @@ import {
       },
     }),
   ],
-  controllers: [ChatController, AiAdminController],
+  controllers: [AiAdminController],
   providers: [
     LLMService,
     PromptService,
