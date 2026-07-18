@@ -95,7 +95,10 @@ describe('ChatService', () => {
         metadata: {},
       }),
     };
-    const llmService = { streamComplete: jest.fn() };
+    const llmService = {
+      streamComplete: jest.fn(),
+      streamCompleteVision: jest.fn(),
+    };
     const petService = {
       getStatus: options?.petFailure
         ? jest.fn().mockRejectedValue(new Error('pet unavailable'))
@@ -153,6 +156,83 @@ describe('ChatService', () => {
     expect(promptService.buildChatPrompt).toHaveBeenCalledWith(
       expect.objectContaining({ petMood: 'neutral', streakCount: 0 }),
     );
+  });
+
+  it('prepares image turns with clean text for RAG and prompt context', async () => {
+    const { service, ragService, promptService } = createService({
+      existingMessage: {
+        status: 'failed',
+        content:
+          'Quan sát lá lúa này giúp tôi\n\n[IMAGE:https://cdn.example.com/rice.webp]',
+      },
+    });
+
+    const turn = await service.prepareTurn('user-1', 'Farmer', {
+      message:
+        'Quan sát lá lúa này giúp tôi\n\n[IMAGE:https://cdn.example.com/rice.webp]',
+      client_message_id: 'client-1',
+    });
+
+    expect(ragService.retrieveContext).toHaveBeenCalledWith(
+      'Quan sát lá lúa này giúp tôi',
+      'user-1',
+    );
+    expect(promptService.buildChatPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({ userMessage: 'Quan sát lá lúa này giúp tôi' }),
+    );
+    expect(turn).toMatchObject({
+      imageUrl: 'https://cdn.example.com/rice.webp',
+    });
+  });
+
+  it('streams image turns through the vision model with fetched image bytes', async () => {
+    const { service, llmService } = createService();
+    const imageBytes = new Uint8Array([1, 2, 3]).buffer;
+    const fetchMock = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: jest.fn().mockReturnValue('image/webp') },
+      arrayBuffer: jest.fn().mockResolvedValue(imageBytes),
+    } as unknown as Response);
+    llmService.streamComplete.mockReturnValue(
+      (async function* () {
+        yield 'text answer';
+      })(),
+    );
+    llmService.streamCompleteVision.mockReturnValue(
+      (async function* () {
+        yield 'vision answer';
+      })(),
+    );
+
+    const chunks: string[] = [];
+    for await (const chunk of service.streamCompletion({
+      sessionId: new Types.ObjectId().toString(),
+      userMessageId: new Types.ObjectId().toString(),
+      userId: 'user-1',
+      prompt: 'built prompt',
+      promptVersion: 'chat-v1',
+      retrievalStatus: 'no_match',
+      citations: [],
+      imageUrl: 'https://cdn.example.com/rice.webp',
+    } as never)) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toEqual(['vision answer']);
+    expect(fetchMock).toHaveBeenCalledWith('https://cdn.example.com/rice.webp');
+    expect(llmService.streamComplete).not.toHaveBeenCalled();
+    expect(llmService.streamCompleteVision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'built prompt',
+        promptVersion: 'chat-v1',
+        userId: 'user-1',
+        mimeType: 'image/webp',
+        imageBuffer: Buffer.from(imageBytes),
+      }),
+    );
+
+    fetchMock.mockRestore();
   });
 
   it('rejects pending and completed duplicate client message ids', async () => {
@@ -294,7 +374,10 @@ describe('ChatService', () => {
     expect(sessionModel.findOneAndUpdate).toHaveBeenCalledWith(
       { _id: session._id, user_id: 'user-1' },
       { $set: { title: 'Ruộng lúa vụ hè' } },
-      { new: true, projection: '_id title last_message_at created_at updated_at' },
+      {
+        new: true,
+        projection: '_id title last_message_at created_at updated_at',
+      },
     );
   });
 
