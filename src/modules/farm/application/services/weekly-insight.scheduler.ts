@@ -44,13 +44,13 @@ export class WeeklyInsightSchedulerService implements OnModuleInit {
         }
       }
 
-      // Đăng ký Repeatable Job mới: 6:00 AM mỗi Chủ Nhật
+      // Đăng ký Repeatable Job mới: 6:00 AM hàng ngày để phục vụ test
       await this.insightQueue.add(
         INSIGHT_JOB_ORCHESTRATE,
         {},
         {
           repeat: {
-            pattern: '0 6 * * 0', // Chủ Nhật 6:00 AM
+            pattern: '0 6 * * *', // Hàng ngày lúc 6:00 AM
             tz: 'Asia/Ho_Chi_Minh',
           },
           jobId: this.REPEATABLE_JOB_KEY,
@@ -61,7 +61,7 @@ export class WeeklyInsightSchedulerService implements OnModuleInit {
       );
 
       this.logger.log(
-        '✅ Đã đăng ký Repeatable Job: weekly-insight-orchestrator (Chủ Nhật 06:00 AM +07)',
+        '✅ Đã đăng ký Repeatable Job: weekly-insight-orchestrator (Hàng ngày 06:00 AM +07)',
       );
     } catch (error) {
       this.logger.error('❌ Lỗi khi đăng ký Repeatable Job:', error);
