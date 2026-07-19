@@ -40,7 +40,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
  *   POST /batch-embed         → embed tất cả bài đã confirmed
  */
 @Roles('admin')
-@Controller('admin/knowledge')
+@Controller('api/v1/admin/knowledge')
 export class AdminKnowledgeController {
   constructor(
     private readonly knowledgeService: KnowledgeService,

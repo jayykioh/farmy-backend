@@ -8,7 +8,7 @@ import { ChatService } from '../application/chat.service';
 import { SessionsQueryDto } from './dtos/pagination.dto';
 
 @Roles('admin')
-@Controller('admin/chat')
+@Controller('api/v1/admin/chat')
 export class AdminChatController {
   constructor(private readonly chatService: ChatService) {}
 

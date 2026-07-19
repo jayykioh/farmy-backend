@@ -7,7 +7,7 @@ import { DiaryLogDocument } from '../../../farm/infrastructure/persistence/diary
 import { KnowledgeSourceDocument } from '../../../knowledge/infrastructure/persistence/knowledge-source.schema';
 import * as crypto from 'crypto';
 
-@Controller('admin/ai/embeddings')
+@Controller('api/v1/admin/ai/embeddings')
 export class AiAdminController {
   constructor(
     @InjectModel('DiaryLogDocument') // Assuming these string tokens match or use the actual class tokens
