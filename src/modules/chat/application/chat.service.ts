@@ -441,6 +441,22 @@ export class ChatService {
     return { items, page, limit, total };
   }
 
+  async listAllSessions(page: number, limit: number) {
+    const [items, total] = await Promise.all([
+      this.sessionModel
+        .find()
+        .select('_id title user_id last_message_at created_at updated_at')
+        .populate('user_id', 'name email')
+        .sort({ last_message_at: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.sessionModel.countDocuments().exec(),
+    ]);
+    return { items, page, limit, total };
+  }
+
   async listMessages(
     userId: string,
     sessionId: string,
