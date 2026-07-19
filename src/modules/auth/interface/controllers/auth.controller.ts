@@ -94,6 +94,7 @@ export class AuthController {
         email: result.user.getEmail(),
         name: result.user.getName(),
         access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         onboardingCompleted: false,
       },
     };
@@ -126,6 +127,7 @@ export class AuthController {
       success: true,
       data: {
         access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         expires_in: 900, // 15 minutes
         user: {
           id: result.user.getId(),
@@ -145,9 +147,10 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const refreshToken = request.cookies?.['refresh_token'] as
-      | string
-      | undefined;
+    const refreshToken =
+      (request.cookies?.['refresh_token'] as string | undefined) ||
+      (request.body?.refresh_token as string | undefined) ||
+      (request.headers?.['x-refresh-token'] as string | undefined);
     const result = (await this.commandBus.execute(
       new RefreshTokenCommand(refreshToken),
     )) as unknown as AuthCommandResult;
@@ -169,6 +172,7 @@ export class AuthController {
       success: true,
       data: {
         access_token: result.accessToken,
+        refresh_token: result.refreshToken,
         expires_in: 900,
         user: {
           id: result.user.getId(),
@@ -355,9 +359,18 @@ export class AuthController {
 
     console.log('googleAuthRedirect - Callback query:', req.query);
     const state = req.query.state as string;
+    const allowedOriginsStr =
+      this.configService.get<string>('ALLOWED_ORIGINS') ||
+      this.configService.get<string>('FRONTEND_URL') ||
+      '';
+    const allowedOrigins = allowedOriginsStr
+      .split(',')
+      .map((o) => o.trim().toLowerCase());
+
     let targetUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     let isMobileRedirect = false;
+    let isValidStateUrl = false;
 
     // Hỗ trợ dynamic redirect URL gửi từ mobile (bắt đầu bằng exp:// hoặc farmy://)
     if (state && (state.startsWith('exp://') || state.startsWith('farmy://'))) {
@@ -366,17 +379,33 @@ export class AuthController {
     } else if (state === 'mobile') {
       targetUrl = 'farmy://oauth-callback';
       isMobileRedirect = true;
+    } else {
+      try {
+        if (
+          state &&
+          (state.startsWith('http://') || state.startsWith('https://'))
+        ) {
+          const stateUrlObj = new URL(state);
+          if (allowedOrigins.includes(stateUrlObj.origin.toLowerCase())) {
+            targetUrl = state;
+            isValidStateUrl = true;
+          }
+        }
+      } catch (e) {
+        // ignore parsing errors
+      }
     }
 
-    if (isMobileRedirect) {
+    if (isMobileRedirect || isValidStateUrl) {
       const connector = targetUrl.includes('?') ? '&' : '?';
       return response.redirect(
-        `${targetUrl}${connector}accessToken=${result.accessToken}`,
+        `${targetUrl}${connector}accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
       );
     } else {
-      const separator = targetUrl.endsWith('/') ? '' : '/';
+      const firstFrontendUrl = targetUrl.split(',')[0].trim();
+      const separator = firstFrontendUrl.endsWith('/') ? '' : '/';
       return response.redirect(
-        `${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`,
+        `${firstFrontendUrl}${separator}oauth-callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
       );
     }
   }
