@@ -43,9 +43,11 @@ export class LLMService implements IEmbeddingProvider {
 
   private shouldUseMockKeyFallback(): boolean {
     const cfg = appConfig();
-    const isMockKey =
-      !cfg.gemini.apiKey || !cfg.gemini.apiKey.startsWith('AIzaSy');
-    return isMockKey && process.env.NODE_ENV !== 'test';
+    const key = cfg.gemini.apiKey;
+    const isRealKey =
+      key &&
+      (key.startsWith('AIzaSy') || key.startsWith('AQ.'));
+    return !isRealKey && process.env.NODE_ENV !== 'test';
   }
 
   async complete(options: LLMCompleteOptions): Promise<LLMCompleteResult> {
@@ -229,7 +231,16 @@ export class LLMService implements IEmbeddingProvider {
   ): Promise<LLMCompleteResult> {
     if (this.shouldUseMockKeyFallback()) {
       return {
-        text: 'Dạ qua hình ảnh bà con gửi, Bé Thóc thấy cây trồng của mình trông khá khỏe mạnh và phát triển tốt ạ! Bà con tiếp tục duy trì tưới nước và theo dõi sâu bệnh nha. 🌾✨',
+        text: JSON.stringify({
+          is_plant: true,
+          disease_name: 'Chưa thể phân tích chính xác ảnh này',
+          confidence: 0.1,
+          symptoms: ['Hệ thống AI chẩn đoán đang ở chế độ thử nghiệm, kết quả này chưa phải phân tích bệnh thật.'],
+          treatment: {
+            chemical: '',
+            organic: 'Vui lòng cấu hình AI chẩn đoán thật hoặc thử lại sau. Nếu lá tiếp tục khô/cháy lan rộng, hãy giữ riêng mẫu lá và hỏi chuyên gia nông nghiệp địa phương.',
+          },
+        }),
         promptTokens: 0,
         completionTokens: 0,
         latencyMs: 50,

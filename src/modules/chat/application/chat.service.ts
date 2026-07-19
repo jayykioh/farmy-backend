@@ -13,6 +13,7 @@ import { PromptService } from '../../ai/application/services/prompt.service';
 import { PetMoodInput } from '../../ai/domain/prompt.types';
 import { PetService } from '../../pet/application/services/pet.service';
 import { RagService } from '../../rag/application/rag.service';
+import { ReminderService } from '../../farm/application/services/reminder.service';
 import { StreamChatDto } from '../interface/dtos/stream-chat.dto';
 import {
   ChatMessageDocument,
@@ -39,6 +40,7 @@ export class ChatService {
     private readonly promptService: PromptService,
     private readonly llmService: LLMService,
     private readonly petService: PetService,
+    private readonly reminderService: ReminderService,
   ) {}
 
   async prepareTurn(
@@ -110,11 +112,13 @@ export class ChatService {
     let history: BoundedChatHistory;
     let ragContext: Awaited<ReturnType<RagService['retrieveContext']>>;
     let petState: { mood: PetMoodInput; streakCount: number };
+    let reminders: any[];
     try {
-      [history, ragContext, petState] = await Promise.all([
+      [history, ragContext, petState, reminders] = await Promise.all([
         this.loadBoundedHistory(session._id.toString(), userId),
         this.ragService.retrieveContext(userMessage.content, userId),
         this.loadPetState(userId),
+        this.reminderService.findPending(userId),
       ]);
     } catch (error) {
       await this.failTurn(userMessage._id.toString(), userId);
@@ -127,6 +131,7 @@ export class ChatService {
       petMood: petState.mood,
       ragContext: ragContext.context_text,
       chatHistory: history,
+      reminders,
       userMessage: userMessage.content,
     });
 

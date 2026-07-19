@@ -38,6 +38,7 @@ export class PlantScanGuardrailService {
       return enrichedDiagnosis;
     }
 
+    const chemicalText = (diagnosis.treatment?.chemical ?? '').toLowerCase();
     const treatmentText = [
       diagnosis.treatment?.chemical ?? '',
       diagnosis.treatment?.organic ?? '',
@@ -46,7 +47,7 @@ export class PlantScanGuardrailService {
       .toLowerCase();
 
     // 1. PHI Warning
-    if (PHI_KEYWORDS.some((k) => treatmentText.includes(k))) {
+    if (PHI_KEYWORDS.some((k) => chemicalText.includes(k))) {
       if (!enrichedDiagnosis.treatment) enrichedDiagnosis.treatment = {};
       enrichedDiagnosis.treatment.phi_warning =
         '⚠️ Tuân thủ thời gian cách ly PHI: Cách ly 14 ngày trước thu hoạch sau khi phun thuốc hóa học.';

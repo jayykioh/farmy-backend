@@ -248,10 +248,16 @@ export class PetService {
       currentHourVN: this.getCurrentHourVN(),
     });
 
-    // Persist mood change if it differs
-    if (pet.mood !== mood) {
-      pet.previous_mood = pet.mood;
-      pet.mood = mood;
+    // Persist changes if mood, reason, or missed_days differs
+    const isMoodChanged = pet.mood !== mood;
+    const isReasonChanged = pet.mood_reason !== reason;
+    const isMissedDaysChanged = pet.missed_days !== missedDays;
+
+    if (isMoodChanged || isReasonChanged || isMissedDaysChanged) {
+      if (isMoodChanged) {
+        pet.previous_mood = pet.mood;
+        pet.mood = mood;
+      }
       pet.mood_reason = reason;
       pet.missed_days = missedDays;
       await pet.save();

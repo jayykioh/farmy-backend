@@ -69,7 +69,7 @@ export class UserController {
   @Patch('me')
   async updateProfile(
     @CurrentUser() currentUser: AuthenticatedUser,
-    @Body() dto: { onboarding_completed?: boolean; farmName?: string; primaryCrops?: string },
+    @Body() dto: { onboarding_completed?: boolean; farmName?: string; primaryCrops?: string; name?: string; location?: string; avatarUrl?: string },
   ) {
     try {
       this.logger.log(`updateProfile starting for user ${currentUser.id} with DTO: ${JSON.stringify(dto)}`);
@@ -82,6 +82,16 @@ export class UserController {
         if (dto.onboarding_completed) {
           userAggregate.completeOnboarding();
         }
+      }
+
+      if (dto.name !== undefined) {
+        userAggregate.setName(dto.name);
+      }
+      if (dto.location !== undefined) {
+        userAggregate.setLocation(dto.location);
+      }
+      if (dto.avatarUrl !== undefined) {
+        userAggregate.setAvatarUrl(dto.avatarUrl);
       }
 
       await this.userRepository.save(userAggregate);
@@ -128,6 +138,8 @@ export class UserController {
           role: userAggregate.getRole(),
           phoneNumber: userAggregate.getPhoneNumber(),
           onboardingCompleted: userAggregate.isOnboardingCompleted(),
+          avatarUrl: userAggregate.getAvatarUrl(),
+          location: userAggregate.getLocation(),
           plot,
           diary,
         },

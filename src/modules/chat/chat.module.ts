@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AiModule } from '../ai/ai.module';
 import { PetModule } from '../pet/pet.module';
 import { RagModule } from '../rag/rag.module';
+import { FarmModule } from '../farm/farm.module';
 import { ChatService } from './application/chat.service';
 import {
   ChatMessageDocument,
@@ -19,6 +20,7 @@ import { ChatController } from './interface/chat.controller';
     AiModule,
     RagModule,
     PetModule,
+    forwardRef(() => FarmModule),
     MongooseModule.forFeature([
       { name: ChatSessionDocument.name, schema: ChatSessionSchema },
       { name: ChatMessageDocument.name, schema: ChatMessageSchema },

@@ -50,11 +50,14 @@ export class PromptService {
       PROMPT_LIMITS.historyTurns,
     );
 
+    const remindersBlock = this.formatReminders(input.reminders);
+
     const prompt = CHAT_SYSTEM_PROMPT_V1.replace('{user_name}', input.userName)
       .replace('{streak_count}', String(input.streakCount))
       .replace('{pet_mood}', input.petMood)
       .replace('{rag_context}', ragBlock)
       .replace('{chat_history}', historyBlock)
+      .replace('{reminders}', remindersBlock)
       .replace('{user_message}', truncatedMsg);
 
     return {
@@ -217,6 +220,23 @@ export class PromptService {
         const notes = this.sanitizeContext(d.notes?.trim() ?? '');
         const cropInfo = d.crop_type ? ` [${d.crop_type}]` : '';
         return `[Nhật ký ${date}${cropInfo}] ${notes || '(Không có ghi chú)'}`;
+      })
+      .join('\n');
+  }
+
+  /**
+   * formatReminders() — chuyển mảng nhắc nhở thành chuỗi text cho Prompt.
+   */
+  private formatReminders(reminders?: any[]): string {
+    if (!reminders || reminders.length === 0) {
+      return '(Không có nhắc nhở nào sắp tới)';
+    }
+
+    return reminders
+      .map((r) => {
+        const dateObj = new Date(r.remind_at);
+        const dateStr = `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')} ${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+        return `- [${dateStr}] ${r.title} (Loại: ${r.type})`;
       })
       .join('\n');
   }

@@ -43,6 +43,8 @@ export class MongooseUserRepository implements IUserRepository {
         deleted_at: user.getDeletedAt(),
         phone_number: user.getPhoneNumber(),
         onboarding_completed: user.isOnboardingCompleted(),
+        avatar_url: user.getAvatarUrl(),
+        location: user.getLocation(),
       })
       .exec();
   }
@@ -59,6 +61,8 @@ export class MongooseUserRepository implements IUserRepository {
       deleted_at: user.getDeletedAt(),
       phone_number: user.getPhoneNumber(),
       onboarding_completed: user.isOnboardingCompleted(),
+      avatar_url: user.getAvatarUrl(),
+      location: user.getLocation(),
     });
     await newUser.save();
   }
@@ -75,6 +79,8 @@ export class MongooseUserRepository implements IUserRepository {
       doc.deleted_at,
       doc.phone_number,
       doc.onboarding_completed,
+      doc.avatar_url,
+      doc.location,
     );
   }
 }

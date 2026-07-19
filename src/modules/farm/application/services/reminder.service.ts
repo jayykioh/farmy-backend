@@ -145,25 +145,35 @@ export class ReminderService {
 
   /** Đánh dấu hoàn thành thủ công (user click "Đã xong") */
   async complete(userId: string, id: string): Promise<ReminderDocument> {
-    const reminder = await this.findOne(userId, id);
+    // 1. Xác thực quyền và tồn tại
+    await this.findOne(userId, id); 
 
-    // Idempotency guard: silently return if already completed (prevents XP/streak farming)
-    // Note: 'delivered' means push notification sent, user can still complete it.
-    if (reminder.status === 'completed') {
-      return reminder;
+    // 2. Cập nhật atomic để tránh race condition (double click -> double XP)
+    const deliveredAt = new Date();
+    const updatedReminder = await this.reminderModel.findOneAndUpdate(
+      { _id: id, user_id: userId, status: { $ne: 'completed' } },
+      {
+        $set: {
+          status: 'completed',
+          is_sent: true,
+          delivered_at: deliveredAt,
+        },
+      },
+      { new: true } // Trả về document sau khi update
+    ).exec();
+
+    // 3. Nếu null, có nghĩa là reminder đã 'completed' từ trước ở một request đồng thời khác
+    if (!updatedReminder) {
+      return this.findOne(userId, id);
     }
 
-    reminder.status = 'completed';
-    reminder.is_sent = true;
-    reminder.delivered_at = new Date();
-
-    // Cập nhật streak, XP và tâm trạng thú ảo (thay vì chỉ set mood happy)
+    // 4. Chỉ cộng XP/streak khi quá trình update status thực sự thành công
     await this.petService.updateAfterTaskCompleted(
       userId,
-      reminder.delivered_at,
+      updatedReminder.delivered_at,
     );
 
-    return reminder.save();
+    return updatedReminder;
   }
 
   /** Hủy reminder */

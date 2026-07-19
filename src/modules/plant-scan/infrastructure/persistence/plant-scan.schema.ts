@@ -4,10 +4,10 @@ import { UserDocument } from '../../../auth/infrastructure/persistence/user.sche
 
 @Schema({ _id: false })
 export class PlantScanTreatmentSubdocument {
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false, default: '' })
   chemical: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false, default: '' })
   organic: string;
 
   @Prop({ type: String, required: false })

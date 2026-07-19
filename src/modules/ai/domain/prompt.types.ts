@@ -61,6 +61,8 @@ export interface BuildChatPromptInput {
   chatHistory: ChatMessage[];
   /** Từ client — UNTRUSTED, sẽ được sanitize và truncate. */
   userMessage: string;
+  /** Danh sách nhắc nhở của user. */
+  reminders?: any[];
 }
 
 export interface BuildVisionPromptInput {

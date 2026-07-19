@@ -10,6 +10,8 @@ export class User {
   private isDeleted?: boolean;
   private deletedAt?: Date;
   private phoneNumber?: string;
+  private avatarUrl?: string;
+  private location?: string;
   private onboardingCompleted: boolean;
 
   constructor(
@@ -23,6 +25,8 @@ export class User {
     deletedAt?: Date,
     phoneNumber?: string,
     onboardingCompleted?: boolean,
+    avatarUrl?: string,
+    location?: string,
   ) {
     this.id = id;
     this.email = email;
@@ -34,6 +38,8 @@ export class User {
     this.deletedAt = deletedAt;
     this.phoneNumber = phoneNumber;
     this.onboardingCompleted = onboardingCompleted ?? false;
+    this.avatarUrl = avatarUrl;
+    this.location = location;
   }
 
   public getId(): string {
@@ -50,6 +56,26 @@ export class User {
 
   public getName(): string {
     return this.name;
+  }
+
+  public setName(name: string): void {
+    this.name = name;
+  }
+
+  public getAvatarUrl(): string | undefined {
+    return this.avatarUrl;
+  }
+
+  public setAvatarUrl(avatarUrl: string): void {
+    this.avatarUrl = avatarUrl;
+  }
+
+  public getLocation(): string | undefined {
+    return this.location;
+  }
+
+  public setLocation(location: string): void {
+    this.location = location;
   }
 
   public getRole(): string {

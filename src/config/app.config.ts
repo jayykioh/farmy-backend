@@ -9,10 +9,13 @@
  *   const cfg = appConfig();
  *   cfg.jwt.secret
  */
-export const appConfig = () => ({
+export const appConfig = () => {
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+
+  return {
   /** Server */
   port: parseInt(process.env.PORT ?? '3000', 10),
-  nodeEnv: process.env.NODE_ENV ?? 'development',
+  nodeEnv,
 
   /**
    * CORS allowed origins — comma-separated list in env.
@@ -87,6 +90,10 @@ export const appConfig = () => ({
   /** Plant Scan API Config */
   plantScan: {
     model: process.env.PLANT_SCAN_MODEL ?? 'gemini-2.5-flash',
+    disableQuota:
+      process.env.PLANT_SCAN_DISABLE_QUOTA !== undefined
+        ? process.env.PLANT_SCAN_DISABLE_QUOTA === 'true'
+        : true,
     geminiRpmLimit: parseInt(
       process.env.PLANT_SCAN_GEMINI_RPM_LIMIT ?? '15',
       10,
@@ -118,6 +125,7 @@ export const appConfig = () => ({
     password: process.env.PG_PASSWORD ?? '',
     ssl: process.env.PG_SSL !== 'false',
   },
-});
+  };
+};
 
 export type AppConfig = ReturnType<typeof appConfig>;

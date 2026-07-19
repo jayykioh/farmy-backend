@@ -39,33 +39,9 @@ export class PlantScanService {
     // 1. Validate magic bytes
     await this.imageProcessor.validateImageMagicBytes(file.buffer);
 
-    // 2. User daily quota check (checked in controller, but we can double check or rely on controller. The spec says enforce in controller, but we'll do it here for encapsulation)
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const quotaKey = `scan:limit:${userId}:${dateStr}`;
     const config = appConfig();
-    const dailyLimit =
-      tier === 'premium'
-        ? config.plantScan.premiumDailyLimit
-        : config.plantScan.freeDailyLimit;
-    const rateLimit = await this.rateLimiter.consume(
-      quotaKey,
-      dailyLimit,
-      86400,
-    );
 
-    if (!rateLimit.allowed) {
-      throw new HttpException(
-        {
-          success: false,
-          statusCode: 429,
-          errorCode: 'SCAN_QUOTA_EXCEEDED',
-          message: `Đã dùng hết ${dailyLimit} lượt quét hôm nay.`,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-
-    // 3. Blur check
+    // 2. Blur check. Invalid/blurry photos should not consume daily scan quota.
     const isBlurry = await this.imageProcessor.checkBlurry(file.buffer);
     if (isBlurry) {
       throw new HttpException(
@@ -77,6 +53,33 @@ export class PlantScanService {
         },
         HttpStatus.UNPROCESSABLE_ENTITY,
       );
+    }
+
+    // 3. User daily quota check after cheap local validation succeeds.
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const quotaKey = `scan:limit:${userId}:${dateStr}`;
+    const dailyLimit =
+      tier === 'premium'
+        ? config.plantScan.premiumDailyLimit
+        : config.plantScan.freeDailyLimit;
+    if (!config.plantScan.disableQuota) {
+      const rateLimit = await this.rateLimiter.consume(
+        quotaKey,
+        dailyLimit,
+        86400,
+      );
+
+      if (!rateLimit.allowed) {
+        throw new HttpException(
+          {
+            success: false,
+            statusCode: 429,
+            errorCode: 'SCAN_QUOTA_EXCEEDED',
+            message: `Đã dùng hết ${dailyLimit} lượt quét hôm nay.`,
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
     }
 
     // 4. Optimize image & compute pHash
@@ -98,6 +101,17 @@ export class PlantScanService {
 
     for (const scan of recentScans) {
       if (!scan.p_hash) continue;
+      const cachedDiagnosisText = JSON.stringify(scan.diagnosis ?? {}).toLowerCase();
+      if (
+        (scan.diagnosis?.confidence !== undefined && scan.diagnosis.confidence < 0.5) ||
+        cachedDiagnosisText.includes('gemini') ||
+        cachedDiagnosisText.includes('api key') ||
+        cachedDiagnosisText.includes('mô phỏng') ||
+        cachedDiagnosisText.includes('thử nghiệm')
+      ) {
+        continue;
+      }
+
       const distance = this.imageProcessor.hammingDistance(pHash, scan.p_hash);
       if (distance < 10) {
         this.logger.log(`pHash Cache Hit! Similarity distance: ${distance}`);
@@ -127,27 +141,29 @@ export class PlantScanService {
     const rpdKey = `gemini:vision:rpd:${dateStr}`;
 
     // We assume limits like 15 RPM, 1500 RPD
-    const rpmLimit = await this.rateLimiter.consume(
-      rpmKey,
-      config.plantScan.geminiRpmLimit,
-      60,
-    );
-    const rpdLimit = await this.rateLimiter.consume(
-      rpdKey,
-      config.plantScan.geminiRpdLimit,
-      86400,
-    );
-
-    if (!rpmLimit.allowed || !rpdLimit.allowed) {
-      throw new HttpException(
-        {
-          success: false,
-          statusCode: 429,
-          errorCode: 'AI_SCAN_QUOTA_BUSY',
-          message: 'Hệ thống AI đang quá tải. Vui lòng thử lại sau vài phút.',
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
+    if (!config.plantScan.disableQuota) {
+      const rpmLimit = await this.rateLimiter.consume(
+        rpmKey,
+        config.plantScan.geminiRpmLimit,
+        60,
       );
+      const rpdLimit = await this.rateLimiter.consume(
+        rpdKey,
+        config.plantScan.geminiRpdLimit,
+        86400,
+      );
+
+      if (!rpmLimit.allowed || !rpdLimit.allowed) {
+        throw new HttpException(
+          {
+            success: false,
+            statusCode: 429,
+            errorCode: 'AI_SCAN_QUOTA_BUSY',
+            message: 'Hệ thống AI đang quá tải. Vui lòng thử lại sau vài phút.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
     }
 
     // 7. Upload to R2
