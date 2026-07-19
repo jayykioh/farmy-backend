@@ -96,6 +96,42 @@ export class ShopService implements OnModuleInit {
           required_level: 15,
           image_url: '/shop/canh-thien-than.svg',
           anchor: { width: '140%', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Vòng Hào Quang',
+          category: ShopItemCategory.HAT,
+          price: 3000,
+          required_level: 20,
+          image_url: '/shop/halo.svg',
+          anchor: { width: '40%', top: '-20%', left: '50%', transform: 'translateX(-50%)', zIndex: 5 }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Dây Chuyền Vàng',
+          category: ShopItemCategory.OUTFIT,
+          price: 1200,
+          required_level: 8,
+          image_url: '/shop/gold-chain.svg',
+          anchor: { width: '50%', top: '65%', left: '50%', transform: 'translateX(-50%)', zIndex: 4 }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Đám Mây Mưa',
+          category: ShopItemCategory.EFFECT,
+          price: 800,
+          required_level: 6,
+          image_url: '/shop/rain-cloud.svg',
+          anchor: { width: '90%', top: '-30%', left: '50%', transform: 'translateX(-50%)', zIndex: 6 }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Áo Choàng Siêu Nhân',
+          category: ShopItemCategory.BACKGROUND,
+          price: 2500,
+          required_level: 18,
+          image_url: '/shop/superman-cape.svg',
+          anchor: { width: '120%', top: '35%', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }
         }
       ];
       await this.shopItemModel.insertMany(seedItems);

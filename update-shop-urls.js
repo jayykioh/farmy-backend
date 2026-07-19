@@ -1,109 +1,68 @@
-const { MongoClient } = require('mongodb');
-const { randomUUID } = require('crypto');
+require('dotenv').config();
+const mongoose = require('mongoose');
 
-async function main() {
-  const uri = 'mongodb+srv://adnparr_db_user:Dong1234@farmdiaries.ytxyxvl.mongodb.net/Farm_Diaries?appName=FarmDiaries';
-  const client = new MongoClient(uri);
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/farm-diary';
 
+const newItems = [
+  {
+    name: 'Vòng Hào Quang',
+    category: 'HAT',
+    price: 3000,
+    required_level: 20,
+    image_url: '/shop/halo.svg',
+    anchor: { width: '40%', top: '-20%', left: '50%', transform: 'translateX(-50%)', zIndex: 5 }
+  },
+  {
+    name: 'Dây Chuyền Vàng',
+    category: 'OUTFIT',
+    price: 1200,
+    required_level: 8,
+    image_url: '/shop/gold-chain.svg',
+    anchor: { width: '50%', top: '65%', left: '50%', transform: 'translateX(-50%)', zIndex: 4 }
+  },
+  {
+    name: 'Đám Mây Mưa',
+    category: 'EFFECT',
+    price: 800,
+    required_level: 6,
+    image_url: '/shop/rain-cloud.svg',
+    anchor: { width: '90%', top: '-30%', left: '50%', transform: 'translateX(-50%)', zIndex: 6 }
+  },
+  {
+    name: 'Áo Choàng Siêu Nhân',
+    category: 'BACKGROUND',
+    price: 2500,
+    required_level: 18,
+    image_url: '/shop/superman-cape.svg',
+    anchor: { width: '120%', top: '35%', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }
+  }
+];
+
+async function addItems() {
   try {
-    await client.connect();
-    const db = client.db('Farm_Diaries');
-    const collection = db.collection('shop_items');
+    await mongoose.connect(MONGO_URI);
+    console.log('Connected to MongoDB');
 
-    const items = [
-      {
-        name: 'Nón Lá Truyền Thống',
-        category: 'HAT',
-        price: 300,
-        required_level: 1,
-        image_url: '/shop/non-la.svg',
-        anchor: { width: '90%', top: '-15%' }
-      },
-      {
-        name: 'Mũ Rơm Đi Biển',
-        category: 'HAT',
-        price: 450,
-        required_level: 2,
-        image_url: '/shop/mu-rom.svg',
-        anchor: { width: '80%', top: '-15%' }
-      },
-      {
-        name: 'Kính Râm Ngầu',
-        category: 'HAT',
-        price: 200,
-        required_level: 1,
-        image_url: '/shop/kinh-ram.svg',
-        anchor: { width: '60%', top: '40%' }
-      },
-      {
-        name: 'Mũ Ảo Thuật',
-        category: 'HAT',
-        price: 800,
-        required_level: 5,
-        image_url: '/shop/mu-ao-thuat.svg',
-        anchor: { width: '65%', top: '-25%' }
-      },
-      {
-        name: 'Khăn Quàng Đỏ',
-        category: 'OUTFIT',
-        price: 350,
-        required_level: 3,
-        image_url: '/shop/khan-quang.svg',
-        anchor: { width: '70%', top: '70%' }
-      },
-      {
-        name: 'Vương Miện',
-        category: 'HAT',
-        price: 1500,
-        required_level: 10,
-        image_url: '/shop/vuong-mien.svg',
-        anchor: { width: '50%', top: '-10%' }
-      },
-      {
-        name: 'Kính Cận',
-        category: 'HAT', // Frontend treats as glasses
-        price: 250,
-        required_level: 2,
-        image_url: '/shop/kinh-can.svg',
-        anchor: { width: '60%', top: '40%' }
-      },
-      {
-        name: 'Cánh Thiên Thần',
-        category: 'BACKGROUND',
-        price: 2000,
-        required_level: 15,
-        image_url: '/shop/canh-thien-than.svg',
-        anchor: { width: '140%', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }
-      }
-    ];
+    const db = mongoose.connection.db;
+    const shopCollection = db.collection('shopitems');
 
-    for (const item of items) {
-      const existing = await collection.findOne({ name: item.name });
-      if (existing) {
-        await collection.updateOne(
-          { _id: existing._id },
-          { $set: { 
-            image_url: item.image_url, 
-            anchor: item.anchor,
-            category: item.category,
-            price: item.price,
-            required_level: item.required_level
-          }}
-        );
+    for (const item of newItems) {
+      const existing = await shopCollection.findOne({ name: item.name });
+      if (!existing) {
+        await shopCollection.insertOne({ _id: new mongoose.Types.UUID().toString(), ...item });
+        console.log(`Inserted ${item.name}`);
       } else {
-        await collection.insertOne({
-          _id: randomUUID(),
-          ...item,
-          created_at: new Date(),
-          updated_at: new Date()
-        });
+        await shopCollection.updateOne({ name: item.name }, { $set: item });
+        console.log(`Updated ${item.name}`);
       }
     }
-
-    console.log('Successfully upserted 8 shop items!');
-  } finally {
-    await client.close();
+    
+    console.log('Done!');
+    process.exit(0);
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
   }
 }
 
-main().catch(console.error);
+addItems();
