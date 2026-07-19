@@ -14,10 +14,18 @@ export class AdminChatController {
 
   @Get('sessions')
   async listAllSessions(@Query() query: SessionsQueryDto) {
-    const data = await this.chatService.listAllSessions(query.page || 1, query.limit || 10);
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const data = await this.chatService.listAllSessions(page, limit);
     return {
       success: true,
-      data,
+      data: {
+        sessions: data.items,
+        total: data.total,
+        page,
+        limit,
+        totalPages: Math.ceil(data.total / limit),
+      },
     };
   }
 }
