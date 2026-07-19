@@ -31,7 +31,8 @@ export class ShopService implements OnModuleInit {
           category: ShopItemCategory.HAT,
           price: 300,
           required_level: 1,
-          image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzSmV6cdrTVHzXBG0N7bXXKN3XoZOzRMPXfVSxi0cvLV86eZCvMCQUZfvsIwGmGFQCrdkVZZ0fPQlcFxA7lT7026GIQqk5q37hMvRuTScXcwmvL2MxEFkY_EjgDBSeSHb7xTRqUPbj1MRY_BqwkhLCcAZ36PrGji9H9EPDb67uNr4UmWBqmiirxAhuuidfFZvbiQYTWZytovpLIpFDBOt949vcQkwFPZijhl9qeWhHM_-dZdg6jkw_Rc8N5-0j2r42RYKLnkeCUeC1'
+          image_url: '/shop/non-la.svg',
+          anchor: { width: '90%', top: '-15%' }
         },
         {
           _id: randomUUID(),
@@ -39,7 +40,8 @@ export class ShopService implements OnModuleInit {
           category: ShopItemCategory.HAT,
           price: 450,
           required_level: 2,
-          image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuARFPmbrP2z0o6zbdd7uP-bPyY-SYnnTKkCOADA4RXRYqu2DrDeYGWguF5cykN1-ipwc2P6p6Cdq96yLVJvgR1oqfJAvNSKCfqQBg_SSujhyLfnD2BgmghulIgXOt3-E7AF3ZQncims2yYMtwOubGUkLpo2UYElzRRbTXkWTIi2CCPypLVhBOKihE9dsp9a2IqHkXPe3bJtg8mF2y3G-fvmq7x0mHfYBvnuEy3WPQy9N0Eg5LVtORi1oHeGPGOIlDBT-CRD8PEElFRL'
+          image_url: '/shop/mu-rom.svg',
+          anchor: { width: '80%', top: '-15%' }
         },
         {
           _id: randomUUID(),
@@ -47,7 +49,8 @@ export class ShopService implements OnModuleInit {
           category: ShopItemCategory.HAT,
           price: 200,
           required_level: 1,
-          image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuC9cOVVDdur_i-PyVaZ5wgi_eWdCMep-I4DMSFJWI7uVcGdz5kFluH_59odvnj3HLiPOr8nZO2JAQhoVYU_T8hJ1ZPy0aL2Ufn-32LWyqO_inFt5Xk9aP1MUiR-l1odRI2kNKJ0blEaFsLoV6MGeYjhWz0QNUtERuxYcgICpIbiSQdTgCdjb_5N5Ao-tMDNIi23DK2xmSunDTB3D4fvQgPX_QpgYfxiugGxZTJPeTFFA7qBvhkQeo0NVUo4nMaeFLa6r96NpTBGOJaY'
+          image_url: '/shop/kinh-ram.svg',
+          anchor: { width: '60%', top: '40%' }
         },
         {
           _id: randomUUID(),
@@ -55,7 +58,44 @@ export class ShopService implements OnModuleInit {
           category: ShopItemCategory.HAT,
           price: 800,
           required_level: 5,
-          image_url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzSmV6cdrTVHzXBG0N7bXXKN3XoZOzRMPXfVSxi0cvLV86eZCvMCQUZfvsIwGmGFQCrdkVZZ0fPQlcFxA7lT7026GIQqk5q37hMvRuTScXcwmvL2MxEFkY_EjgDBSeSHb7xTRqUPbj1MRY_BqwkhLCcAZ36PrGji9H9EPDb67uNr4UmWBqmiirxAhuuidfFZvbiQYTWZytovpLIpFDBOt949vcQkwFPZijhl9qeWhHM_-dZdg6jkw_Rc8N5-0j2r42RYKLnkeCUeC1' // Same image as non-la for demo purposes, since it was locked
+          image_url: '/shop/mu-ao-thuat.svg',
+          anchor: { width: '65%', top: '-25%' }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Khăn Quàng Đỏ',
+          category: ShopItemCategory.OUTFIT,
+          price: 350,
+          required_level: 3,
+          image_url: '/shop/khan-quang.svg',
+          anchor: { width: '70%', top: '70%' }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Vương Miện',
+          category: ShopItemCategory.HAT,
+          price: 1500,
+          required_level: 10,
+          image_url: '/shop/vuong-mien.svg',
+          anchor: { width: '50%', top: '-10%' }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Kính Cận',
+          category: ShopItemCategory.HAT,
+          price: 250,
+          required_level: 2,
+          image_url: '/shop/kinh-can.svg',
+          anchor: { width: '60%', top: '40%' }
+        },
+        {
+          _id: randomUUID(),
+          name: 'Cánh Thiên Thần',
+          category: ShopItemCategory.BACKGROUND,
+          price: 2000,
+          required_level: 15,
+          image_url: '/shop/canh-thien-than.svg',
+          anchor: { width: '140%', top: '10%', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }
         }
       ];
       await this.shopItemModel.insertMany(seedItems);
