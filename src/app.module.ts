@@ -83,7 +83,7 @@ import { AdminModule } from './modules/admin/admin.module';
           // because BullMQ's connection options object doesn't directly support a 'url' property
           const Redis = require('ioredis');
           return {
-            connection: new Redis(redisUrl, { maxRetriesPerRequest: null }),
+            connection: new Redis(redisUrl, { maxRetriesPerRequest: null, family: 0 }),
           };
         }
         return {
