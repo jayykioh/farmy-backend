@@ -88,16 +88,26 @@ export class RagService {
       }
 
       // Populate metadata for citations
-      const knowledgeIds = citations.filter(c => c.source_type === 'knowledge_source').map(c => c.source_id);
-      const diaryIds = citations.filter(c => c.source_type === 'diary_log').map(c => c.source_id);
+      const knowledgeIds = citations
+        .filter((c) => c.source_type === 'knowledge_source')
+        .map((c) => c.source_id);
+      const diaryIds = citations
+        .filter((c) => c.source_type === 'diary_log')
+        .map((c) => c.source_id);
 
       const [knowledgeSources, diaryLogs] = await Promise.all([
-        knowledgeIds.length > 0 ? this.knowledgeRepository.findByIds(knowledgeIds) : Promise.resolve([]),
-        diaryIds.length > 0 ? this.diaryRepository.findLogsByIds(diaryIds) : Promise.resolve([])
+        knowledgeIds.length > 0
+          ? this.knowledgeRepository.findByIds(knowledgeIds)
+          : Promise.resolve([]),
+        diaryIds.length > 0
+          ? this.diaryRepository.findLogsByIds(diaryIds)
+          : Promise.resolve([]),
       ]);
 
-      const knowledgeMap = new Map(knowledgeSources.map(s => [s._id.toString(), s]));
-      const diaryMap = new Map(diaryLogs.map(l => [l._id.toString(), l]));
+      const knowledgeMap = new Map(
+        knowledgeSources.map((s) => [s._id.toString(), s]),
+      );
+      const diaryMap = new Map(diaryLogs.map((l) => [l._id.toString(), l]));
 
       for (const citation of citations) {
         if (citation.source_type === 'knowledge_source') {

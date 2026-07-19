@@ -8,7 +8,9 @@ describe('createPgvectorTypeOrmImports', () => {
   });
 
   it('registers TypeORM when pgvector connection string is configured', () => {
-    const imports = createPgvectorTypeOrmImports('postgresql://user:pass@localhost:5432/db');
+    const imports = createPgvectorTypeOrmImports(
+      'postgresql://user:pass@localhost:5432/db',
+    );
 
     expect(imports).toHaveLength(1);
   });

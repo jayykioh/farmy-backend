@@ -69,10 +69,17 @@ export class UserController {
   @Patch('me')
   async updateProfile(
     @CurrentUser() currentUser: AuthenticatedUser,
-    @Body() dto: { onboarding_completed?: boolean; farmName?: string; primaryCrops?: string },
+    @Body()
+    dto: {
+      onboarding_completed?: boolean;
+      farmName?: string;
+      primaryCrops?: string;
+    },
   ) {
     try {
-      this.logger.log(`updateProfile starting for user ${currentUser.id} with DTO: ${JSON.stringify(dto)}`);
+      this.logger.log(
+        `updateProfile starting for user ${currentUser.id} with DTO: ${JSON.stringify(dto)}`,
+      );
       const userAggregate = await this.userRepository.findById(currentUser.id);
       if (!userAggregate) {
         throw new NotFoundException('Người dùng không tồn tại');
@@ -116,7 +123,9 @@ export class UserController {
         }
       }
 
-      this.logger.log(`updateProfile successfully completed for user ${currentUser.id}`);
+      this.logger.log(
+        `updateProfile successfully completed for user ${currentUser.id}`,
+      );
 
       return {
         success: true,
@@ -133,7 +142,9 @@ export class UserController {
         },
       };
     } catch (error) {
-      this.logger.error(`Error in updateProfile for user ${currentUser.id}: ${error instanceof Error ? error.stack : error}`);
+      this.logger.error(
+        `Error in updateProfile for user ${currentUser.id}: ${error instanceof Error ? error.stack : error}`,
+      );
       throw error;
     }
   }

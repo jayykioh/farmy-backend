@@ -6,6 +6,7 @@ import {
   PetMood,
   PetMoodReason,
 } from '../../infrastructure/persistence/pet-state.schema';
+import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ function daysAgo(n: number): Date {
 describe('PetService', () => {
   let service: PetService;
   let mockPetModel: any;
+  let mockUserModel: any;
   let mockPet: PetStateDocument;
 
   beforeEach(async () => {
@@ -62,12 +64,22 @@ describe('PetService', () => {
     // Make `new mockPetModel(...)` work for ensurePet creation path
     Object.setPrototypeOf(mockPetModel, Function.prototype);
 
+    mockUserModel = {
+      findById: jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ role: 'user' }),
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PetService,
         {
           provide: getModelToken(PetStateDocument.name),
           useValue: mockPetModel,
+        },
+        {
+          provide: getModelToken(UserDocument.name),
+          useValue: mockUserModel,
         },
       ],
     }).compile();
@@ -188,6 +200,35 @@ describe('PetService', () => {
 
       // After update (streak becomes 3 → excited), previous_mood should be the old mood
       expect(mockPet.previous_mood).toBe(PetMood.WORRIED);
+    });
+  });
+
+  describe('admin and moderator bypass', () => {
+    beforeEach(() => {
+      mockUserModel.findById = jest.fn().mockReturnValue({
+        exec: jest.fn().mockResolvedValue({ role: 'admin' }),
+      });
+    });
+
+    it('should return default state with level 1 and exp 0 on getStatus', async () => {
+      const result = await service.getStatus('user-admin');
+      expect(result.level).toBe(1);
+      expect(result.exp).toBe(0);
+      expect(result.streakCount).toBe(0);
+    });
+
+    it('should return default state with level 1 and exp 0 on updateAfterDiaryCreated', async () => {
+      const result = await service.updateAfterDiaryCreated('user-admin');
+      expect(result.level).toBe(1);
+      expect(result.exp).toBe(0);
+      expect(result.streakCount).toBe(0);
+    });
+
+    it('should return default state with level 1 and exp 0 on updateAfterTaskCompleted', async () => {
+      const result = await service.updateAfterTaskCompleted('user-admin');
+      expect(result.level).toBe(1);
+      expect(result.exp).toBe(0);
+      expect(result.streakCount).toBe(0);
     });
   });
 });

@@ -36,11 +36,17 @@ export class EmailService {
       return true;
     } catch (error) {
       this.logger.error(`Failed to send Email notification to ${email}`, error);
-      throw new BadRequestException('Không thể gửi email lúc này. Vui lòng kiểm tra lại cấu hình SMTP.');
+      throw new BadRequestException(
+        'Không thể gửi email lúc này. Vui lòng kiểm tra lại cấu hình SMTP.',
+      );
     }
   }
 
-  async sendReminderEmail(email: string, title: string, actionDetail?: string): Promise<boolean> {
+  async sendReminderEmail(
+    email: string,
+    title: string,
+    actionDetail?: string,
+  ): Promise<boolean> {
     try {
       this.logger.log(`Sending Reminder Email to ${email}...`);
       const appName = 'Farmy';

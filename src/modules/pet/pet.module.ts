@@ -7,10 +7,16 @@ import {
 import { PetService } from './application/services/pet.service';
 import { PetController } from './interface/controllers/pet.controller';
 
+import {
+  UserDocument,
+  UserSchema,
+} from '../auth/infrastructure/persistence/user.schema';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: PetStateDocument.name, schema: PetStateSchema },
+      { name: UserDocument.name, schema: UserSchema },
     ]),
   ],
   controllers: [PetController],

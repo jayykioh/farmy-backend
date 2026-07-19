@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -8,6 +7,7 @@ import {
   PetMood,
   PetMoodReason,
 } from '../../infrastructure/persistence/pet-state.schema';
+import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 
 // ─── DTOs / Response Shape ────────────────────────────────────────────────────
 
@@ -44,7 +44,18 @@ export class PetService {
   constructor(
     @InjectModel(PetStateDocument.name)
     private readonly petModel: Model<PetStateDocument>,
+    @InjectModel(UserDocument.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
+
+  private async isAdminOrMod(userId: string): Promise<boolean> {
+    try {
+      const user = await this.userModel.findById(userId).exec();
+      return !!(user && (user.role === 'admin' || user.role === 'moderator'));
+    } catch {
+      return false;
+    }
+  }
 
   // ── Mood Calculation Engine (source of truth) ─────────────────────────────
 
@@ -228,6 +239,21 @@ export class PetService {
    * Also recalculates mood based on current time / missedDays each call.
    */
   async getStatus(userId: string): Promise<PetStatusResponse> {
+    if (await this.isAdminOrMod(userId)) {
+      return {
+        mood: PetMood.NEUTRAL,
+        streakCount: 0,
+        level: 1,
+        exp: 0,
+        missedDays: 0,
+        moodReason: PetMoodReason.DEFAULT_STATE,
+        bubbleMessage: this.generateBubbleMessage(PetMood.NEUTRAL, 0),
+        ownedItems: [],
+        equippedItems: [],
+        updatedAt: new Date(),
+      };
+    }
+
     const pet = await this.ensurePet(userId);
     const todayVN = this.getTodayVN();
     const loggedToday = pet.last_diary_date === todayVN;
@@ -282,6 +308,21 @@ export class PetService {
     diaryDate: Date = new Date(),
     session?: import('mongoose').ClientSession,
   ): Promise<PetStatusResponse> {
+    if (await this.isAdminOrMod(userId)) {
+      return {
+        mood: PetMood.NEUTRAL,
+        streakCount: 0,
+        level: 1,
+        exp: 0,
+        missedDays: 0,
+        moodReason: PetMoodReason.DEFAULT_STATE,
+        bubbleMessage: this.generateBubbleMessage(PetMood.NEUTRAL, 0),
+        ownedItems: [],
+        equippedItems: [],
+        updatedAt: new Date(),
+      };
+    }
+
     const pet = await this.ensurePet(userId, session);
 
     // Add XP for diary (30 XP)
@@ -335,6 +376,21 @@ export class PetService {
     userId: string,
     completedAt: Date = new Date(),
   ): Promise<PetStatusResponse> {
+    if (await this.isAdminOrMod(userId)) {
+      return {
+        mood: PetMood.NEUTRAL,
+        streakCount: 0,
+        level: 1,
+        exp: 0,
+        missedDays: 0,
+        moodReason: PetMoodReason.DEFAULT_STATE,
+        bubbleMessage: this.generateBubbleMessage(PetMood.NEUTRAL, 0),
+        ownedItems: [],
+        equippedItems: [],
+        updatedAt: new Date(),
+      };
+    }
+
     const pet = await this.ensurePet(userId);
 
     // Add XP for task (10 XP — distinct from diary's 30 XP)

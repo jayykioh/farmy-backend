@@ -74,7 +74,9 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Set refresh token in HttpOnly cookie as required
-    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const sameSite =
+      this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') ||
+      'strict';
     const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
@@ -108,7 +110,9 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Set refresh token in HttpOnly cookie
-    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const sameSite =
+      this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') ||
+      'strict';
     const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
@@ -149,7 +153,9 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Rotate refresh token
-    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const sameSite =
+      this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') ||
+      'strict';
     const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
@@ -224,7 +230,9 @@ export class AuthController {
     }
 
     // Clear cookies
-    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const sameSite =
+      this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') ||
+      'strict';
     const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.clearCookie('refresh_token', {
       httpOnly: true,
@@ -232,7 +240,7 @@ export class AuthController {
       sameSite,
       path: '/api/v1/auth',
     });
-    
+
     // Also clear with other policies in case sameSite changed/OAuth
     if (sameSite !== 'strict') {
       response.clearCookie('refresh_token', {
@@ -275,9 +283,7 @@ export class AuthController {
   }
 
   @Post('email-notification/test')
-  async testEmailNotification(
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  async testEmailNotification(@CurrentUser() user: AuthenticatedUser) {
     try {
       this.logger.log(`testEmailNotification starting for user ${user.id}`);
       const userAggregate = await this.userRepository.findById(user.id);
@@ -302,7 +308,9 @@ export class AuthController {
         message: 'Gửi email test thành công!',
       };
     } catch (error) {
-      this.logger.error(`Error in testEmailNotification for user ${user.id}: ${error instanceof Error ? error.stack : error}`);
+      this.logger.error(
+        `Error in testEmailNotification for user ${user.id}: ${error instanceof Error ? error.stack : error}`,
+      );
       throw error;
     }
   }
@@ -323,7 +331,7 @@ export class AuthController {
   ) {
     // req.user contains the user info returned from GoogleStrategy.validate
     const googleUser = req.user as any;
-    
+
     if (!googleUser) {
       throw new BadRequestException('No user from google');
     }
@@ -333,7 +341,9 @@ export class AuthController {
     )) as unknown as AuthCommandResult;
 
     // Set refresh token in HttpOnly cookie
-    const sameSite = this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') || 'strict';
+    const sameSite =
+      this.configService.get<'strict' | 'lax' | 'none'>('cookieSameSite') ||
+      'strict';
     const secure = process.env.NODE_ENV === 'production' || sameSite === 'none';
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
@@ -345,9 +355,10 @@ export class AuthController {
 
     console.log('googleAuthRedirect - Callback query:', req.query);
     const state = req.query.state as string;
-    let targetUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    let targetUrl =
+      this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
     let isMobileRedirect = false;
-    
+
     // Hỗ trợ dynamic redirect URL gửi từ mobile (bắt đầu bằng exp:// hoặc farmy://)
     if (state && (state.startsWith('exp://') || state.startsWith('farmy://'))) {
       targetUrl = state;
@@ -359,10 +370,14 @@ export class AuthController {
 
     if (isMobileRedirect) {
       const connector = targetUrl.includes('?') ? '&' : '?';
-      return response.redirect(`${targetUrl}${connector}accessToken=${result.accessToken}`);
+      return response.redirect(
+        `${targetUrl}${connector}accessToken=${result.accessToken}`,
+      );
     } else {
       const separator = targetUrl.endsWith('/') ? '' : '/';
-      return response.redirect(`${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`);
+      return response.redirect(
+        `${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`,
+      );
     }
   }
 }

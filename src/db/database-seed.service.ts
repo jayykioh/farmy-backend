@@ -279,7 +279,9 @@ export class DatabaseSeedService {
         .findOne({ user_id: targetUserId, week_start_date: weekStart })
         .exec();
       if (!insight) {
-        this.logger.log(`Creating weekly insight for week starting: ${weekStart.toISOString().split('T')[0]}`);
+        this.logger.log(
+          `Creating weekly insight for week starting: ${weekStart.toISOString().split('T')[0]}`,
+        );
         insight = new this.weeklyInsightModel({
           _id: crypto.randomUUID(),
           user_id: targetUserId,
@@ -290,7 +292,9 @@ export class DatabaseSeedService {
         });
         await insight.save();
       } else {
-        this.logger.log(`Weekly insight for week starting ${weekStart.toISOString().split('T')[0]} already exists. Skipping.`);
+        this.logger.log(
+          `Weekly insight for week starting ${weekStart.toISOString().split('T')[0]} already exists. Skipping.`,
+        );
       }
     }
 

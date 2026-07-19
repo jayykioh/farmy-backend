@@ -35,17 +35,28 @@ export class DiaryController {
   ) {
     const fileExtension = dto.fileName?.split('.').pop()?.toLowerCase();
     let extension = 'jpeg';
-    if (fileExtension && ['jpg', 'jpeg', 'png', 'webp'].includes(fileExtension)) {
+    if (
+      fileExtension &&
+      ['jpg', 'jpeg', 'png', 'webp'].includes(fileExtension)
+    ) {
       extension = fileExtension === 'jpg' ? 'jpeg' : fileExtension;
     } else {
       switch (dto.contentType) {
-        case 'image/png': extension = 'png'; break;
-        case 'image/webp': extension = 'webp'; break;
-        default: extension = 'jpeg';
+        case 'image/png':
+          extension = 'png';
+          break;
+        case 'image/webp':
+          extension = 'webp';
+          break;
+        default:
+          extension = 'jpeg';
       }
     }
     const key = `diaries/${user.id}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
-    const uploadUrl = await this.r2StorageService.getPresignedUploadUrl(key, dto.contentType);
+    const uploadUrl = await this.r2StorageService.getPresignedUploadUrl(
+      key,
+      dto.contentType,
+    );
     return {
       success: true,
       data: {

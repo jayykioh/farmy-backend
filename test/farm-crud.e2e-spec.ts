@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -53,7 +52,9 @@ describe('Farm CRUD (e2e)', () => {
       });
 
     if (res.status !== 201) {
-      throw new Error(`Failed to create plot: ${res.status} - ${JSON.stringify(res.body)}`);
+      throw new Error(
+        `Failed to create plot: ${res.status} - ${JSON.stringify(res.body)}`,
+      );
     }
 
     expect(res.status).toBe(201);
@@ -117,7 +118,9 @@ describe('Farm CRUD (e2e)', () => {
       });
 
     if (res.status !== 201) {
-      throw new Error(`Failed to create diary log: ${res.status} - ${JSON.stringify(res.body)}`);
+      throw new Error(
+        `Failed to create diary log: ${res.status} - ${JSON.stringify(res.body)}`,
+      );
     }
 
     expect(res.status).toBe(201);
@@ -193,7 +196,9 @@ describe('Farm CRUD (e2e)', () => {
       .delete(`/api/v1/diaries/logs/${logId}`)
       .set('Authorization', `Bearer ${accessToken}`);
     if (deleteLogRes.status !== 204) {
-      throw new Error(`Failed to delete log: ${deleteLogRes.status} - ${JSON.stringify(deleteLogRes.body)}`);
+      throw new Error(
+        `Failed to delete log: ${deleteLogRes.status} - ${JSON.stringify(deleteLogRes.body)}`,
+      );
     }
 
     // delete diary (soft delete, sets status to deleted)

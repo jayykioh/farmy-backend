@@ -41,4 +41,5 @@ export class ShopItemDocument extends Document<string> {
   };
 }
 
-export const ShopItemSchema: MongooseSchema = SchemaFactory.createForClass(ShopItemDocument);
+export const ShopItemSchema: MongooseSchema =
+  SchemaFactory.createForClass(ShopItemDocument);

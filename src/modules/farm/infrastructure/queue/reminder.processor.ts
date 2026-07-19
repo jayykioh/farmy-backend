@@ -185,7 +185,7 @@ export class ReminderProcessor extends WorkerHost {
         await this.emailService.sendReminderEmail(
           user.email,
           payload.title,
-          payload.action_detail
+          payload.action_detail,
         );
         return;
       }

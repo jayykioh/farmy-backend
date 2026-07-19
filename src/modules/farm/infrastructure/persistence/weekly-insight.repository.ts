@@ -59,7 +59,10 @@ export class WeeklyInsightRepository {
   }
 
   /** Tìm danh sách insight của một user */
-  async findByUser(userId: string, limit: number = 10): Promise<WeeklyInsightDocument[]> {
+  async findByUser(
+    userId: string,
+    limit: number = 10,
+  ): Promise<WeeklyInsightDocument[]> {
     return this.model
       .find({ user_id: userId })
       .sort({ week_start_date: -1 })
