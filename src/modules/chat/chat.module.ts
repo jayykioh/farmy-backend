@@ -17,6 +17,7 @@ import {
   AiFeedbackSchema,
 } from '../ai/infrastructure/persistence/ai-feedback.schema';
 import { ChatController } from './interface/chat.controller';
+import { AdminChatController } from './interface/admin-chat.controller';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { ChatController } from './interface/chat.controller';
       { name: AiFeedbackDocument.name, schema: AiFeedbackSchema },
     ]),
   ],
-  controllers: [ChatController],
+  controllers: [ChatController, AdminChatController],
   providers: [ChatService],
 })
 export class ChatModule {}
