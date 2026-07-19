@@ -27,23 +27,23 @@ export class GoogleLoginHandler implements ICommandHandler<GoogleLoginCommand> {
     const { payload } = command;
 
     let user = await this.userRepository.findByEmail(payload.email);
-    
+
     // Nếu chưa có tài khoản thì tạo mới
     if (!user) {
       const emailObj = Email.create(payload.email);
       // Dummy password cho OAuth user, họ sẽ không thể đăng nhập bằng password trừ khi đổi lại
       const dummyPasswordHash = `[OAUTH_DUMMY]_${crypto.randomUUID()}`;
-      
+
       user = new User(
         crypto.randomUUID(),
         emailObj,
         dummyPasswordHash,
         payload.name || payload.firstName || 'Google User',
-        'user'
+        'user',
       );
-      
+
       // Update avatar_url if available using setter or directly if available. Wait, aggregate doesn't have setter for avatar_url
-      // Let's rely on MongooseUserRepository to save what it has. Since aggregate only has basic fields, 
+      // Let's rely on MongooseUserRepository to save what it has. Since aggregate only has basic fields,
       // we'll just save it and update the db directly or extend aggregate if needed.
       // But aggregate saves what it maps. We'll just create the user.
       await this.userRepository.create(user);
@@ -55,7 +55,7 @@ export class GoogleLoginHandler implements ICommandHandler<GoogleLoginCommand> {
       role: user.getRole(),
       name: user.getName(),
     };
-    
+
     const accessToken = this.tokenService.generateAccessToken(tokenPayload);
     const refreshToken = this.tokenService.generateRefreshToken(tokenPayload);
 

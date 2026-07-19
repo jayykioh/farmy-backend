@@ -13,6 +13,7 @@ import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { MaintenanceGuard } from './common/guards/maintenance.guard';
 import { HttpExceptionFilter } from './common/filters/auth-exception.filter';
 import { HealthService } from './common/health/health.service';
 import { DbModule } from './db/db.module';
@@ -25,6 +26,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { PlantScanModule } from './modules/plant-scan/plant-scan.module';
 import { ShopModule } from './modules/shop/shop.module';
 import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -74,13 +76,15 @@ import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
       useFactory: () => {
         const cfg = appConfig();
         const redisUrl = cfg.redis.url;
-        
+
         // BullMQ requires maxRetriesPerRequest to be null
         if (redisUrl) {
           // If URL is provided, we must pass an ioredis instance to BullMQ
           // because BullMQ's connection options object doesn't directly support a 'url' property
           const Redis = require('ioredis');
-          return { connection: new Redis(redisUrl, { maxRetriesPerRequest: null }) };
+          return {
+            connection: new Redis(redisUrl, { maxRetriesPerRequest: null }),
+          };
         }
         return {
           connection: {
@@ -108,6 +112,7 @@ import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
     ChatModule,
     PlantScanModule,
     ShopModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
@@ -116,6 +121,10 @@ import { createPgvectorTypeOrmImports } from './db/pgvector-typeorm.module';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: MaintenanceGuard,
     },
     {
       provide: APP_GUARD,

@@ -9,7 +9,9 @@ export class CsrfMiddleware implements NestMiddleware {
     cookie: {
       key: 'XSRF-TOKEN',
       httpOnly: false, // Must be false so frontend can read it
-      secure: process.env.NODE_ENV === 'production' || appConfig().cookieSameSite === 'none',
+      secure:
+        process.env.NODE_ENV === 'production' ||
+        appConfig().cookieSameSite === 'none',
       sameSite: appConfig().cookieSameSite,
       path: '/',
     },
@@ -17,11 +19,10 @@ export class CsrfMiddleware implements NestMiddleware {
   });
 
   use(req: Request, res: Response, next: NextFunction) {
-
     const userAgent = req.headers['user-agent'] || '';
     if (
-      userAgent.includes('Expo') || 
-      userAgent.includes('Darwin') || 
+      userAgent.includes('Expo') ||
+      userAgent.includes('Darwin') ||
       userAgent.includes('okhttp')
     ) {
       return next();

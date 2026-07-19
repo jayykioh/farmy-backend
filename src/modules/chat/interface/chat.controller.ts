@@ -190,7 +190,10 @@ export class ChatController {
     if (error instanceof HttpException) {
       const response = error.getResponse();
       if (response && typeof response === 'object') {
-        const payload = response as { errorCode?: string; message?: string | string[] };
+        const payload = response as {
+          errorCode?: string;
+          message?: string | string[];
+        };
         const message = Array.isArray(payload.message)
           ? payload.message.join('; ')
           : payload.message;

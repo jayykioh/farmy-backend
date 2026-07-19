@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
@@ -79,7 +78,7 @@ describe('User Journey (Auth -> Diary -> Chat) (e2e)', () => {
         email: 'user@farmy.com',
         password: 'UserPassword123',
       });
-    
+
     if (loginRes.status !== 201) {
       console.error('Login failed:', loginRes.body);
     }
@@ -139,21 +138,28 @@ describe('User Journey (Auth -> Diary -> Chat) (e2e)', () => {
   // Step 4: AI Chat Interaction
   it('Step 5 - should chat with AI and get mocked response', async () => {
     // Decode user ID from token
-    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64').toString());
+    const payload = JSON.parse(
+      Buffer.from(accessToken.split('.')[1], 'base64').toString(),
+    );
     const userId = payload.sub;
 
     // Manual insert to bypass flaky BullMQ timing
-    const embeddingRepo = app.get(require('../src/modules/ai/infrastructure/persistence/embedding.repository').EmbeddingRepository);
-    await embeddingRepo.upsertMany([{
-      sourceId: logId,
-      sourceType: 'diary_log',
-      chunkIndex: 0,
-      contentHash: 'dummy',
-      text: 'Bón phân trùn quế', // Provide text to satisfy NOT NULL constraint
-      vector: new Array(768).fill(0.1),
-      metadata: { user_id: userId },
-      isActive: true
-    }]);
+    const embeddingRepo = app.get(
+      require('../src/modules/ai/infrastructure/persistence/embedding.repository')
+        .EmbeddingRepository,
+    );
+    await embeddingRepo.upsertMany([
+      {
+        sourceId: logId,
+        sourceType: 'diary_log',
+        chunkIndex: 0,
+        contentHash: 'dummy',
+        text: 'Bón phân trùn quế', // Provide text to satisfy NOT NULL constraint
+        vector: new Array(768).fill(0.1),
+        metadata: { user_id: userId },
+        isActive: true,
+      },
+    ]);
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/chat/message')
@@ -163,15 +169,19 @@ describe('User Journey (Auth -> Diary -> Chat) (e2e)', () => {
       });
 
     if (res.status !== 200) {
-      throw new Error(`Failed to chat: ${res.status} - ${JSON.stringify(res.body)}`);
+      throw new Error(
+        `Failed to chat: ${res.status} - ${JSON.stringify(res.body)}`,
+      );
     }
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    
+
     // Response should be the mock text
-    expect(res.body.data.response.content).toContain('Đây là câu trả lời từ AI (Mocked)');
-    
+    expect(res.body.data.response.content).toContain(
+      'Đây là câu trả lời từ AI (Mocked)',
+    );
+
     // Save session ID for cleanup
     sessionId = res.body.data.session_id;
     expect(sessionId).toBeDefined();
