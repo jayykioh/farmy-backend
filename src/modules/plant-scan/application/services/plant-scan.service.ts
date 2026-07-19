@@ -311,7 +311,9 @@ export class PlantScanService {
           `PlantScan phát hiện ${finalDiagnosis.disease_name}`,
         );
       } catch (e) {
-        this.logger.warn(`Failed to sync pet mood after PlantScan: ${String(e)}`);
+        this.logger.warn(
+          `Failed to sync pet mood after PlantScan: ${String(e)}`,
+        );
       }
     }
 

@@ -3,10 +3,14 @@ import { EmbeddingRepository } from './embedding.repository';
 
 describe('EmbeddingRepository', () => {
   it('throws a clear disabled error when pgvector is not configured', async () => {
-    const repository = new EmbeddingRepository(undefined as any);
+    const repository = new EmbeddingRepository(undefined);
 
     await expect(
-      repository.searchSimilar([0.1, 0.2], { limit: 3, minScore: 0.7 }, 'user-1'),
+      repository.searchSimilar(
+        [0.1, 0.2],
+        { limit: 3, minScore: 0.7 },
+        'user-1',
+      ),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 

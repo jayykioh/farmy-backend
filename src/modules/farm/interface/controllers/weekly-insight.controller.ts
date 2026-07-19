@@ -4,7 +4,10 @@ import { Queue } from 'bullmq';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { WeeklyInsightRepository } from '../../infrastructure/persistence/weekly-insight.repository';
-import { INSIGHT_QUEUE, INSIGHT_JOB_GENERATE } from '../../infrastructure/queue/insight-queue.constants';
+import {
+  INSIGHT_QUEUE,
+  INSIGHT_JOB_GENERATE,
+} from '../../infrastructure/queue/insight-queue.constants';
 
 @Controller('api/v1/weekly-insights')
 @UseGuards(JwtAuthGuard)

@@ -14,10 +14,16 @@ describe('PlantScanService', () => {
       ...data,
       save,
     }));
-    ScanModel.find = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
+    ScanModel.find = jest
+      .fn()
+      .mockReturnValue({ exec: jest.fn().mockResolvedValue([]) });
 
     const rateLimiter = {
-      consume: jest.fn().mockResolvedValue({ allowed: true, remaining: 10, resetAt: Date.now() + 60000 }),
+      consume: jest.fn().mockResolvedValue({
+        allowed: true,
+        remaining: 10,
+        resetAt: Date.now() + 60000,
+      }),
     };
     const llmService = {
       completeVision: jest.fn().mockResolvedValue({
@@ -26,16 +32,24 @@ describe('PlantScanService', () => {
           disease_name: 'Bệnh đạo ôn',
           confidence: 0.91,
           symptoms: ['Vết bệnh hình thoi'],
-          treatment: { chemical: 'Phun thuốc theo nhãn', organic: 'Giữ ruộng thông thoáng' },
+          treatment: {
+            chemical: 'Phun thuốc theo nhãn',
+            organic: 'Giữ ruộng thông thoáng',
+          },
         }),
       }),
     };
     const promptService = {
-      buildVisionPrompt: jest.fn().mockReturnValue({ prompt: 'vision prompt', promptVersion: 'vision_v1.0' }),
+      buildVisionPrompt: jest.fn().mockReturnValue({
+        prompt: 'vision prompt',
+        promptVersion: 'vision_v1.0',
+      }),
     };
     const storageService = {
       uploadFile: jest.fn().mockResolvedValue(undefined),
-      getSignedUrl: jest.fn().mockResolvedValue('https://signed-url.test/image.webp'),
+      getSignedUrl: jest
+        .fn()
+        .mockResolvedValue('https://signed-url.test/image.webp'),
       deleteFile: jest.fn().mockResolvedValue(undefined),
     };
     const imageProcessor = {
@@ -92,7 +106,9 @@ describe('PlantScanService', () => {
   it('still returns the scan result when pet mood sync fails', async () => {
     const { service } = createService({ petUpdateRejects: true });
 
-    await expect(service.diagnose(file, 'Lúa', 'user-1')).resolves.toMatchObject({
+    await expect(
+      service.diagnose(file, 'Lúa', 'user-1'),
+    ).resolves.toMatchObject({
       status: 'completed',
       diagnosis: expect.objectContaining({ disease_name: 'Bệnh đạo ôn' }),
     });
