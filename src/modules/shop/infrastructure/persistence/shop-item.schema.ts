@@ -30,6 +30,15 @@ export class ShopItemDocument extends Document<string> {
 
   @Prop({ type: String, required: true })
   image_url: string;
+
+  @Prop({ type: Object, required: false })
+  anchor?: {
+    top?: string;
+    left?: string;
+    width?: string;
+    transform?: string;
+    zIndex?: number;
+  };
 }
 
 export const ShopItemSchema: MongooseSchema = SchemaFactory.createForClass(ShopItemDocument);
