@@ -231,16 +231,7 @@ export class LLMService implements IEmbeddingProvider {
   ): Promise<LLMCompleteResult> {
     if (this.shouldUseMockKeyFallback()) {
       return {
-        text: JSON.stringify({
-          is_plant: true,
-          disease_name: 'Chưa thể phân tích chính xác ảnh này',
-          confidence: 0.1,
-          symptoms: ['Hệ thống AI chẩn đoán đang ở chế độ thử nghiệm, kết quả này chưa phải phân tích bệnh thật.'],
-          treatment: {
-            chemical: '',
-            organic: 'Vui lòng cấu hình AI chẩn đoán thật hoặc thử lại sau. Nếu lá tiếp tục khô/cháy lan rộng, hãy giữ riêng mẫu lá và hỏi chuyên gia nông nghiệp địa phương.',
-          },
-        }),
+        text: this.getMockVisionResponse(),
         promptTokens: 0,
         completionTokens: 0,
         latencyMs: 50,
@@ -289,6 +280,117 @@ export class LLMService implements IEmbeddingProvider {
       onRateLimit: options.onRateLimit ?? 'throw',
       action: 'llm.complete_vision',
     });
+  }
+
+  async *streamCompleteVision(
+    options: VisionCompleteOptions,
+  ): AsyncGenerator<string, void, void> {
+    if (this.shouldUseMockKeyFallback()) {
+      const mockText = this.getMockVisionResponse();
+      const chunks = mockText.match(/.{1,3}/g) || [mockText];
+      for (const chunk of chunks) {
+        await this.sleep(40);
+        yield chunk;
+      }
+      return;
+    }
+
+    const cfg = appConfig();
+    const onRateLimit = options.onRateLimit ?? 'throw';
+
+    const rateLimit = await this.rateLimiter.consume(
+      LLM_FLASH_RPM_KEY,
+      LLM_FLASH_RPM_LIMIT,
+      LLM_RPM_WINDOW_SECONDS,
+    );
+
+    if (!rateLimit.allowed) {
+      if (onRateLimit === 'throw') {
+        throw new LLMRateLimitedException();
+      }
+      this.logFallback('llm.stream_complete_vision', options);
+      yield LLM_FALLBACK_MESSAGE;
+      return;
+    }
+
+    const contents: Content = {
+      role: 'user',
+      parts: [
+        { text: options.prompt },
+        {
+          inlineData: {
+            data: options.imageBuffer.toString('base64'),
+            mimeType: options.mimeType,
+          },
+        },
+      ],
+    };
+
+    const startedAt = Date.now();
+    const delays = [1000, 2000, 4000];
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+      let yieldedChunks = 0;
+      try {
+        const stream = await this.getClient().models.generateContentStream({
+          model: cfg.gemini.visionModel,
+          contents,
+          config: {
+            maxOutputTokens: options.maxTokens ?? 1000,
+            temperature: 0.2,
+            safetySettings: this.safetySettings(),
+          },
+        });
+
+        for await (const chunk of stream) {
+          if (this.isSafetyBlocked(chunk)) {
+            this.logSafetyBlock('llm.stream_complete_vision', options);
+            yield LLM_SAFETY_MESSAGE;
+            return;
+          }
+          if (chunk.text) {
+            yield chunk.text;
+            yieldedChunks++;
+          }
+        }
+
+        this.logger.log({
+          action: 'llm.stream_complete_vision',
+          userId: options.userId,
+          model: cfg.gemini.visionModel,
+          promptVersion: options.promptVersion,
+          latencyMs: Date.now() - startedAt,
+          rateLimited: false,
+        });
+        return;
+      } catch (error) {
+        if (error instanceof LLMConfigurationException) {
+          throw error;
+        }
+
+        if (yieldedChunks > 0) {
+          throw new LLMProviderException(this.errorMessage(error));
+        }
+
+        lastError = error;
+        if (!this.isRetryable(error) || attempt === delays.length) {
+          break;
+        }
+        await this.sleep(delays[attempt]);
+      }
+    }
+
+    if (onRateLimit !== 'throw') {
+      this.logFallback('llm.stream_complete_vision', options, lastError);
+      yield LLM_FALLBACK_MESSAGE;
+      return;
+    }
+
+    if (this.isRateLimitError(lastError)) {
+      throw new LLMRateLimitedException();
+    }
+    throw new LLMProviderException(this.errorMessage(lastError));
   }
 
   private async generateWithRetry(params: {
@@ -405,6 +507,22 @@ export class LLMService implements IEmbeddingProvider {
     }
     
     return 'Dạ Bé Thóc nghe rõ rồi ạ! Bà con nhớ chăm chỉ ghi nhật ký đồng ruộng hằng ngày để em theo dõi sức khỏe cây lúa nha. Chúc bà con một ngày tốt lành! 🌾💚';
+  }
+
+  private getMockVisionResponse(): string {
+    return JSON.stringify({
+      is_plant: true,
+      disease_name: 'Chưa thể phân tích chính xác ảnh này',
+      confidence: 0.1,
+      symptoms: [
+        'Hệ thống AI chẩn đoán đang ở chế độ thử nghiệm, kết quả này chưa phải phân tích bệnh thật.',
+      ],
+      treatment: {
+        chemical: '',
+        organic:
+          'Vui lòng cấu hình AI chẩn đoán thật hoặc thử lại sau. Nếu lá tiếp tục khô/cháy lan rộng, hãy giữ riêng mẫu lá và hỏi chuyên gia nông nghiệp địa phương.',
+      },
+    });
   }
 
   private getClient(): GeminiClient {

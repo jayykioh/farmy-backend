@@ -8,6 +8,7 @@ import { ImageProcessorService } from './application/services/image-processor.se
 import { PlantScanGuardrailService } from './application/services/plant-scan-guardrail.service';
 import { RateLimiterModule } from '../../common/rate-limiter/rate-limiter.module';
 import { StorageModule } from '../storage/storage.module';
+import { PetModule } from '../pet/pet.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { StorageModule } from '../storage/storage.module';
       { name: 'PlantScanDocument', schema: PlantScanSchema },
     ]),
     AiModule,
+    PetModule,
     RateLimiterModule,
     StorageModule,
   ],

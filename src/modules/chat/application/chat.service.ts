@@ -6,15 +6,19 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { LLMService } from '../../ai/application/services/llm.service';
 import { PromptService } from '../../ai/application/services/prompt.service';
+import { AiFeedbackDocument } from '../../ai/infrastructure/persistence/ai-feedback.schema';
 import { PetMoodInput } from '../../ai/domain/prompt.types';
 import { PetService } from '../../pet/application/services/pet.service';
 import { RagService } from '../../rag/application/rag.service';
 import { ReminderService } from '../../farm/application/services/reminder.service';
+import type { VisionCompleteOptions } from '../../ai/domain/llm.types';
 import { StreamChatDto } from '../interface/dtos/stream-chat.dto';
+import { SubmitFeedbackDto } from '../interface/dtos/feedback.dto';
 import {
   ChatMessageDocument,
   ChatMessageStatus,
@@ -28,6 +32,11 @@ import {
 
 const DEFAULT_HISTORY_MAX_MESSAGES = 20;
 const DEFAULT_HISTORY_MAX_CHARS = 12_000;
+const CHAT_IMAGE_MARKER_REGEX = /\[IMAGE:(https?:\/\/[^\]\s]+)\]/i;
+const CHAT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const SUPPORTED_CHAT_IMAGE_MIME_TYPES = new Set<
+  VisionCompleteOptions['mimeType']
+>(['image/jpeg', 'image/png', 'image/webp']);
 
 @Injectable()
 export class ChatService {
@@ -41,6 +50,8 @@ export class ChatService {
     private readonly llmService: LLMService,
     private readonly petService: PetService,
     private readonly reminderService: ReminderService,
+    @InjectModel(AiFeedbackDocument.name)
+    private readonly feedbackModel: Model<AiFeedbackDocument>,
   ) {}
 
   async prepareTurn(
@@ -54,6 +65,7 @@ export class ChatService {
 
     let session: ChatSessionDocument;
     let userMessage: ChatMessageDocument;
+    let isFirstTurn = false;
 
     if (existing) {
       this.rejectNonRetryable(existing.status);
@@ -82,6 +94,7 @@ export class ChatService {
       }
       userMessage = retried;
     } else {
+      isFirstTurn = !dto.session_id;
       session = await this.getOrCreateSession(
         userId,
         dto.session_id,
@@ -109,6 +122,9 @@ export class ChatService {
       }
     }
 
+    const imageAttachment = this.extractImageAttachment(userMessage.content);
+    const promptUserMessage = imageAttachment.text;
+
     let history: BoundedChatHistory;
     let ragContext: Awaited<ReturnType<RagService['retrieveContext']>>;
     let petState: { mood: PetMoodInput; streakCount: number };
@@ -116,7 +132,7 @@ export class ChatService {
     try {
       [history, ragContext, petState, reminders] = await Promise.all([
         this.loadBoundedHistory(session._id.toString(), userId),
-        this.ragService.retrieveContext(userMessage.content, userId),
+        this.ragService.retrieveContext(promptUserMessage, userId),
         this.loadPetState(userId),
         this.reminderService.findPending(userId),
       ]);
@@ -132,7 +148,7 @@ export class ChatService {
       ragContext: ragContext.context_text,
       chatHistory: history,
       reminders,
-      userMessage: userMessage.content,
+      userMessage: promptUserMessage,
     });
 
     return {
@@ -143,14 +159,33 @@ export class ChatService {
       promptVersion: builtPrompt.promptVersion,
       retrievalStatus: ragContext.retrieval_status,
       citations: ragContext.citations,
+      imageUrl: imageAttachment.imageUrl,
+      isFirstTurn,
     };
   }
 
   streamCompletion(turn: PreparedChatTurn): AsyncGenerator<string, void, void> {
+    if (turn.imageUrl) {
+      return this.streamVisionCompletion(turn);
+    }
+
     return this.llmService.streamComplete({
       prompt: turn.prompt,
       promptVersion: turn.promptVersion,
       userId: turn.userId,
+    });
+  }
+
+  private async *streamVisionCompletion(
+    turn: PreparedChatTurn,
+  ): AsyncGenerator<string, void, void> {
+    const image = await this.fetchChatImage(turn.imageUrl!);
+    yield* this.llmService.streamCompleteVision({
+      prompt: turn.prompt,
+      promptVersion: turn.promptVersion,
+      userId: turn.userId,
+      imageBuffer: image.buffer,
+      mimeType: image.mimeType,
     });
   }
 
@@ -265,9 +300,16 @@ export class ChatService {
           );
         }
 
+        const sessionSet: Record<string, unknown> = {
+          last_message_at: new Date(),
+        };
+        if (turn.isFirstTurn !== false) {
+          sessionSet.title = this.summarizeConversationTitle(assistantContent);
+        }
+
         const sessionUpdate = await this.sessionModel.updateOne(
           { _id: new Types.ObjectId(turn.sessionId), user_id: turn.userId },
-          { $set: { last_message_at: new Date() } },
+          { $set: sessionSet },
           { session: mongoSession },
         );
         if (sessionUpdate.matchedCount !== 1) {
@@ -331,6 +373,22 @@ export class ChatService {
     return { items, page, limit, total };
   }
 
+  async submitFeedback(dto: SubmitFeedbackDto, userId: string) {
+    const feedback = new this.feedbackModel({
+      _id: crypto.randomUUID(),
+      session_id: dto.session_id,
+      message_id: dto.message_id,
+      user_id: userId,
+      rating: dto.rating,
+      helpful: dto.helpful,
+      comment: dto.comment,
+      model_used: 'gemini-1.5-flash',
+      prompt_version: 'v1.0',
+    });
+    await feedback.save();
+    return { success: true };
+  }
+
   private async getOwnedSession(
     userId: string,
     sessionId: string,
@@ -356,6 +414,136 @@ export class ChatService {
     } catch {
       return { mood: 'neutral', streakCount: 0 };
     }
+  }
+
+  private extractImageAttachment(content: string): {
+    text: string;
+    imageUrl?: string;
+  } {
+    const match = content.match(CHAT_IMAGE_MARKER_REGEX);
+    const text = content.replace(CHAT_IMAGE_MARKER_REGEX, '').trim();
+
+    return {
+      text: text || 'Bạn có thể phân tích bức ảnh này giúp tôi được không?',
+      imageUrl: match?.[1],
+    };
+  }
+
+  private async fetchChatImage(imageUrl: string): Promise<{
+    buffer: Buffer;
+    mimeType: VisionCompleteOptions['mimeType'];
+  }> {
+    let url: URL;
+    try {
+      url = new URL(imageUrl);
+    } catch {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_URL_INVALID',
+        message: 'Attached image URL is invalid.',
+      });
+    }
+
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_URL_UNSUPPORTED',
+        message: 'Attached image URL must use http or https.',
+      });
+    }
+
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_FETCH_FAILED',
+        message: `Attached image could not be fetched (${response.status}).`,
+      });
+    }
+
+    const contentLength = Number(response.headers.get('content-length') ?? 0);
+    if (contentLength > CHAT_IMAGE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_TOO_LARGE',
+        message: 'Attached image is too large.',
+      });
+    }
+
+    const mimeType = this.resolveChatImageMimeType(
+      response.headers.get('content-type'),
+      url,
+    );
+    if (!mimeType) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_TYPE_UNSUPPORTED',
+        message: 'Attached image must be JPEG, PNG, or WebP.',
+      });
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength > CHAT_IMAGE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_TOO_LARGE',
+        message: 'Attached image is too large.',
+      });
+    }
+
+    return { buffer, mimeType };
+  }
+
+  private resolveChatImageMimeType(
+    contentType: string | null,
+    url: URL,
+  ): VisionCompleteOptions['mimeType'] | undefined {
+    const normalized = contentType?.split(';')[0]?.trim().toLowerCase();
+    if (
+      normalized &&
+      SUPPORTED_CHAT_IMAGE_MIME_TYPES.has(
+        normalized as VisionCompleteOptions['mimeType'],
+      )
+    ) {
+      return normalized as VisionCompleteOptions['mimeType'];
+    }
+
+    const pathname = url.pathname.toLowerCase();
+    if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (pathname.endsWith('.png')) return 'image/png';
+    if (pathname.endsWith('.webp')) return 'image/webp';
+    return undefined;
+  }
+
+  private summarizeConversationTitle(content: string): string {
+    const normalized = content
+      .replace(/[#*_`>~]/g, '')
+      .replace(/\[[0-9]+\]/g, '')
+      .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const cleaned = normalized
+      .replace(/^(dạ[,!\s]+)?(chào|xin chào).+?(ạ|nhé)[,.!\s]+/i, '')
+      .replace(/^dạ[,!\s]+/i, '')
+      .trim();
+
+    const sentence =
+      cleaned
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map((part) => part.replace(/[.!?]+$/g, '').trim())
+        .find((part) => part.length >= 12) ?? cleaned;
+
+    const title = this.capitalizeFirst(
+      sentence || 'Cuộc trò chuyện với Bé Thóc',
+    );
+    if (title.length <= 60) return title;
+
+    const truncated = title
+      .slice(0, 57)
+      .replace(/\s+\S*$/g, '')
+      .trim();
+    return truncated || title.slice(0, 57).trim();
+  }
+
+  private capitalizeFirst(value: string): string {
+    return value.charAt(0).toLocaleUpperCase('vi-VN') + value.slice(1);
   }
 
   private rejectNonRetryable(status: ChatMessageStatus): void {

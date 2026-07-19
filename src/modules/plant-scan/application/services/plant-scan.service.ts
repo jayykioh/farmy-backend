@@ -13,6 +13,8 @@ import {
   PlantScanGuardrailService,
   GeminiDiagnosisSchema,
 } from './plant-scan-guardrail.service';
+import { PetService } from '../../../pet/application/services/pet.service';
+import { PetMood } from '../../../pet/infrastructure/persistence/pet-state.schema';
 
 @Injectable()
 export class PlantScanService {
@@ -27,6 +29,7 @@ export class PlantScanService {
     private readonly storageService: R2StorageService,
     private readonly imageProcessor: ImageProcessorService,
     private readonly guardrailService: PlantScanGuardrailService,
+    private readonly petService: PetService,
   ) {}
 
   async diagnose(
@@ -310,6 +313,22 @@ export class PlantScanService {
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+
+    if (
+      finalDiagnosis.disease_name &&
+      typeof finalDiagnosis.confidence === 'number' &&
+      finalDiagnosis.confidence >= 0.7
+    ) {
+      try {
+        await this.petService.updateMood(
+          userId,
+          PetMood.WORRIED,
+          `PlantScan phát hiện ${finalDiagnosis.disease_name}`,
+        );
+      } catch (e) {
+        this.logger.warn(`Failed to sync pet mood after PlantScan: ${String(e)}`);
+      }
     }
 
     const imageUrl = await this.storageService.getSignedUrl(imageKey);

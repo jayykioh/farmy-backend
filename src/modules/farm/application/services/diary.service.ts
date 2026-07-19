@@ -68,6 +68,7 @@ export class DiaryService {
       _id: crypto.randomUUID(),
       plot_id: dto.plot_id,
       crop_type: dto.crop_type,
+      season: dto.season,
       start_date: new Date(dto.start_date),
       status: 'active',
       metadata: {
@@ -125,6 +126,7 @@ export class DiaryService {
     const diary = await this.verifyDiaryOwner(userId, id);
 
     if (dto.crop_type !== undefined) diary.crop_type = dto.crop_type;
+    if (dto.season !== undefined) diary.season = dto.season;
     if (dto.start_date !== undefined)
       diary.start_date = new Date(dto.start_date);
     if (dto.status !== undefined) diary.status = dto.status;

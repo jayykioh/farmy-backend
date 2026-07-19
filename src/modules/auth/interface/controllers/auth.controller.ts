@@ -6,6 +6,7 @@ import {
   Req,
   Get,
   Inject,
+  Injectable,
   NotFoundException,
   BadRequestException,
   UseGuards,
@@ -15,6 +16,18 @@ import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { CommandBus } from '@nestjs/cqrs';
 import type { Response, Request } from 'express';
+
+@Injectable()
+class GoogleAuthGuard extends AuthGuard('google') {
+  getAuthorizeOptions(context: any) {
+    const request = context.switchToHttp().getRequest();
+    const state = request.query.state;
+    console.log('GoogleAuthGuard - Lấy state từ query:', state);
+    return {
+      state: state,
+    };
+  }
+}
 import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { PushSubscriptionDto } from '../dtos/push-subscription.dto';
@@ -296,7 +309,7 @@ export class AuthController {
 
   @Public()
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleAuthGuard)
   async googleAuth(@Req() req: Request) {
     // Initiates the Google OAuth flow
   }
@@ -330,12 +343,26 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    console.log('googleAuthRedirect - Callback query:', req.query);
+    const state = req.query.state as string;
+    let targetUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
+    let isMobileRedirect = false;
     
-    // Redirect to frontend callback page with tokens in URL
-    // In a real production app, sending tokens via URL can be a security risk.
-    // An alternative is short-lived code or relying entirely on cookies if Same-Site configuration allows.
-    // We pass accessToken via URL and refreshToken via cookie.
-    return response.redirect(`${frontendUrl}/oauth-callback?accessToken=${result.accessToken}`);
+    // Hỗ trợ dynamic redirect URL gửi từ mobile (bắt đầu bằng exp:// hoặc farmy://)
+    if (state && (state.startsWith('exp://') || state.startsWith('farmy://'))) {
+      targetUrl = state;
+      isMobileRedirect = true;
+    } else if (state === 'mobile') {
+      targetUrl = 'farmy://oauth-callback';
+      isMobileRedirect = true;
+    }
+
+    if (isMobileRedirect) {
+      const connector = targetUrl.includes('?') ? '&' : '?';
+      return response.redirect(`${targetUrl}${connector}accessToken=${result.accessToken}`);
+    } else {
+      const separator = targetUrl.endsWith('/') ? '' : '/';
+      return response.redirect(`${targetUrl}${separator}oauth-callback?accessToken=${result.accessToken}`);
+    }
   }
 }
