@@ -57,7 +57,7 @@ describe('WeeklyInsightSchedulerService', () => {
       {},
       expect.objectContaining({
         repeat: {
-          pattern: '0 6 * * 0',
+          pattern: '0 6 * * *',
           tz: 'Asia/Ho_Chi_Minh',
         },
         jobId: 'weekly-insight-orchestrator',
