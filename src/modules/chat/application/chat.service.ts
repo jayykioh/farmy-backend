@@ -11,6 +11,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { LLMService } from '../../ai/application/services/llm.service';
 import { PromptService } from '../../ai/application/services/prompt.service';
+import type { VisionCompleteOptions } from '../../ai/domain/llm.types';
 import { PetMoodInput } from '../../ai/domain/prompt.types';
 import { PetService } from '../../pet/application/services/pet.service';
 import { RagService } from '../../rag/application/rag.service';
@@ -30,6 +31,11 @@ import {
 
 const DEFAULT_HISTORY_MAX_MESSAGES = 20;
 const DEFAULT_HISTORY_MAX_CHARS = 12_000;
+const CHAT_IMAGE_MARKER_REGEX = /\[IMAGE:(https?:\/\/[^\]\s]+)\]/i;
+const CHAT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const SUPPORTED_CHAT_IMAGE_MIME_TYPES = new Set<
+  VisionCompleteOptions['mimeType']
+>(['image/jpeg', 'image/png', 'image/webp']);
 
 @Injectable()
 export class ChatService {
@@ -114,13 +120,16 @@ export class ChatService {
       }
     }
 
+    const imageAttachment = this.extractImageAttachment(userMessage.content);
+    const promptUserMessage = imageAttachment.text;
+
     let history: BoundedChatHistory;
     let ragContext: Awaited<ReturnType<RagService['retrieveContext']>>;
     let petState: { mood: PetMoodInput; streakCount: number };
     try {
       [history, ragContext, petState] = await Promise.all([
         this.loadBoundedHistory(session._id.toString(), userId),
-        this.ragService.retrieveContext(userMessage.content, userId),
+        this.ragService.retrieveContext(promptUserMessage, userId),
         this.loadPetState(userId),
       ]);
     } catch (error) {
@@ -134,7 +143,7 @@ export class ChatService {
       petMood: petState.mood,
       ragContext: ragContext.context_text,
       chatHistory: history,
-      userMessage: userMessage.content,
+      userMessage: promptUserMessage,
     });
 
     return {
@@ -146,14 +155,32 @@ export class ChatService {
       retrievalStatus: ragContext.retrieval_status,
       citations: ragContext.citations,
       isFirstTurn,
+      imageUrl: imageAttachment.imageUrl,
     };
   }
 
   streamCompletion(turn: PreparedChatTurn): AsyncGenerator<string, void, void> {
+    if (turn.imageUrl) {
+      return this.streamVisionCompletion(turn);
+    }
+
     return this.llmService.streamComplete({
       prompt: turn.prompt,
       promptVersion: turn.promptVersion,
       userId: turn.userId,
+    });
+  }
+
+  private async *streamVisionCompletion(
+    turn: PreparedChatTurn,
+  ): AsyncGenerator<string, void, void> {
+    const image = await this.fetchChatImage(turn.imageUrl!);
+    yield* this.llmService.streamCompleteVision({
+      prompt: turn.prompt,
+      promptVersion: turn.promptVersion,
+      userId: turn.userId,
+      imageBuffer: image.buffer,
+      mimeType: image.mimeType,
     });
   }
 
@@ -228,6 +255,101 @@ export class ChatService {
       { role: 'user' as const, content: pair.user.content },
       { role: 'assistant' as const, content: pair.assistant.content },
     ]);
+  }
+
+  private extractImageAttachment(content: string): {
+    text: string;
+    imageUrl?: string;
+  } {
+    const match = content.match(CHAT_IMAGE_MARKER_REGEX);
+    const text = content.replace(CHAT_IMAGE_MARKER_REGEX, '').trim();
+
+    return {
+      text: text || 'Bạn có thể phân tích bức ảnh này giúp tôi được không?',
+      imageUrl: match?.[1],
+    };
+  }
+
+  private async fetchChatImage(imageUrl: string): Promise<{
+    buffer: Buffer;
+    mimeType: VisionCompleteOptions['mimeType'];
+  }> {
+    let url: URL;
+    try {
+      url = new URL(imageUrl);
+    } catch {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_URL_INVALID',
+        message: 'Attached image URL is invalid.',
+      });
+    }
+
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_URL_UNSUPPORTED',
+        message: 'Attached image URL must use http or https.',
+      });
+    }
+
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_FETCH_FAILED',
+        message: `Attached image could not be fetched (${response.status}).`,
+      });
+    }
+
+    const contentLength = Number(response.headers.get('content-length') ?? 0);
+    if (contentLength > CHAT_IMAGE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_TOO_LARGE',
+        message: 'Attached image is too large.',
+      });
+    }
+
+    const mimeType = this.resolveChatImageMimeType(
+      response.headers.get('content-type'),
+      url,
+    );
+    if (!mimeType) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_TYPE_UNSUPPORTED',
+        message: 'Attached image must be JPEG, PNG, or WebP.',
+      });
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength > CHAT_IMAGE_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'CHAT_IMAGE_TOO_LARGE',
+        message: 'Attached image is too large.',
+      });
+    }
+
+    return { buffer, mimeType };
+  }
+
+  private resolveChatImageMimeType(
+    contentType: string | null,
+    url: URL,
+  ): VisionCompleteOptions['mimeType'] | undefined {
+    const normalized = contentType?.split(';')[0]?.trim().toLowerCase();
+    if (
+      normalized &&
+      SUPPORTED_CHAT_IMAGE_MIME_TYPES.has(
+        normalized as VisionCompleteOptions['mimeType'],
+      )
+    ) {
+      return normalized as VisionCompleteOptions['mimeType'];
+    }
+
+    const pathname = url.pathname.toLowerCase();
+    if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (pathname.endsWith('.png')) return 'image/png';
+    if (pathname.endsWith('.webp')) return 'image/webp';
+    return undefined;
   }
 
   async completeTurn(
@@ -371,7 +493,10 @@ export class ChatService {
       .findOneAndUpdate(
         { _id: session._id, user_id: userId },
         { $set: { title: normalizedTitle } },
-        { new: true, projection: '_id title last_message_at created_at updated_at' },
+        {
+          new: true,
+          projection: '_id title last_message_at created_at updated_at',
+        },
       )
       .exec();
     if (!updated) throw new NotFoundException('Chat session not found.');
@@ -476,7 +601,10 @@ export class ChatService {
     );
     if (title.length <= 60) return title;
 
-    const truncated = title.slice(0, 57).replace(/\s+\S*$/g, '').trim();
+    const truncated = title
+      .slice(0, 57)
+      .replace(/\s+\S*$/g, '')
+      .trim();
     return truncated || title.slice(0, 57).trim();
   }
 
