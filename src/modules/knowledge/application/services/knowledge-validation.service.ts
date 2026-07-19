@@ -81,7 +81,7 @@ export class KnowledgeValidationService {
         id,
         {
           validation_status: newStatus,
-          language: detectedLang,
+          doc_language: detectedLang,
           validation_report: report,
           admin_note: null, // reset note cũ nếu validate lại
         },

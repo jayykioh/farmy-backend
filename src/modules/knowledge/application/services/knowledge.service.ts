@@ -35,7 +35,7 @@ export class KnowledgeService {
       metadata: dto.metadata ?? {},
       embed_status: 'pending',
       validation_status: 'unvalidated', // v2: mới tạo chưa qua AI review
-      language: 'unknown',
+      doc_language: 'unknown',
     });
     await doc.save();
     this.logger.log({ action: 'knowledge.create', id: doc._id });
@@ -80,7 +80,7 @@ export class KnowledgeService {
     if (dto.content !== undefined) {
       updates.validation_status = 'unvalidated';
       updates.validation_report = null;
-      updates.language = 'unknown';
+      updates.doc_language = 'unknown';
       updates.embed_status = 'pending';
       updates.admin_note = null;
     }
@@ -178,7 +178,7 @@ export class KnowledgeService {
           title: doc.title,
           category: doc.category,
           source_url: doc.source_url,
-          language: doc.language,
+          language: doc.doc_language,
         },
       } satisfies EmbedDocumentPayload,
     }));

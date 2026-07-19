@@ -35,7 +35,7 @@ export class KnowledgeSourceDocument extends Document<string> {
   // ── Language ──────────────────────────────────────────────────────────────
   /** Ngôn ngữ phát hiện tự động bởi Gemini validation */
   @Prop({ type: String, enum: ['vi', 'en', 'unknown'], default: 'unknown' })
-  language: 'vi' | 'en' | 'unknown';
+  doc_language: 'vi' | 'en' | 'unknown';
 
   // ── Embedding pipeline status ─────────────────────────────────────────────
   /**
