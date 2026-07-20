@@ -45,8 +45,30 @@ export class WeeklyInsightProcessor extends WorkerHost {
     // Chỉ xử lý job generate_insight
     if (job.name !== INSIGHT_JOB_GENERATE) return;
 
-    const { userId, weekStartDate: weekStartDateStr } = job.data;
+    const {
+      userId,
+      diaryId,
+      cropType,
+      season,
+      weekStartDate: weekStartDateStr,
+    } = job.data;
     const weekStartDate = new Date(weekStartDateStr);
+
+    // Chặn job trùng trước khi gọi AI. Unique index/upsert vẫn là lớp bảo vệ cuối.
+    const existing = await this.weeklyInsightRepository.findByWeek(
+      userId,
+      weekStartDate,
+      diaryId,
+    );
+    if (existing) {
+      this.logger.debug({
+        action: 'weekly-insight.skip',
+        reason: 'Insight của mùa vụ trong tuần đã tồn tại',
+        userId,
+        diaryId,
+      });
+      return;
+    }
 
     this.logger.log({
       action: 'weekly-insight.start',
@@ -56,7 +78,11 @@ export class WeeklyInsightProcessor extends WorkerHost {
     });
 
     // 1. Fetch diary logs của user trong 7 ngày qua
-    const diaryLogs = await this.getRecentDiaryLogs(userId, weekStartDate);
+    const diaryLogs = await this.getRecentDiaryLogs(
+      userId,
+      weekStartDate,
+      diaryId,
+    );
 
     // 2. Trả về sớm nếu không có activity
     if (diaryLogs.length === 0) {
@@ -72,11 +98,14 @@ export class WeeklyInsightProcessor extends WorkerHost {
     const diaryEntries: DiaryEntry[] = diaryLogs.map((log) => ({
       notes: log.content,
       created_at: (log as any).created_at ?? new Date(),
-      crop_type: undefined, // sẽ bổ sung nếu cần join sang diary
+      crop_type: cropType,
     }));
 
     // 4. Lấy RAG context về nông nghiệp cho user này
-    const ragQuery = `Tổng hợp tình hình nông trại tuần này, người dùng ${userId}`;
+    const cropContext = cropType
+      ? ` cho mùa vụ ${cropType}${season ? ` (${season})` : ''}`
+      : '';
+    const ragQuery = `Tổng hợp tình hình nông trại tuần này${cropContext}, người dùng ${userId}`;
     const ragResult = await this.ragService.retrieveContext(ragQuery, userId);
 
     // 5. Build prompt
@@ -99,6 +128,9 @@ export class WeeklyInsightProcessor extends WorkerHost {
       model_used: 'gemini-1.5-flash',
       tokens_used:
         (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
+      ...(diaryId ? { diary_id: diaryId } : {}),
+      ...(cropType ? { crop_type: cropType } : {}),
+      ...(season ? { season } : {}),
     });
 
     this.logger.log({
@@ -117,6 +149,7 @@ export class WeeklyInsightProcessor extends WorkerHost {
   private async getRecentDiaryLogs(
     userId: string,
     weekStartDate: Date,
+    diaryId?: string,
   ): Promise<DiaryLogDocument[]> {
     const sevenDaysAgo = new Date(weekStartDate);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -133,6 +166,7 @@ export class WeeklyInsightProcessor extends WorkerHost {
       },
       { $unwind: '$plot' },
       { $match: { 'plot.user_id': userId, status: { $ne: 'deleted' } } },
+      ...(diaryId ? [{ $match: { _id: diaryId } }] : []),
       { $project: { _id: 1 } },
     ]);
 
