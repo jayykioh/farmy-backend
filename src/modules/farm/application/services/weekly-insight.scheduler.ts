@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import {
-  INSIGHT_QUEUE,
+  INSIGHT_ORCHESTRATOR_QUEUE,
   INSIGHT_JOB_ORCHESTRATE,
 } from '../../infrastructure/queue/insight-queue.constants';
 
@@ -21,7 +21,7 @@ export class WeeklyInsightSchedulerService implements OnModuleInit {
   private readonly REPEATABLE_JOB_KEY = 'weekly-insight-orchestrator';
 
   constructor(
-    @InjectQueue(INSIGHT_QUEUE)
+    @InjectQueue(INSIGHT_ORCHESTRATOR_QUEUE)
     private readonly insightQueue: Queue,
   ) {}
 

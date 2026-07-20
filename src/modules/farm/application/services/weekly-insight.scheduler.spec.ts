@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WeeklyInsightSchedulerService } from './weekly-insight.scheduler';
 import {
-  INSIGHT_QUEUE,
+  INSIGHT_ORCHESTRATOR_QUEUE,
   INSIGHT_JOB_ORCHESTRATE,
 } from '../../infrastructure/queue/insight-queue.constants';
 
@@ -20,7 +20,7 @@ describe('WeeklyInsightSchedulerService', () => {
       providers: [
         WeeklyInsightSchedulerService,
         {
-          provide: `BullQueue_${INSIGHT_QUEUE}`,
+          provide: `BullQueue_${INSIGHT_ORCHESTRATOR_QUEUE}`,
           useValue: mockInsightQueue,
         },
       ],
