@@ -77,6 +77,27 @@ export class WeeklyInsightController {
 
     // Chưa có → đẩy job vào queue để sinh insight
     const weekStartDateStr = monday.toISOString();
+    const jobId = `weekly-insight-${userId}-${diaryId}-${weekStartDateStr.slice(0, 10)}`;
+
+    // Một job completed/failed cũ có cùng jobId khiến BullMQ im lặng không
+    // enqueue lại dù document insight chưa được tạo. Chỉ giữ job đang chạy/chờ.
+    const staleJob = await this.insightQueue.getJob(jobId);
+    if (staleJob) {
+      const state = await staleJob.getState();
+      if (state === 'completed' || state === 'failed') {
+        await staleJob.remove();
+      } else {
+        return {
+          success: true,
+          already_exists: false,
+          processing: true,
+          message: 'Báo cáo của mùa vụ này đang được xử lý.',
+          week_start_date: weekStartDateStr,
+          diary_id: diaryId,
+        };
+      }
+    }
+
     await this.insightQueue.add(
       INSIGHT_JOB_GENERATE,
       {
@@ -87,10 +108,11 @@ export class WeeklyInsightController {
         weekStartDate: weekStartDateStr,
       },
       {
-        jobId: `weekly-insight-${userId}-${diaryId}-${weekStartDateStr.slice(0, 10)}`,
+        jobId,
         priority: 1,
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: true,
       },
     );
 
