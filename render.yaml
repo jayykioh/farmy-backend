@@ -67,3 +67,5 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: PLANT_SCAN_FREE_DAILY_LIMIT
+        sync: false
