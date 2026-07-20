@@ -15,6 +15,9 @@ import {
 
 export interface GenerateInsightPayload {
   userId: string;
+  diaryId?: string;
+  cropType?: string;
+  season?: string;
   weekStartDate: string; // ISO string
 }
 
