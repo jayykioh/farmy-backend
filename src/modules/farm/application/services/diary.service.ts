@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -21,6 +22,8 @@ import { IdempotencyExecutionService } from './idempotency-execution.service';
 
 @Injectable()
 export class DiaryService {
+  private readonly logger = new Logger(DiaryService.name);
+
   constructor(
     @InjectModel(DiaryDocument.name)
     private readonly diaryModel: Model<DiaryDocument>,
@@ -208,8 +211,8 @@ export class DiaryService {
 
     // 3. Mongo Transaction
     const session = await this.diaryModel.db.startSession();
+    let savedLog: DiaryLogDocument;
     try {
-      let savedLog: DiaryLogDocument;
       await session.withTransaction(async () => {
         const log = new this.diaryLogModel({
           _id: crypto.randomUUID(),
@@ -233,26 +236,8 @@ export class DiaryService {
         execution.responseData = savedLog;
         await execution.save({ session });
       });
-
-      // 4. Outbox pattern: Background tasks outside the transaction
-      const contentHash = crypto
-        .createHash('sha256')
-        .update(savedLog!.content)
-        .digest('hex');
-      await this.embedQueue.add(
-        'embed_document',
-        {
-          sourceId: savedLog!._id.toString(),
-          sourceType: 'diary_log',
-          text: savedLog!.content,
-          metadata: { user_id: userId },
-        },
-        { jobId: `embed:diary_log:${savedLog!._id}:${contentHash}` },
-      );
-
-      return savedLog!;
     } catch (error) {
-      // 5. Cleanup R2 if transaction fails (only if we still own the lock)
+      // The transaction failed, so this execution can safely be retried.
       const currentExecution = await this.idempotencyExecutionService[
         'executionModel'
       ]
@@ -269,6 +254,31 @@ export class DiaryService {
     } finally {
       await session.endSession();
     }
+
+    // Background indexing must not turn a committed diary log into a failed
+    // API response. The deterministic job id keeps a later retry idempotent.
+    const contentHash = crypto
+      .createHash('sha256')
+      .update(savedLog!.content)
+      .digest('hex');
+    try {
+      await this.embedQueue.add(
+        'embed_document',
+        {
+          sourceId: savedLog!._id.toString(),
+          sourceType: 'diary_log',
+          text: savedLog!.content,
+          metadata: { user_id: userId },
+        },
+        { jobId: `embed:diary_log:${savedLog!._id}:${contentHash}` },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Diary log ${savedLog!._id.toString()} was committed but could not be queued for embedding: ${String(error)}`,
+      );
+    }
+
+    return savedLog!;
   }
 
   async findAllLogs(
