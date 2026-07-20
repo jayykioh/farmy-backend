@@ -5,6 +5,7 @@ describe('EmbeddingProcessor', () => {
   beforeEach(() => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -52,6 +53,19 @@ describe('EmbeddingProcessor', () => {
       }),
     ).rejects.toThrow('pg down');
 
+    expect(knowledgeModel.findByIdAndUpdate).toHaveBeenCalledWith('knowledge-1', { embed_status: 'error' });
+  });
+
+  it('marks knowledge source embedding as error when text is empty', async () => {
+    const knowledgeModel = { findByIdAndUpdate: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(undefined) }) };
+    const { processor, embeddingRepository } = createProcessor(knowledgeModel);
+
+    await processor.process({
+      id: 'job-1',
+      data: { sourceId: 'knowledge-1', sourceType: 'knowledge_source', text: '   ' },
+    });
+
+    expect(embeddingRepository.findActiveChunkStates).not.toHaveBeenCalled();
     expect(knowledgeModel.findByIdAndUpdate).toHaveBeenCalledWith('knowledge-1', { embed_status: 'error' });
   });
 });

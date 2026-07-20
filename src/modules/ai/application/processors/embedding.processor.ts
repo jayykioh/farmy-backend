@@ -33,7 +33,13 @@ export class EmbeddingProcessor extends WorkerHost {
     try {
       const { sourceId, sourceType, text, metadata } = job.data;
 
-      if (!text) return;
+      if (!text?.trim()) {
+        await this.markKnowledgeEmbedStatus(sourceType, sourceId, 'error');
+        this.logger.warn(
+          `Skipped embedding job ${job.id} for source ${sourceId}: empty text`,
+        );
+        return;
+      }
 
       const preset = CHUNKING_PRESETS[sourceType] || {
         windowSize: 1000,

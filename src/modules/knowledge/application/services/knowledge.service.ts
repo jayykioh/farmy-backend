@@ -8,7 +8,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Model } from 'mongoose';
 import { Queue } from 'bullmq';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { KnowledgeSourceDocument } from '../../infrastructure/persistence/knowledge-source.schema';
 import { CreateKnowledgeDto } from '../dto/create-knowledge.dto';
 import { UpdateKnowledgeDto } from '../dto/update-knowledge.dto';
@@ -141,7 +141,7 @@ export class KnowledgeService {
       candidates = await this.knowledgeModel
         .find({
           validation_status: 'confirmed',
-          embed_status: { $in: ['pending', 'error'] },
+          embed_status: { $in: ['pending', 'processing', 'error'] },
         })
         .lean()
         .exec();
@@ -167,37 +167,60 @@ export class KnowledgeService {
       return { queued: 0, skipped_unconfirmed: skipped };
     }
 
+    const docsWithContent = confirmed.filter((d) => d.content?.trim());
+    const docsWithoutContent = confirmed.filter((d) => !d.content?.trim());
+
+    if (docsWithoutContent.length > 0) {
+      await this.knowledgeModel.updateMany(
+        { _id: { $in: docsWithoutContent.map((d) => d._id) } },
+        { embed_status: 'error' },
+      );
+      this.logger.warn({
+        action: 'knowledge.batchEmbed.emptyContent',
+        ids: docsWithoutContent.map((d) => d._id),
+      });
+    }
+
+    if (docsWithContent.length === 0) {
+      return { queued: 0, skipped_unconfirmed: skipped };
+    }
+
     // Mark as "processing" trước khi dispatch
-    const ids = confirmed.map((d) => d._id);
+    const ids = docsWithContent.map((d) => d._id);
     await this.knowledgeModel.updateMany(
       { _id: { $in: ids } },
       { embed_status: 'processing' },
     );
 
     // Enqueue 1 BullMQ job / document
-    const jobs = confirmed.map((doc) => ({
-      name: 'embed-knowledge',
-      data: {
-        sourceId: doc._id,
-        sourceType: 'knowledge_source',
-        text: doc.content,
-        metadata: {
-          title: doc.title,
-          category: doc.category,
-          source_url: doc.source_url,
-          language: doc.doc_language,
-        },
-      } satisfies EmbedDocumentPayload,
-    }));
+    const jobs = docsWithContent.map((doc) => {
+      const contentHash = createHash('sha256').update(doc.content).digest('hex');
+
+      return {
+        name: 'embed-knowledge',
+        data: {
+          sourceId: doc._id,
+          sourceType: 'knowledge_source',
+          text: doc.content,
+          metadata: {
+            title: doc.title,
+            category: doc.category,
+            source_url: doc.source_url,
+            language: doc.doc_language,
+          },
+        } satisfies EmbedDocumentPayload,
+        opts: { jobId: `embed-knowledge_source-${doc._id}-${contentHash}` },
+      };
+    });
 
     await this.embeddingQueue.addBulk(jobs);
 
     this.logger.log({
       action: 'knowledge.batchEmbed',
-      queued: confirmed.length,
+      queued: docsWithContent.length,
       skipped_unconfirmed: skipped,
     });
-    return { queued: confirmed.length, skipped_unconfirmed: skipped };
+    return { queued: docsWithContent.length, skipped_unconfirmed: skipped };
   }
 
   /**
