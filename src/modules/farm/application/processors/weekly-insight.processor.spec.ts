@@ -43,6 +43,7 @@ describe('WeeklyInsightProcessor', () => {
     };
     mockWeeklyInsightRepository = {
       upsert: jest.fn(),
+      findByWeek: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -96,7 +97,13 @@ describe('WeeklyInsightProcessor', () => {
     const job = {
       name: INSIGHT_JOB_GENERATE,
       id: 'job-2',
-      data: { userId: 'user1', weekStartDate },
+      data: {
+        userId: 'user1',
+        diaryId: 'diary-1',
+        cropType: 'Sầu riêng Ri6',
+        season: 'Vụ thuận',
+        weekStartDate,
+      },
     } as unknown as Job;
 
     // Mock logs
@@ -146,7 +153,43 @@ describe('WeeklyInsightProcessor', () => {
         insight_text: 'AI Insight Result',
         model_used: 'gemini-1.5-flash',
         tokens_used: 30,
+        diary_id: 'diary-1',
+        crop_type: 'Sầu riêng Ri6',
+        season: 'Vụ thuận',
       },
     );
+    expect(mockDiaryModel.aggregate).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        { $match: { _id: 'diary-1' } },
+      ]),
+    );
+  });
+
+  it('should skip before calling AI when the selected diary already has an insight this week', async () => {
+    const weekStartDate = new Date().toISOString();
+    mockWeeklyInsightRepository.findByWeek.mockResolvedValue({
+      _id: 'existing-insight',
+    });
+
+    const job = {
+      name: INSIGHT_JOB_GENERATE,
+      id: 'job-duplicate',
+      data: {
+        userId: 'user1',
+        diaryId: 'diary-1',
+        weekStartDate,
+      },
+    } as unknown as Job;
+
+    await processor.process(job);
+
+    expect(mockWeeklyInsightRepository.findByWeek).toHaveBeenCalledWith(
+      'user1',
+      new Date(weekStartDate),
+      'diary-1',
+    );
+    expect(mockDiaryModel.aggregate).not.toHaveBeenCalled();
+    expect(mockLlmService.complete).not.toHaveBeenCalled();
+    expect(mockWeeklyInsightRepository.upsert).not.toHaveBeenCalled();
   });
 });

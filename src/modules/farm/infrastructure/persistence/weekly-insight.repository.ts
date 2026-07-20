@@ -8,6 +8,9 @@ export interface UpsertWeeklyInsightDto {
   insight_text: string;
   model_used: string;
   tokens_used: number;
+  diary_id?: string;
+  crop_type?: string;
+  season?: string;
 }
 
 /**
@@ -34,12 +37,19 @@ export class WeeklyInsightRepository {
     weekStartDate: Date,
     data: UpsertWeeklyInsightDto,
   ): Promise<WeeklyInsightDocument> {
-    const filter = { user_id: userId, week_start_date: weekStartDate };
+    const filter = {
+      user_id: userId,
+      week_start_date: weekStartDate,
+      ...(data.diary_id ? { diary_id: data.diary_id } : {}),
+    };
     const update = {
       $set: {
         insight_text: data.insight_text,
         model_used: data.model_used,
         tokens_used: data.tokens_used,
+        ...(data.diary_id ? { diary_id: data.diary_id } : {}),
+        ...(data.crop_type ? { crop_type: data.crop_type } : {}),
+        ...(data.season ? { season: data.season } : {}),
       },
       $setOnInsert: {
         _id: randomUUID(),
@@ -84,9 +94,14 @@ export class WeeklyInsightRepository {
   async findByWeek(
     userId: string,
     weekStartDate: Date,
+    diaryId?: string,
   ): Promise<WeeklyInsightDocument | null> {
     return this.model
-      .findOne({ user_id: userId, week_start_date: weekStartDate })
+      .findOne({
+        user_id: userId,
+        week_start_date: weekStartDate,
+        ...(diaryId ? { diary_id: diaryId } : {}),
+      })
       .exec();
   }
 }

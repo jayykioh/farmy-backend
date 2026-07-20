@@ -19,6 +19,17 @@ export class WeeklyInsightDocument extends Document<string> {
   @Prop({ type: String, required: true, index: true })
   user_id: string;
 
+  /** Mùa vụ được phân tích. Bỏ trống với báo cáo tổng hợp cũ/scheduler. */
+  @Prop({ type: String, required: false, index: true })
+  diary_id?: string;
+
+  /** Snapshot để client vẫn hiển thị được tên mùa vụ nếu diary thay đổi. */
+  @Prop({ type: String, required: false })
+  crop_type?: string;
+
+  @Prop({ type: String, required: false })
+  season?: string;
+
   /**
    * Ngày đầu tuần (Thứ Hai) của tuần được tổng hợp.
    * Dùng cùng với user_id làm khóa deduplicate.
@@ -43,5 +54,9 @@ export const WeeklyInsightSchema: MongooseSchema = SchemaFactory.createForClass(
   WeeklyInsightDocument,
 );
 
-// Unique compound index đảm bảo mỗi user chỉ có một insight mỗi tuần
-WeeklyInsightSchema.index({ user_id: 1, week_start_date: 1 }, { unique: true });
+// Mỗi mùa vụ chỉ có một insight mỗi tuần. Partial index giữ tương thích với
+// báo cáo tổng hợp cũ chưa có diary_id.
+WeeklyInsightSchema.index(
+  { user_id: 1, diary_id: 1, week_start_date: 1 },
+  { unique: true, partialFilterExpression: { diary_id: { $type: 'string' } } },
+);
