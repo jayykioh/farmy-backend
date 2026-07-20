@@ -40,6 +40,7 @@ export class WeeklyInsightController {
 
   @Post('trigger')
   async triggerInsight(@CurrentUser('id') userId: string) {
+    // Tính ngày đầu tuần hiện tại (Thứ Hai, UTC)
     const now = new Date();
     const dayOfWeek = now.getUTCDay();
     const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
@@ -47,13 +48,25 @@ export class WeeklyInsightController {
     monday.setUTCDate(now.getUTCDate() - daysFromMonday);
     monday.setUTCHours(0, 0, 0, 0);
 
-    const weekStartDateStr = monday.toISOString();
+    // Kiểm tra xem tuần này đã có insight chưa
+    const existing = await this.insightRepository.findByWeek(userId, monday);
+    if (existing) {
+      return {
+        success: false,
+        already_exists: true,
+        message: `✅ Tuần này (từ ${monday.toISOString().slice(0, 10)}) đã có báo cáo phân tích rồi! Hãy xem lại báo cáo hiện có hoặc đợi đến tuần sau.`,
+        week_start_date: monday.toISOString(),
+        existing_insight_id: existing._id,
+      };
+    }
 
+    // Chưa có → đẩy job vào queue để sinh insight
+    const weekStartDateStr = monday.toISOString();
     await this.insightQueue.add(
       INSIGHT_JOB_GENERATE,
       { userId, weekStartDate: weekStartDateStr },
       {
-        priority: 1, // High priority for manual trigger
+        priority: 1,
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
       },
@@ -61,7 +74,9 @@ export class WeeklyInsightController {
 
     return {
       success: true,
-      message: 'Weekly insight generation triggered successfully.',
+      already_exists: false,
+      message: '🚀 Đang sinh báo cáo phân tích tuần... Vui lòng chờ khoảng 15-30 giây rồi tải lại trang.',
+      week_start_date: weekStartDateStr,
     };
   }
 }
