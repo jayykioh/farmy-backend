@@ -155,6 +155,7 @@ export class DiaryService {
       activity_type: dto.activity_type,
       content: dto.content,
       image_url: dto.image_url,
+      activity_at: dto.activity_at ? new Date(dto.activity_at) : undefined,
     });
 
     // Tăng streak và cập nhật trạng thái thú ảo
@@ -218,6 +219,7 @@ export class DiaryService {
           activity_type: dto.activity_type,
           content: dto.content,
           image_url: dto.image_url,
+          activity_at: dto.activity_at ? new Date(dto.activity_at) : undefined,
         });
 
         await this.petService.updateStreakAndMoodOnDiaryCreated(

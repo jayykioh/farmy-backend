@@ -14,6 +14,7 @@ import { CreateKnowledgeDto } from '../dto/create-knowledge.dto';
 import { UpdateKnowledgeDto } from '../dto/update-knowledge.dto';
 import { BatchEmbedKnowledgeDto } from '../dto/batch-embed-knowledge.dto';
 import type { EmbedDocumentPayload } from '../../../ai/domain/embedding.types';
+import { EmbeddingRepository } from '../../../ai/infrastructure/persistence/embedding.repository';
 
 @Injectable()
 export class KnowledgeService {
@@ -24,6 +25,7 @@ export class KnowledgeService {
     private readonly knowledgeModel: Model<KnowledgeSourceDocument>,
     @InjectQueue('embedding_queue')
     private readonly embeddingQueue: Queue<EmbedDocumentPayload>,
+    private readonly embeddingRepository: EmbeddingRepository,
   ) {}
 
   // ─── CRUD ────────────────────────────────────────────────────────────────────
@@ -75,9 +77,10 @@ export class KnowledgeService {
     dto: UpdateKnowledgeDto,
   ): Promise<KnowledgeSourceDocument> {
     const updates: Record<string, unknown> = { ...dto };
+    const contentChanged = dto.content !== undefined;
 
     // v2: Nếu nội dung thay đổi → reset toàn bộ validation pipeline
-    if (dto.content !== undefined) {
+    if (contentChanged) {
       updates.validation_status = 'unvalidated';
       updates.validation_report = null;
       updates.doc_language = 'unknown';
@@ -92,6 +95,9 @@ export class KnowledgeService {
     if (!updated) {
       throw new NotFoundException(`KnowledgeSource "${id}" not found`);
     }
+    if (contentChanged) {
+      await this.embeddingRepository.deactivateBySourceId(id);
+    }
     this.logger.log({ action: 'knowledge.update', id });
     return updated;
   }
@@ -101,6 +107,7 @@ export class KnowledgeService {
     if (!result) {
       throw new NotFoundException(`KnowledgeSource "${id}" not found`);
     }
+    await this.embeddingRepository.deactivateBySourceId(id);
     this.logger.log({ action: 'knowledge.delete', id });
   }
 

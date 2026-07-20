@@ -1,6 +1,8 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Inject, Logger } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { ChunkingService } from '../services/chunking.service';
 import type { IEmbeddingProvider } from '../../domain/embedding.types';
 import { EmbedDocumentPayload } from '../../domain/embedding.types';
@@ -9,6 +11,7 @@ import {
   UpsertEmbeddingDto,
 } from '../../infrastructure/persistence/embedding.repository';
 import { CHUNKING_PRESETS } from '../../domain/chunking.constants';
+import { KnowledgeSourceDocument } from '../../../knowledge/infrastructure/persistence/knowledge-source.schema';
 import * as crypto from 'crypto';
 
 @Processor('embedding_queue')
@@ -20,6 +23,8 @@ export class EmbeddingProcessor extends WorkerHost {
     @Inject('IEmbeddingProvider')
     private readonly embeddingProvider: IEmbeddingProvider,
     private readonly embeddingRepository: EmbeddingRepository,
+    @InjectModel(KnowledgeSourceDocument.name)
+    private readonly knowledgeModel: Model<KnowledgeSourceDocument>,
   ) {
     super();
   }
@@ -102,13 +107,28 @@ export class EmbeddingProcessor extends WorkerHost {
       this.logger.log(
         `Successfully processed embedding job ${job.id} for source ${sourceId}`,
       );
+      await this.markKnowledgeEmbedStatus(sourceType, sourceId, 'done');
     } catch (error) {
       const err = error as Error;
+      await this.markKnowledgeEmbedStatus(
+        job.data.sourceType,
+        job.data.sourceId,
+        'error',
+      );
       this.logger.error(
         `Failed to process embedding job ${job.id}: ${err.message}`,
         err.stack,
       );
       throw err;
     }
+  }
+
+  private async markKnowledgeEmbedStatus(
+    sourceType: string,
+    sourceId: string,
+    status: 'done' | 'error',
+  ): Promise<void> {
+    if (sourceType !== 'knowledge_source') return;
+    await this.knowledgeModel.findByIdAndUpdate(sourceId, { embed_status: status }).exec();
   }
 }

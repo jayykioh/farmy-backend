@@ -12,6 +12,7 @@ import {
 } from '../../infrastructure/persistence/knowledge-source.schema';
 import { LLMService } from '../../../ai/application/services/llm.service';
 import { buildValidationPrompt } from '../../domain/knowledge-validation.prompt';
+import { EmbeddingRepository } from '../../../ai/infrastructure/persistence/embedding.repository';
 
 @Injectable()
 export class KnowledgeValidationService {
@@ -21,6 +22,7 @@ export class KnowledgeValidationService {
     @InjectModel(KnowledgeSourceDocument.name)
     private readonly model: Model<KnowledgeSourceDocument>,
     private readonly llmService: LLMService,
+    private readonly embeddingRepository: EmbeddingRepository,
   ) {}
 
   // ─── Trigger AI Validation ────────────────────────────────────────────────
@@ -64,7 +66,7 @@ export class KnowledgeValidationService {
       const parsed = this.parseGeminiResponse(result.text);
 
       // Quyết định status dựa trên score
-      const newStatus = parsed.score < 40 ? 'rejected' : 'validated';
+      const newStatus = parsed.score < 40 || !parsed.is_agriculture_related ? 'rejected' : 'validated';
       const detectedLang =
         parsed.language_detected === 'en'
           ? 'en'
@@ -149,6 +151,10 @@ export class KnowledgeValidationService {
       { new: true },
     );
 
+    if (action === 'reject') {
+      await this.embeddingRepository.deactivateBySourceId(id);
+    }
+
     this.logger.log({
       action: `knowledge.${action}`,
       id,
@@ -194,11 +200,27 @@ export class KnowledgeValidationService {
       }
     }
 
+    if (typeof parsed.score !== 'number' || !Number.isFinite(parsed.score)) {
+      throw new Error('Gemini field "score" phải là number hữu hạn');
+    }
+    if (parsed.score < 0 || parsed.score > 100) {
+      throw new Error('Gemini field "score" phải nằm trong khoảng 0-100');
+    }
+    if (typeof parsed.is_agriculture_related !== 'boolean') {
+      throw new Error('Gemini field "is_agriculture_related" phải là boolean');
+    }
+    if (typeof parsed.category_match !== 'boolean') {
+      throw new Error('Gemini field "category_match" phải là boolean');
+    }
+    if (typeof parsed.language_detected !== 'string') {
+      throw new Error('Gemini field "language_detected" phải là string');
+    }
+
     return {
-      score: Math.max(0, Math.min(100, Number(parsed.score))),
-      is_agriculture_related: Boolean(parsed.is_agriculture_related),
-      language_detected: String(parsed.language_detected),
-      category_match: Boolean(parsed.category_match),
+      score: parsed.score,
+      is_agriculture_related: parsed.is_agriculture_related,
+      language_detected: parsed.language_detected,
+      category_match: parsed.category_match,
       warnings: Array.isArray(parsed.warnings)
         ? (parsed.warnings as string[]).filter((w) => typeof w === 'string')
         : [],

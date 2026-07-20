@@ -1,4 +1,4 @@
-import { Controller, Post, UseGuards } from '@nestjs/common';
+import { Controller, Post } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -6,7 +6,9 @@ import { Queue } from 'bullmq';
 import { DiaryLogDocument } from '../../../farm/infrastructure/persistence/diary-log.schema';
 import { KnowledgeSourceDocument } from '../../../knowledge/infrastructure/persistence/knowledge-source.schema';
 import * as crypto from 'crypto';
+import { Roles } from '../../../../common/decorators/roles.decorator';
 
+@Roles('admin')
 @Controller('api/v1/admin/ai/embeddings')
 export class AiAdminController {
   constructor(
@@ -64,7 +66,9 @@ export class AiAdminController {
     }
 
     // 2. Re-enqueue all knowledge sources
-    const sources = await this.knowledgeSourceModel.find({}).exec();
+    const sources = await this.knowledgeSourceModel
+      .find({ validation_status: 'confirmed' })
+      .exec();
     for (const source of sources) {
       if (!source.content) continue;
       const contentHash = crypto

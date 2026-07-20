@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateDiaryLogDto {
   @IsString()
@@ -12,4 +12,8 @@ export class CreateDiaryLogDto {
   @IsString()
   @IsOptional()
   image_url?: string;
+
+  @IsDateString()
+  @IsOptional()
+  activity_at?: string;
 }

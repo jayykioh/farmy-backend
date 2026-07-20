@@ -29,6 +29,9 @@ export class DiaryLogDocument extends Document<string> {
 
   @Prop()
   image_url?: string;
+
+  @Prop({ type: Date })
+  activity_at?: Date;
 }
 
 export const DiaryLogSchema: MongooseSchema =
