@@ -79,4 +79,14 @@ export class WeeklyInsightRepository {
       .sort({ week_start_date: -1 })
       .exec();
   }
+
+  /** Tìm insight theo tuần cụ thể (dùng để kiểm tra trùng trước khi trigger) */
+  async findByWeek(
+    userId: string,
+    weekStartDate: Date,
+  ): Promise<WeeklyInsightDocument | null> {
+    return this.model
+      .findOne({ user_id: userId, week_start_date: weekStartDate })
+      .exec();
+  }
 }
