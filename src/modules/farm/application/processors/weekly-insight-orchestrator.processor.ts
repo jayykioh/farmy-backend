@@ -8,6 +8,7 @@ import { Queue } from 'bullmq';
 import { DiaryLogDocument } from '../../infrastructure/persistence/diary-log.schema';
 import {
   INSIGHT_QUEUE,
+  INSIGHT_ORCHESTRATOR_QUEUE,
   INSIGHT_JOB_GENERATE,
   INSIGHT_JOB_ORCHESTRATE,
   INSIGHT_SPREAD_WINDOW_MS,
@@ -28,7 +29,7 @@ export interface GenerateInsightPayload {
  * Tìm danh sách user đang hoạt động (có ít nhất 1 diary log trong 7 ngày qua).
  * Enqueue job "generate_insight" cho mỗi user với delay ngẫu nhiên (Delay Spreading).
  */
-@Processor(INSIGHT_QUEUE)
+@Processor(INSIGHT_ORCHESTRATOR_QUEUE)
 export class WeeklyInsightOrchestratorProcessor extends WorkerHost {
   private readonly logger = new Logger(WeeklyInsightOrchestratorProcessor.name);
 

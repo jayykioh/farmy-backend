@@ -52,7 +52,10 @@ import { ReminderController } from './interface/controllers/reminder.controller'
 import { WeeklyInsightController } from './interface/controllers/weekly-insight.controller';
 import { ReminderProcessor } from './infrastructure/queue/reminder.processor';
 import { REMINDER_QUEUE } from './infrastructure/queue/reminder-queue.constants';
-import { INSIGHT_QUEUE } from './infrastructure/queue/insight-queue.constants';
+import {
+  INSIGHT_ORCHESTRATOR_QUEUE,
+  INSIGHT_QUEUE,
+} from './infrastructure/queue/insight-queue.constants';
 import { WeeklyInsightOrchestratorProcessor } from './application/processors/weekly-insight-orchestrator.processor';
 import { WeeklyInsightProcessor } from './application/processors/weekly-insight.processor';
 import { WeeklyInsightRepository } from './infrastructure/persistence/weekly-insight.repository';
@@ -89,6 +92,7 @@ import { IdempotencyExecutionService } from './application/services/idempotency-
     // BullMQ queues
     BullModule.registerQueue({ name: REMINDER_QUEUE }),
     BullModule.registerQueue({ name: INSIGHT_QUEUE }),
+    BullModule.registerQueue({ name: INSIGHT_ORCHESTRATOR_QUEUE }),
     PetModule,
     AiModule,
     StorageModule,
