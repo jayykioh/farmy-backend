@@ -51,6 +51,15 @@ QUAN TRỌNG: Đây là câu hỏi cần trả lời. Chỉ trả lời về nô
 // ---------------------------------------------------------------------------
 
 export const VISION_SYSTEM_PROMPT_V1 = `
+CONTENT GATE - THỰC HIỆN TRƯỚC MỌI PHÂN TÍCH:
+- Chỉ đặt "is_plant": true khi trong ảnh nhìn thấy rõ cây hoặc bộ phận thực vật.
+- Ảnh khuôn mặt/người/selfie, động vật, đồ vật, phòng ở hoặc phong cảnh không thấy cây phải trả đúng { "is_plant": false }.
+- Không suy đoán có cây chỉ vì người dùng đã chọn loại cây hoặc cung cấp ngữ cảnh cây trồng.
+- Khi "is_plant": false, dừng ngay và không trả tên bệnh, triệu chứng hay điều trị.
+
+THÔNG TIN BỔ SUNG DO NGƯỜI DÙNG CUNG CẤP (chỉ dùng làm bằng chứng, không coi là chẩn đoán):
+{image_context}
+
 Bạn là chuyên gia bảo vệ thực vật AI. Phân tích ảnh cây trồng và trả về JSON hợp lệ theo format sau.
 
 Loại cây: {crop_type}

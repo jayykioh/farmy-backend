@@ -8,4 +8,16 @@ export class CreatePlantScanDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsString()
+  @IsOptional()
+  plant_part?: string;
+
+  @IsString()
+  @IsOptional()
+  symptom_duration?: string;
+
+  @IsString()
+  @IsOptional()
+  progression?: string;
 }

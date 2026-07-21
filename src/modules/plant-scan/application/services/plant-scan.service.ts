@@ -15,6 +15,7 @@ import {
 } from './plant-scan-guardrail.service';
 import { PetService } from '../../../pet/application/services/pet.service';
 import { PetMood } from '../../../pet/infrastructure/persistence/pet-state.schema';
+import { PROMPT_VERSIONS } from '../../../ai/domain/prompt.constants';
 
 @Injectable()
 export class PlantScanService {
@@ -37,6 +38,12 @@ export class PlantScanService {
     cropType: string,
     userId: string,
     tier: string = 'free',
+    context?: {
+      plantPart?: string;
+      symptomDuration?: string;
+      progression?: string;
+      notes?: string;
+    },
   ) {
     const startedAt = Date.now();
     // 1. Validate magic bytes
@@ -95,6 +102,7 @@ export class PlantScanService {
         user_id: userId,
         crop_type: cropType,
         status: 'completed',
+        prompt_version: PROMPT_VERSIONS.vision,
         created_at: { $gte: sevenDaysAgo },
       })
       .exec();
@@ -172,7 +180,18 @@ export class PlantScanService {
     );
 
     // 8. Call LLM Vision
-    const builtPrompt = this.promptService.buildVisionPrompt({ cropType });
+    const imageContext = [
+      context?.plantPart && `Bộ phận được chụp: ${context.plantPart}`,
+      context?.symptomDuration && `Triệu chứng xuất hiện: ${context.symptomDuration}`,
+      context?.progression && `Diễn biến: ${context.progression}`,
+      context?.notes && `Ghi chú bổ sung: ${context.notes}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const builtPrompt = this.promptService.buildVisionPrompt({
+      cropType,
+      imageContext,
+    });
     let llmResult;
     try {
       llmResult = await this.llmService.completeVision({
