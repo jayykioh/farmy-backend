@@ -23,6 +23,8 @@ describe('PlantScanGuardrailService', () => {
       treatment: {
         chemical: 'Phun thuốc diệt nấm Anvil',
         organic: '',
+        source_citation: '',
+        safe_immediate_actions: [],
       },
     };
 
@@ -39,6 +41,8 @@ describe('PlantScanGuardrailService', () => {
       treatment: {
         chemical: 'Dùng chlorpyrifos để diệt sâu',
         organic: '',
+        source_citation: '',
+        safe_immediate_actions: [],
       },
     };
 
@@ -56,6 +60,8 @@ describe('PlantScanGuardrailService', () => {
       treatment: {
         chemical: '',
         organic: '',
+        source_citation: '',
+        safe_immediate_actions: [],
       },
     };
 

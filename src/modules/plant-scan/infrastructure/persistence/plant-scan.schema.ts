@@ -3,18 +3,38 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 import { UserDocument } from '../../../auth/infrastructure/persistence/user.schema';
 
 @Schema({ _id: false })
-export class PlantScanTreatmentSubdocument {
+export class PossibleCauseSubdocument {
   @Prop({ type: String, required: true })
-  chemical: string;
+  name: string;
 
-  @Prop({ type: String, required: true })
-  organic: string;
+  @Prop({ type: [String], default: [] })
+  matched_points: string[];
+
+  @Prop({ type: [String], default: [] })
+  uncertain_points: string[];
+}
+
+const PossibleCauseSubdocumentSchema = SchemaFactory.createForClass(PossibleCauseSubdocument);
+
+@Schema({ _id: false })
+export class PlantScanTreatmentSubdocument {
+  @Prop({ type: String, required: false })
+  chemical?: string;
+
+  @Prop({ type: String, required: false })
+  organic?: string;
 
   @Prop({ type: String, required: false })
   phi_warning?: string;
 
   @Prop({ type: String, required: false })
   safety_alert?: string;
+
+  @Prop({ type: String, required: false })
+  source_citation?: string;
+
+  @Prop({ type: [String], default: [] })
+  safe_immediate_actions?: string[];
 }
 
 const PlantScanTreatmentSubdocumentSchema = SchemaFactory.createForClass(
@@ -26,6 +46,9 @@ export class PlantScanDiagnosisSubdocument {
   @Prop({ type: Boolean, required: true, default: true })
   is_plant: boolean;
 
+  @Prop({ type: String, required: false, default: 'signs_to_monitor' })
+  assessment_state?: string;
+
   @Prop({ type: String, required: false })
   disease_name?: string;
 
@@ -34,6 +57,15 @@ export class PlantScanDiagnosisSubdocument {
 
   @Prop({ type: [String], default: [] })
   symptoms: string[];
+
+  @Prop({ type: [String], default: [] })
+  evidence_observed?: string[];
+
+  @Prop({ type: [PossibleCauseSubdocumentSchema], default: [] })
+  possible_causes?: PossibleCauseSubdocument[];
+
+  @Prop({ type: [String], default: [] })
+  missing_evidence?: string[];
 
   @Prop({ type: PlantScanTreatmentSubdocumentSchema, required: false })
   treatment?: PlantScanTreatmentSubdocument;
@@ -77,6 +109,12 @@ export class PlantScanDocument extends Document<string> {
   @Prop({ type: String, required: false })
   image_key?: string;
 
+  @Prop({ type: [String], default: [] })
+  additional_image_keys?: string[];
+
+  @Prop({ type: Object, required: false })
+  user_context?: { organ?: string; onset?: string; progress?: string };
+
   @Prop({ type: String, required: false })
   thumbnail_key?: string;
 
@@ -88,6 +126,12 @@ export class PlantScanDocument extends Document<string> {
 
   @Prop({ type: PlantScanDiagnosisSubdocumentSchema, required: false })
   diagnosis?: PlantScanDiagnosisSubdocument;
+
+  @Prop({ type: [String], default: [] })
+  rag_sources?: string[];
+
+  @Prop({ type: Boolean, default: false })
+  rag_degraded?: boolean;
 
   @Prop({ type: String, required: false })
   model_used?: string;

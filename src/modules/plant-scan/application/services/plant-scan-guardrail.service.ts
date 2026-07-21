@@ -15,16 +15,31 @@ const BANNED_PESTICIDES = ['paraquat', 'chlorpyrifos', 'carbofuran'];
 
 export const GeminiDiagnosisSchema = z.object({
   is_plant: z.boolean(),
+  assessment_state: z.string().optional().default('signs_to_monitor'),
   disease_name: z.string().optional(),
   confidence: z.number().optional(),
   symptoms: z.array(z.string()).optional().default([]),
+  evidence_observed: z.array(z.string()).optional().default([]),
+  possible_causes: z
+    .array(
+      z.object({
+        name: z.string(),
+        matched_points: z.array(z.string()).optional().default([]),
+        uncertain_points: z.array(z.string()).optional().default([]),
+      }),
+    )
+    .optional()
+    .default([]),
+  missing_evidence: z.array(z.string()).optional().default([]),
   treatment: z
     .object({
       chemical: z.string().optional().default(''),
       organic: z.string().optional().default(''),
+      source_citation: z.string().optional().default(''),
+      safe_immediate_actions: z.array(z.string()).optional().default([]),
     })
     .optional()
-    .default({ chemical: '', organic: '' }),
+    .default({ chemical: '', organic: '', source_citation: '', safe_immediate_actions: [] }),
 });
 
 export type GeminiDiagnosis = z.infer<typeof GeminiDiagnosisSchema>;

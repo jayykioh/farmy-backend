@@ -115,6 +115,10 @@ export class PlantScanService {
         return {
           scan_id: scan._id,
           status: 'cached',
+          is_cached: true,
+          cached_at: (scan as any).created_at
+            ? new Date((scan as any).created_at).toISOString()
+            : undefined,
           crop_type: cropType,
           diagnosis: scan.diagnosis,
           image_url: freshImageUrl,
