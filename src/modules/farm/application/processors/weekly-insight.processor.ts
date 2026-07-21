@@ -54,92 +54,101 @@ export class WeeklyInsightProcessor extends WorkerHost {
     } = job.data;
     const weekStartDate = new Date(weekStartDateStr);
 
-    // Chặn job trùng trước khi gọi AI. Unique index/upsert vẫn là lớp bảo vệ cuối.
-    const existing = await this.weeklyInsightRepository.findByWeek(
-      userId,
-      weekStartDate,
-      diaryId,
+    this.logger.log(
+      `[WeeklyInsightProcessor] 🚀 Bắt đầu xử lý Job id=${job.id} | userId=${userId} | diaryId=${diaryId} | weekStartDate=${weekStartDateStr}`
     );
-    if (existing) {
-      this.logger.debug({
-        action: 'weekly-insight.skip',
-        reason: 'Insight của mùa vụ trong tuần đã tồn tại',
+
+    try {
+      // Chặn job trùng trước khi gọi AI. Unique index/upsert vẫn là lớp bảo vệ cuối.
+      const existing = await this.weeklyInsightRepository.findByWeek(
         userId,
+        weekStartDate,
         diaryId,
-      });
-      return;
-    }
+      );
+      if (existing) {
+        this.logger.warn({
+          action: 'weekly-insight.skip',
+          reason: 'Insight của mùa vụ trong tuần đã tồn tại',
+          userId,
+          diaryId,
+        });
+        return;
+      }
 
-    this.logger.log({
-      action: 'weekly-insight.start',
-      userId,
-      week_start_date: weekStartDateStr,
-      jobId: job.id,
-    });
-
-    // 1. Fetch diary logs của user trong 7 ngày qua
-    const diaryLogs = await this.getRecentDiaryLogs(
-      userId,
-      weekStartDate,
-      diaryId,
-    );
-
-    // 2. Trả về sớm nếu không có activity
-    if (diaryLogs.length === 0) {
-      this.logger.debug({
-        action: 'weekly-insight.skip',
-        reason: 'Không có diary log trong 7 ngày qua',
+      // 1. Fetch diary logs của user trong 7 ngày qua
+      const diaryLogs = await this.getRecentDiaryLogs(
         userId,
+        weekStartDate,
+        diaryId,
+      );
+
+      // 2. Kiểm tra nhật ký activity
+      if (diaryLogs.length === 0) {
+        this.logger.log(
+          `[WeeklyInsightProcessor] ℹ️ Không tìm thấy ghi chép nhật ký trong 7 ngày qua cho mùa vụ ${cropType || diaryId}. Tiến hành tạo báo cáo khởi tạo (baseline insight)...`
+        );
+      } else {
+        this.logger.log(
+          `[WeeklyInsightProcessor] 📝 Tìm thấy ${diaryLogs.length} ghi chép nhật ký hợp lệ trong 7 ngày qua`
+        );
+      }
+
+      // 3. Map sang DiaryEntry shape mà PromptService cần
+      const diaryEntries: DiaryEntry[] = diaryLogs.map((log) => ({
+        notes: log.content,
+        created_at: (log as any).created_at ?? new Date(),
+        crop_type: cropType,
+      }));
+
+      // 4. Lấy RAG context về nông nghiệp cho user này
+      const cropContext = cropType
+        ? ` cho mùa vụ ${cropType}${season ? ` (${season})` : ''}`
+        : '';
+      const ragQuery = `Tổng hợp tình hình nông trại tuần này${cropContext}, người dùng ${userId}`;
+      this.logger.log(`[WeeklyInsightProcessor] 🔍 Đang truy vấn RAG Context: "${ragQuery}"`);
+      const ragResult = await this.ragService.retrieveContext(ragQuery, userId);
+
+      // 5. Build prompt
+      const builtPrompt = this.promptService.buildWeeklyInsightPrompt({
+        diaries: diaryEntries,
+        ragContext: ragResult.context_text,
       });
-      return;
+
+      // 6. Gọi Gemini (onRateLimit: 'throw' → BullMQ tự retry)
+      this.logger.log(`[WeeklyInsightProcessor] 🤖 Đang gọi Gemini AI LLM service...`);
+      const llmResult = await this.llmService.complete({
+        prompt: builtPrompt.prompt,
+        promptVersion: builtPrompt.promptVersion,
+        maxTokens: 500,
+        onRateLimit: 'throw',
+      });
+
+      // 7. Lưu insight vào MongoDB (upsert — idempotent nếu retry)
+      this.logger.log(`[WeeklyInsightProcessor] 💾 Đang lưu bản ghi insight vào MongoDB...`);
+      await this.weeklyInsightRepository.upsert(userId, weekStartDate, {
+        insight_text: llmResult.text,
+        model_used: 'gemini-1.5-flash',
+        tokens_used:
+          (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
+        ...(diaryId ? { diary_id: diaryId } : {}),
+        ...(cropType ? { crop_type: cropType } : {}),
+        ...(season ? { season } : {}),
+      });
+
+      this.logger.log({
+        action: 'weekly-insight.done',
+        userId,
+        week_start_date: weekStartDateStr,
+        tokens_used:
+          (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
+      });
+    } catch (error: any) {
+      this.logger.error(
+        `[WeeklyInsightProcessor] 💥 Lỗi khi xử lý job generate insight cho userId=${userId}, diaryId=${diaryId}: ${error?.message || error}`,
+        error?.stack,
+      );
+      throw error;
     }
-
-    // 3. Map sang DiaryEntry shape mà PromptService cần
-    const diaryEntries: DiaryEntry[] = diaryLogs.map((log) => ({
-      notes: log.content,
-      created_at: (log as any).created_at ?? new Date(),
-      crop_type: cropType,
-    }));
-
-    // 4. Lấy RAG context về nông nghiệp cho user này
-    const cropContext = cropType
-      ? ` cho mùa vụ ${cropType}${season ? ` (${season})` : ''}`
-      : '';
-    const ragQuery = `Tổng hợp tình hình nông trại tuần này${cropContext}, người dùng ${userId}`;
-    const ragResult = await this.ragService.retrieveContext(ragQuery, userId);
-
-    // 5. Build prompt
-    const builtPrompt = this.promptService.buildWeeklyInsightPrompt({
-      diaries: diaryEntries,
-      ragContext: ragResult.context_text,
-    });
-
-    // 6. Gọi Gemini (onRateLimit: 'throw' → BullMQ tự retry)
-    const llmResult = await this.llmService.complete({
-      prompt: builtPrompt.prompt,
-      promptVersion: builtPrompt.promptVersion,
-      maxTokens: 500,
-      onRateLimit: 'throw',
-    });
-
-    // 7. Lưu insight vào MongoDB (upsert — idempotent nếu retry)
-    await this.weeklyInsightRepository.upsert(userId, weekStartDate, {
-      insight_text: llmResult.text,
-      model_used: 'gemini-1.5-flash',
-      tokens_used:
-        (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
-      ...(diaryId ? { diary_id: diaryId } : {}),
-      ...(cropType ? { crop_type: cropType } : {}),
-      ...(season ? { season } : {}),
-    });
-
-    this.logger.log({
-      action: 'weekly-insight.done',
-      userId,
-      week_start_date: weekStartDateStr,
-      tokens_used:
-        (llmResult.promptTokens ?? 0) + (llmResult.completionTokens ?? 0),
-    });
   }
 
   /**
@@ -171,6 +180,7 @@ export class WeeklyInsightProcessor extends WorkerHost {
     ]);
 
     const diaryIds = userDiaries.map((d) => d._id);
+    this.logger.log(`[getRecentDiaryLogs] userId=${userId}, diaryId=${diaryId} -> userDiaries found: ${diaryIds.length} (${JSON.stringify(diaryIds)})`);
     if (diaryIds.length === 0) return [];
 
     return this.diaryLogModel
