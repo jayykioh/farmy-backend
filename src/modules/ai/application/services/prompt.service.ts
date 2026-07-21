@@ -73,7 +73,17 @@ export class PromptService {
   buildVisionPrompt(input: BuildVisionPromptInput): BuiltPrompt {
     const cropType = input.cropType.trim() || 'Không xác định';
 
-    const prompt = VISION_SYSTEM_PROMPT_V1.replace('{crop_type}', cropType);
+    const safeContext = this.truncateRight(
+      this.sanitizeContext(input.imageContext ?? ''),
+      PROMPT_LIMITS.maxContextChars,
+    );
+    const prompt = VISION_SYSTEM_PROMPT_V1.replace(
+      '{crop_type}',
+      cropType,
+    ).replace(
+      '{image_context}',
+      safeContext || '(Không có thông tin bổ sung)',
+    );
 
     return {
       prompt,
@@ -81,7 +91,7 @@ export class PromptService {
       metadata: {
         template: 'vision_v1',
         promptChars: prompt.length,
-        contextChars: 0,
+        contextChars: safeContext.length,
         userMessageChars: 0,
       },
     };

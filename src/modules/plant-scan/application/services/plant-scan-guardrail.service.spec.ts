@@ -61,6 +61,7 @@ describe('PlantScanGuardrailService', () => {
 
     const result = service.applyBVTVGuardrail(mockDiagnosis);
     expect(result.low_confidence_warning).toBeDefined();
-    expect(result.low_confidence_warning).toContain('Độ tin cậy thấp');
+    expect(result.low_confidence_warning).toContain('Mức chắc chắn còn thấp');
+    expect(result.treatment.chemical).toBe('');
   });
 });

@@ -72,6 +72,12 @@ export class PlantScanController {
       body.crop_type,
       user.id,
       user.tier || 'free',
+      {
+        plantPart: body.plant_part,
+        symptomDuration: body.symptom_duration,
+        progression: body.progression,
+        notes: body.notes,
+      },
     );
     return {
       success: true,
