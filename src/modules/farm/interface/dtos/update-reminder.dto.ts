@@ -20,6 +20,7 @@ export class UpdateReminderDto {
   remind_at?: string;
 
   @IsString()
+  @IsNotEmpty({ message: 'Vụ mùa liên kết không được để trống!' })
   @IsOptional()
   diary_id?: string;
 

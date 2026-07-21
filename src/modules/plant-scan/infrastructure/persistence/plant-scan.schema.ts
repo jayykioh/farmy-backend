@@ -12,6 +12,9 @@ export class PlantScanTreatmentSubdocument {
 
   @Prop({ type: String, required: false })
   phi_warning?: string;
+
+  @Prop({ type: String, required: false })
+  safety_alert?: string;
 }
 
 const PlantScanTreatmentSubdocumentSchema = SchemaFactory.createForClass(
