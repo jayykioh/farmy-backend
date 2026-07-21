@@ -89,7 +89,7 @@ export class ImageProcessorService {
 
       this.logger.debug(`Image variance: ${variance}`);
 
-      return variance < 100;
+      return variance < 15;
     } catch (e) {
       this.logger.error('Failed to compute image variance', e);
       return false; // Fallback to allow if computation fails
