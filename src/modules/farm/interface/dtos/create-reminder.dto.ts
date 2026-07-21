@@ -29,8 +29,8 @@ export class CreateReminderDto {
   remind_at: string;
 
   @IsString()
-  @IsOptional()
-  diary_id?: string;
+  @IsNotEmpty({ message: 'Vụ mùa liên kết không được để trống!' })
+  diary_id: string;
 
   /** Loại nhắc nhở */
   @IsEnum(

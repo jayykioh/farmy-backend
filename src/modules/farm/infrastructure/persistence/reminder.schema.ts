@@ -31,8 +31,8 @@ export class ReminderDocument extends Document<string> {
   @Prop({ type: String, ref: UserDocument.name, required: true, index: true })
   user_id: string;
 
-  @Prop({ type: String, ref: DiaryDocument.name, required: false, index: true })
-  diary_id?: string;
+  @Prop({ type: String, ref: DiaryDocument.name, required: true, index: true })
+  diary_id: string;
 
   @Prop({ required: true })
   title: string;

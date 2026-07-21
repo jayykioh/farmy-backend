@@ -32,6 +32,32 @@ export class ReminderService {
     private readonly petService: PetService,
   ) {}
 
+  private async attachDiaryDetails(reminders: ReminderDocument[]) {
+    const diaryIds = [
+      ...new Set(
+        reminders
+          .map((reminder) => reminder.diary_id)
+          .filter((diaryId): diaryId is string => Boolean(diaryId)),
+      ),
+    ];
+
+    const diaries = diaryIds.length
+      ? await this.diaryModel
+          .find({ _id: { $in: diaryIds } })
+          .select('_id crop_type season')
+          .lean()
+          .exec()
+      : [];
+    const diaryById = new Map(diaries.map((diary) => [diary._id, diary]));
+
+    return reminders.map((reminder) => ({
+      ...reminder.toObject(),
+      diary: reminder.diary_id
+        ? diaryById.get(reminder.diary_id) ?? undefined
+        : undefined,
+    }));
+  }
+
   private async verifyDiaryOwner(
     userId: string,
     diaryId: string,
@@ -82,18 +108,20 @@ export class ReminderService {
     return reminder.save();
   }
 
-  async findAll(userId: string): Promise<ReminderDocument[]> {
-    return this.reminderModel
+  async findAll(userId: string) {
+    const reminders = await this.reminderModel
       .find({ user_id: userId })
       .sort({ remind_at: 1 })
       .exec();
+    return this.attachDiaryDetails(reminders);
   }
 
-  async findPending(userId: string): Promise<ReminderDocument[]> {
-    return this.reminderModel
+  async findPending(userId: string) {
+    const reminders = await this.reminderModel
       .find({ user_id: userId, status: { $in: ['pending', 'delivered'] } })
       .sort({ remind_at: 1 })
       .exec();
+    return this.attachDiaryDetails(reminders);
   }
 
   async findOne(userId: string, id: string): Promise<ReminderDocument> {
@@ -115,10 +143,8 @@ export class ReminderService {
     const reminder = await this.findOne(userId, id);
 
     if (dto.diary_id !== undefined) {
-      if (dto.diary_id) {
-        await this.verifyDiaryOwner(userId, dto.diary_id);
-      }
-      reminder.diary_id = dto.diary_id || undefined;
+      await this.verifyDiaryOwner(userId, dto.diary_id);
+      reminder.diary_id = dto.diary_id;
     }
     if (dto.title !== undefined) reminder.title = dto.title;
     if (dto.remind_at !== undefined) {
