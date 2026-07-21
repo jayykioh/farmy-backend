@@ -96,7 +96,7 @@ export const appConfig = () => ({
       10,
     ),
     freeDailyLimit: parseInt(
-      process.env.PLANT_SCAN_FREE_DAILY_LIMIT ?? '3',
+      process.env.PLANT_SCAN_FREE_DAILY_LIMIT ?? '999',
       10,
     ),
     premiumDailyLimit: parseInt(
