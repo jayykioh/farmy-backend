@@ -33,6 +33,10 @@ import {
   WeeklyInsightSchema,
 } from '../modules/farm/infrastructure/persistence/weekly-insight.schema';
 import { MigrationDocument, MigrationSchema } from './migration.schema';
+import {
+  PlantScanDocument,
+  PlantScanSchema,
+} from '../modules/plant-scan/infrastructure/persistence/plant-scan.schema';
 import { DatabaseMigrationService } from './database-migration.service';
 import { DatabaseSeedService } from './database-seed.service';
 
@@ -47,6 +51,7 @@ import { DatabaseSeedService } from './database-seed.service';
       { name: KnowledgeSourceDocument.name, schema: KnowledgeSourceSchema },
       { name: AiChatMemoryDocument.name, schema: AiChatMemorySchema },
       { name: WeeklyInsightDocument.name, schema: WeeklyInsightSchema },
+      { name: PlantScanDocument.name, schema: PlantScanSchema },
       { name: MigrationDocument.name, schema: MigrationSchema },
     ]),
   ],
