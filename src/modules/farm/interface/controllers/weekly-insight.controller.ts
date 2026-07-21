@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Logger, Post, Query, UseGuards } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
@@ -13,6 +13,8 @@ import {
 @Controller('api/v1/weekly-insights')
 @UseGuards(JwtAuthGuard)
 export class WeeklyInsightController {
+  private readonly logger = new Logger(WeeklyInsightController.name);
+
   constructor(
     private readonly insightRepository: WeeklyInsightRepository,
     private readonly diaryService: DiaryService,
@@ -49,7 +51,10 @@ export class WeeklyInsightController {
     @Body() body: { diary_id?: string },
   ) {
     const diaryId = body?.diary_id?.trim();
+    this.logger.log(`[Trigger] Nhận yêu cầu tạo weekly insight cho userId=${userId}, diaryId=${diaryId}`);
+
     if (!diaryId) {
+      this.logger.warn(`[Trigger] Yêu cầu thất bại: thiếu diary_id`);
       throw new BadRequestException('Vui lòng chọn mùa vụ cần phân tích.');
     }
 
@@ -66,6 +71,7 @@ export class WeeklyInsightController {
     // Kiểm tra xem tuần này đã có insight chưa
     const existing = await this.insightRepository.findByWeek(userId, monday, diaryId);
     if (existing) {
+      this.logger.log(`[Trigger] Mùa vụ ${diary.crop_type} đã có báo cáo tuần ${monday.toISOString()} (id=${existing._id})`);
       return {
         success: false,
         already_exists: true,
@@ -84,8 +90,10 @@ export class WeeklyInsightController {
     const staleJob = await this.insightQueue.getJob(jobId);
     if (staleJob) {
       const state = await staleJob.getState();
+      this.logger.log(`[Trigger] Phát hiện job trùng jobId=${jobId}, trạng thái hiện tại state='${state}'`);
       if (state === 'completed' || state === 'failed') {
         await staleJob.remove();
+        this.logger.log(`[Trigger] Đã xóa staleJob id=${jobId} để enqueue job mới.`);
       } else {
         return {
           success: true,
@@ -98,7 +106,7 @@ export class WeeklyInsightController {
       }
     }
 
-    await this.insightQueue.add(
+    const job = await this.insightQueue.add(
       INSIGHT_JOB_GENERATE,
       {
         userId,
@@ -115,6 +123,8 @@ export class WeeklyInsightController {
         removeOnComplete: true,
       },
     );
+
+    this.logger.log(`[Trigger] Đã thêm thành công Job id=${job.id} vào BullMQ queue '${INSIGHT_QUEUE}'`);
 
     return {
       success: true,
