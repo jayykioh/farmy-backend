@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  Query,
   UseInterceptors,
   UploadedFile,
   Body,
@@ -71,6 +72,28 @@ export class PlantScanController {
       body.crop_type,
       user.id,
       user.tier || 'free',
+      {
+        plantPart: body.plant_part,
+        symptomDuration: body.symptom_duration,
+        progression: body.progression,
+        notes: body.notes,
+      },
+    );
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get()
+  async getScans(
+    @CurrentUser() user: { id: string },
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = Number.parseInt(limit || '30', 10);
+    const data = await this.scanService.getScans(
+      user.id,
+      Number.isFinite(parsedLimit) ? parsedLimit : 30,
     );
     return {
       success: true,

@@ -15,6 +15,7 @@ import {
 } from './plant-scan-guardrail.service';
 import { PetService } from '../../../pet/application/services/pet.service';
 import { PetMood } from '../../../pet/infrastructure/persistence/pet-state.schema';
+import { PROMPT_VERSIONS } from '../../../ai/domain/prompt.constants';
 
 @Injectable()
 export class PlantScanService {
@@ -37,6 +38,12 @@ export class PlantScanService {
     cropType: string,
     userId: string,
     tier: string = 'free',
+    context?: {
+      plantPart?: string;
+      symptomDuration?: string;
+      progression?: string;
+      notes?: string;
+    },
   ) {
     const startedAt = Date.now();
     // 1. Validate magic bytes
@@ -95,6 +102,7 @@ export class PlantScanService {
         user_id: userId,
         crop_type: cropType,
         status: 'completed',
+        prompt_version: PROMPT_VERSIONS.vision,
         created_at: { $gte: sevenDaysAgo },
       })
       .exec();
@@ -172,7 +180,18 @@ export class PlantScanService {
     );
 
     // 8. Call LLM Vision
-    const builtPrompt = this.promptService.buildVisionPrompt({ cropType });
+    const imageContext = [
+      context?.plantPart && `Bộ phận được chụp: ${context.plantPart}`,
+      context?.symptomDuration && `Triệu chứng xuất hiện: ${context.symptomDuration}`,
+      context?.progression && `Diễn biến: ${context.progression}`,
+      context?.notes && `Ghi chú bổ sung: ${context.notes}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const builtPrompt = this.promptService.buildVisionPrompt({
+      cropType,
+      imageContext,
+    });
     let llmResult;
     try {
       llmResult = await this.llmService.completeVision({
@@ -422,5 +441,36 @@ export class PlantScanService {
       thumbnail_url: thumbnailUrl,
       created_at: (scan as any).created_at,
     };
+  }
+
+  async getScans(userId: string, requestedLimit = 30) {
+    const limit = Math.min(Math.max(requestedLimit, 1), 50);
+    const [scans, total] = await Promise.all([
+      this.scanModel
+        .find({ user_id: userId, status: 'completed' })
+        .sort({ created_at: -1 })
+        .limit(limit)
+        .exec(),
+      this.scanModel.countDocuments({ user_id: userId, status: 'completed' }),
+    ]);
+
+    const items = await Promise.all(
+      scans.map(async (scan) => ({
+        scan_id: scan._id,
+        status: scan.cache_hit_from_scan_id ? 'cached' : 'completed',
+        crop_type: scan.crop_type,
+        diagnosis: scan.diagnosis,
+        image_url: scan.image_key
+          ? await this.storageService.getSignedUrl(scan.image_key)
+          : undefined,
+        thumbnail_url: scan.thumbnail_key
+          ? await this.storageService.getSignedUrl(scan.thumbnail_key)
+          : undefined,
+        cache_hit_from_scan_id: scan.cache_hit_from_scan_id,
+        created_at: (scan as any).created_at,
+      })),
+    );
+
+    return { items, total };
   }
 }

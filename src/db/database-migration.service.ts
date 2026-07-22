@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
@@ -54,7 +55,7 @@ export class DatabaseMigrationService {
       const filePath = path.join(migrationsDir, file);
 
       // Load migration file dynamically
-      const migrationModule = (await import(filePath)) as Record<
+      const migrationModule = (await import(pathToFileURL(filePath).href)) as Record<
         string,
         unknown
       >;

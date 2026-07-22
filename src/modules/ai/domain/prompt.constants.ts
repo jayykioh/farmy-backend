@@ -25,6 +25,6 @@ export const PROMPT_LIMITS = {
  */
 export const PROMPT_VERSIONS = {
   chat: 'chat_v1.0',
-  vision: 'vision_v1.0',
+  vision: 'vision_v2.0',
   insight: 'insight_v1.0',
 } as const;

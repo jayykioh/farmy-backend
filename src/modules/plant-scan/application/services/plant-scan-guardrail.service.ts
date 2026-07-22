@@ -16,7 +16,7 @@ const BANNED_PESTICIDES = ['paraquat', 'chlorpyrifos', 'carbofuran'];
 export const GeminiDiagnosisSchema = z.object({
   is_plant: z.boolean(),
   disease_name: z.string().optional(),
-  confidence: z.number().optional(),
+  confidence: z.number().min(0).max(1).optional(),
   symptoms: z.array(z.string()).optional().default([]),
   treatment: z
     .object({
@@ -32,11 +32,12 @@ export type GeminiDiagnosis = z.infer<typeof GeminiDiagnosisSchema>;
 @Injectable()
 export class PlantScanGuardrailService {
   applyBVTVGuardrail(diagnosis: GeminiDiagnosis): any {
-    const enrichedDiagnosis: any = { ...diagnosis };
+    const enrichedDiagnosis: any = {
+      ...diagnosis,
+      treatment: { ...diagnosis.treatment },
+    };
 
-    if (diagnosis.is_plant === false) {
-      return enrichedDiagnosis;
-    }
+    if (!diagnosis.is_plant) return enrichedDiagnosis;
 
     const treatmentText = [
       diagnosis.treatment?.chemical ?? '',
@@ -45,33 +46,26 @@ export class PlantScanGuardrailService {
       .join(' ')
       .toLowerCase();
 
-    // 1. PHI Warning
-    if (PHI_KEYWORDS.some((k) => treatmentText.includes(k))) {
-      if (!enrichedDiagnosis.treatment) enrichedDiagnosis.treatment = {};
+    if (PHI_KEYWORDS.some((keyword) => treatmentText.includes(keyword))) {
       enrichedDiagnosis.treatment.phi_warning =
-        '⚠️ Tuân thủ thời gian cách ly PHI: Cách ly 14 ngày trước thu hoạch sau khi phun thuốc hóa học.';
+        '⚠️ Kiểm tra nhãn sản phẩm và tuân thủ đúng thời gian cách ly (PHI) của loại thuốc được phép sử dụng tại địa phương.';
     }
 
-    // 2. Banned Pesticides
-    const flagged = BANNED_PESTICIDES.filter((p) => treatmentText.includes(p));
+    const flagged = BANNED_PESTICIDES.filter((item) =>
+      treatmentText.includes(item),
+    );
     if (flagged.length > 0) {
-      enrichedDiagnosis.safety_alert = `🚨 CẢNH BÁO BẢO VỆ THỰC VẬT: Hoạt chất ${flagged.join(
-        ', ',
-      )} nằm trong danh mục cấm hoặc hạn chế nghiêm ngặt tại Việt Nam do độc tính cao. Vui lòng tham khảo ý kiến Chi cục Bảo vệ Thực vật địa phương để thay thế bằng hoạt chất an toàn hơn.`;
+      enrichedDiagnosis.safety_alert = `🚨 Hoạt chất ${flagged.join(', ')} thuộc nhóm bị cấm hoặc hạn chế nghiêm ngặt. Không sử dụng và hãy hỏi cơ quan bảo vệ thực vật địa phương về phương án thay thế.`;
     }
 
-    // 3. Low Confidence
-    if (
-      typeof diagnosis.confidence === 'number' &&
-      diagnosis.confidence < 0.6
-    ) {
+    if (typeof diagnosis.confidence === 'number' && diagnosis.confidence < 0.6) {
+      enrichedDiagnosis.treatment.chemical = '';
       enrichedDiagnosis.low_confidence_warning =
-        '⚠️ Độ tin cậy thấp (< 60%). Vui lòng chụp lại ảnh rõ nét hơn dưới ánh sáng tự nhiên hoặc bổ sung thêm triệu chứng mô tả.';
+        'Mức chắc chắn còn thấp. Hãy chụp thêm ảnh rõ nét dưới ánh sáng tự nhiên và bổ sung diễn biến triệu chứng trước khi cân nhắc biện pháp điều trị.';
     }
 
-    // 4. Mandatory Disclaimer
     enrichedDiagnosis.disclaimer =
-      'LƯU Ý: AI chỉ mang tính chất tham khảo ban đầu. Bà con nên kết hợp kinh nghiệm thực tế hoặc hỏi ý kiến chuyên gia nông nghiệp trước khi áp dụng.';
+      'AI chỉ đưa ra đánh giá ban đầu từ bằng chứng hiện có. Hãy kiểm tra thực tế hoặc hỏi chuyên gia nông nghiệp trước khi áp dụng biện pháp điều trị.';
 
     return enrichedDiagnosis;
   }

@@ -8,6 +8,7 @@ import { DiaryDocument } from '../modules/farm/infrastructure/persistence/diary.
 import { DiaryLogDocument } from '../modules/farm/infrastructure/persistence/diary-log.schema';
 import { ReminderDocument } from '../modules/farm/infrastructure/persistence/reminder.schema';
 import { MigrationDocument } from './migration.schema';
+import { PlantScanDocument } from '../modules/plant-scan/infrastructure/persistence/plant-scan.schema';
 
 async function bootstrap() {
   console.log('Bootstrapping verification application context...');
@@ -33,6 +34,9 @@ async function bootstrap() {
     );
     const migrationModel = app.get<Model<MigrationDocument>>(
       getModelToken(MigrationDocument.name),
+    );
+    const plantScanModel = app.get<Model<PlantScanDocument>>(
+      getModelToken(PlantScanDocument.name),
     );
 
     console.log(
@@ -80,6 +84,14 @@ async function bootstrap() {
     reminders.forEach((r) =>
       console.log(
         `  - Title: "${r.title}", Remind At: ${r.remind_at.toLocaleString()}, Sent: ${r.is_sent}`,
+      ),
+    );
+
+    const scans = await plantScanModel.find().sort({ created_at: -1 }).exec();
+    console.log(`\n🌿 Plant scans (${scans.length}):`);
+    scans.forEach((scan) =>
+      console.log(
+        `  - User: ${scan.user_id}, Crop: ${scan.crop_type}, Result: ${scan.diagnosis?.disease_name || 'Không phát hiện bệnh'}, Status: ${scan.status}`,
       ),
     );
 
