@@ -24,8 +24,8 @@ import { UpdateKnowledgeDto } from '../dto/update-knowledge.dto';
 import { BatchEmbedKnowledgeDto } from '../dto/batch-embed-knowledge.dto';
 import { ConfirmKnowledgeDto } from '../dto/confirm-knowledge.dto';
 
-/** Giới hạn file 10MB */
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+/** Giới hạn file 50MB */
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /**
  * AdminKnowledgeController
