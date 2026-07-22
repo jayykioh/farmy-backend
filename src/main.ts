@@ -10,6 +10,12 @@ async function bootstrap() {
   app.useLogger(app.get(Logger));
   const cfg = appConfig();
 
+  // Set Express body-parser limit to 15MB so multipart file uploads aren't
+  // rejected at the Express layer before multer can validate them.
+  // Multer still enforces MAX_FILE_SIZE (10MB) per-file on top of this.
+  app.use(require('express').json({ limit: '15mb' }));
+  app.use(require('express').urlencoded({ extended: true, limit: '15mb' }));
+
   app.enableCors({
     origin: cfg.allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

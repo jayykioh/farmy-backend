@@ -12,6 +12,7 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  PayloadTooLargeException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -89,6 +90,16 @@ export class AdminKnowledgeController {
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() dto: CreateKnowledgeUnifiedDto,
   ) {
+    // Guard: multer throws an Error with code LIMIT_FILE_SIZE when file exceeds
+    // MAX_FILE_SIZE. Because multer runs inside the interceptor, NestJS surfaces
+    // this as an unhandled exception → 500. We rethrow as 413 here.
+    // Note: this path is unreachable in practice (multer throws before the
+    // handler is called), but kept for safety in case future interceptor changes.
+    if ((file as any)?.error?.code === 'LIMIT_FILE_SIZE') {
+      throw new PayloadTooLargeException(
+        `File vượt quá giới hạn cho phép (tối đa ${MAX_FILE_SIZE / 1024 / 1024}MB). Vui lòng nén file hoặc chia nhỏ nội dung.`,
+      );
+    }
     let finalTitle: string;
     let finalContent: string;
     let finalCategory: string;

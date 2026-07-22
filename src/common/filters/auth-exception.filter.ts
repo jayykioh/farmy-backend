@@ -21,9 +21,25 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let errorCode = 'INTERNAL_SERVER_ERROR';
     let message = 'Lỗi hệ thống!';
 
+    // ── Multer file-size error → 413 ────────────────────────────────────────
+    // multer throws a plain Error (not HttpException) with code LIMIT_FILE_SIZE
+    // when the uploaded file exceeds the limits.fileSize option.
+    const multerCode = (exception as any)?.code;
+    if (multerCode === 'LIMIT_FILE_SIZE') {
+      return response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
+        success: false,
+        status_code: HttpStatus.PAYLOAD_TOO_LARGE,
+        error_code: 'FILE_TOO_LARGE',
+        message:
+          'File tải lên vượt quá giới hạn cho phép (tối đa 10MB). Vui lòng nén file hoặc chia nhỏ nội dung.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     if (exception instanceof Error) {
       message = exception.message;
     }
+
 
     if (exception instanceof HttpException) {
       const resContent = exception.getResponse();
