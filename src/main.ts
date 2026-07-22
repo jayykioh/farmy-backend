@@ -31,6 +31,9 @@ async function bootstrap() {
 
   // Enable cookie parsing (refresh_token cookie)
   app.use(cookieParser());
+  const { json, urlencoded } = require('express');
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   await app.listen(cfg.port);
 }
