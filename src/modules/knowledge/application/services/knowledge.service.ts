@@ -193,8 +193,13 @@ export class KnowledgeService {
     );
 
     // Enqueue 1 BullMQ job / document
+    // NOTE: jobId intentionally includes a random suffix to avoid BullMQ's built-in
+    // deduplication (same jobId = silently skipped). Using sha256(content) alone as jobId
+    // caused embed_status to get stuck at 'processing' forever when the worker failed and
+    // the admin triggered batchEmbed again — BullMQ would skip the re-queue silently.
     const jobs = docsWithContent.map((doc) => {
       const contentHash = createHash('sha256').update(doc.content).digest('hex');
+      const uniqueSuffix = randomUUID();
 
       return {
         name: 'embed-knowledge',
@@ -202,6 +207,7 @@ export class KnowledgeService {
           sourceId: doc._id,
           sourceType: 'knowledge_source',
           text: doc.content,
+          contentHash, // pass hash so processor can skip unchanged chunks
           metadata: {
             title: doc.title,
             category: doc.category,
@@ -209,7 +215,10 @@ export class KnowledgeService {
             language: doc.doc_language,
           },
         } satisfies EmbedDocumentPayload,
-        opts: { jobId: `embed-knowledge_source-${doc._id}-${contentHash}` },
+        opts: {
+          jobId: `embed-knowledge_source-${doc._id}-${uniqueSuffix}`,
+          removeOnFail: false, // keep failed jobs visible for debugging
+        },
       };
     });
 
