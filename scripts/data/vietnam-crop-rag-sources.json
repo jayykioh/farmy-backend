@@ -1,0 +1,23 @@
+{
+  "collection": "Sổ tay kỹ thuật canh tác thích ứng biến đổi khí hậu WB7",
+  "publisher": "Cục Trồng trọt phối hợp Viện Nghiên cứu Rau quả",
+  "landingPage": "http://cpo.vn/wb7/tin-tuc/so-tay-huong-dan-ky-thuat-canh-tac-thich-ung-bien-doi-khi-hau-cho-mot-so-loai-cay-trong-chu-luc-642",
+  "sources": [
+    { "crop": "Bưởi", "slug": "buoi", "driveId": "1y6k_IbVR2jxUhwnkYszcUqHY7mE_ZHXK" },
+    { "crop": "Cà phê", "slug": "ca-phe", "driveId": "1irWaO6thOzhbaAnmKHL4bTJN0pZb2ZSI" },
+    { "crop": "Cam", "slug": "cam", "driveId": "1Uu1CXAIlBku3P3OMJMdAx0gN_OOo6BKc" },
+    { "crop": "Chè", "slug": "che", "driveId": "1mRTWCuqrEQXrshZ9Z0GtA1Q43t4mrj87" },
+    { "crop": "Chuối", "slug": "chuoi", "driveId": "15_-3kqmVxS-hM0SNWYtFXfPyuss7wzF2" },
+    { "crop": "Điều", "slug": "dieu", "driveId": "1gN1TfW8kHuY66YD62BRoe8V5oumH17Hb" },
+    { "crop": "Hồ tiêu", "slug": "ho-tieu", "driveId": "1ss6m6F2zt_GAj23z4mVjBFIdQetnYpcm" },
+    { "crop": "Cây màu", "slug": "cay-mau", "driveId": "1T0NcYI8Hsq_6D7F7nVVDXutgYqOKEIjx" },
+    { "crop": "Nhãn", "slug": "nhan", "driveId": "1Npopj0PRBAsE9sj-Z3gyp1HWRtTSxTOB" },
+    { "crop": "Rau ăn lá", "slug": "rau-an-la", "driveId": "1IWlc5rbmi1OPsAtICXi70MPyN8SjTpIq" },
+    { "crop": "Sầu riêng", "slug": "sau-rieng", "driveId": "1zj_7_wkyprLmzB8Qla30pldJHGLCWwmY" },
+    { "crop": "Vải", "slug": "vai", "driveId": "1cPQNK8_4YNrud9KmuT6dfGXpFZUKHM1X" },
+    { "crop": "Xoài", "slug": "xoai", "driveId": "1d_dMqKnAGP0mBM-WHdVW5qZ2R-vYZrnW" },
+    { "crop": "Lúa", "slug": "lua", "driveId": "19RxlfTYL7e7X5zdpcvSmvElaneFExeBv" },
+    { "crop": "Rau ăn quả", "slug": "rau-an-qua", "driveId": "15lGF7kXMWKQY_ed7VgnP8jZQaSpoHwVX" },
+    { "crop": "Thanh long", "slug": "thanh-long", "driveId": "1cvBJY0TnVKOs6WrnwY491Sjlg46rcna-" }
+  ]
+}

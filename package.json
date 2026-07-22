@@ -21,7 +21,8 @@
     "db:migrate": "ts-node -r tsconfig-paths/register src/db/migrate.ts",
     "db:migrate-pg": "ts-node -r tsconfig-paths/register src/db/migrate-pg.ts",
     "db:seed": "ts-node -r tsconfig-paths/register src/db/seed.ts",
-    "db:verify": "ts-node -r tsconfig-paths/register src/db/verify.ts"
+    "db:verify": "ts-node -r tsconfig-paths/register src/db/verify.ts",
+    "rag:import-vn-crops": "node scripts/import-vietnam-crop-rag.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1078.0",
