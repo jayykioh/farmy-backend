@@ -195,19 +195,25 @@ export class AdminKnowledgeController {
     };
   }
 
-  // GET /admin/knowledge?category=&limit=&skip=&validation_status=
+  // GET /admin/knowledge?category=&limit=&skip=&validation_status=&sort=&min_score=&max_score=
   @Get()
   async findAll(
     @Query('category') category?: string,
     @Query('validation_status') validationStatus?: string,
     @Query('limit') limit?: string,
     @Query('skip') skip?: string,
+    @Query('sort') sort?: string,
+    @Query('min_score') minScore?: string,
+    @Query('max_score') maxScore?: string,
   ) {
     const docs = await this.knowledgeService.findAll({
       category,
       validationStatus: validationStatus as any,
-      limit: limit ? parseInt(limit, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : 0, // 0 = no limit, lists all
       skip: skip ? parseInt(skip, 10) : undefined,
+      sort,
+      minScore: minScore ? parseInt(minScore, 10) : undefined,
+      maxScore: maxScore ? parseInt(maxScore, 10) : undefined,
     });
     return { success: true, data: docs };
   }

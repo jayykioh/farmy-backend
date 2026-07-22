@@ -49,19 +49,39 @@ export class KnowledgeService {
     validationStatus?: KnowledgeSourceDocument['validation_status'];
     limit?: number;
     skip?: number;
+    sort?: string;
+    minScore?: number;
+    maxScore?: number;
   }): Promise<KnowledgeSourceDocument[]> {
     const filter: Record<string, unknown> = {};
     if (opts?.category) filter.category = opts.category;
-    if (opts?.validationStatus)
-      filter.validation_status = opts.validationStatus;
+    if (opts?.validationStatus) filter.validation_status = opts.validationStatus;
 
-    return this.knowledgeModel
-      .find(filter)
-      .skip(opts?.skip ?? 0)
-      .limit(opts?.limit ?? 50)
-      .sort({ created_at: -1 })
-      .lean()
-      .exec();
+    if (opts?.minScore !== undefined || opts?.maxScore !== undefined) {
+      filter['validation_report.score'] = {};
+      if (opts?.minScore !== undefined) {
+        (filter['validation_report.score'] as any).$gte = opts.minScore;
+      }
+      if (opts?.maxScore !== undefined) {
+        (filter['validation_report.score'] as any).$lte = opts.maxScore;
+      }
+    }
+
+    let sortObj: Record<string, 1 | -1> = { created_at: -1 };
+    if (opts?.sort === 'score_asc') {
+      sortObj = { 'validation_report.score': 1, created_at: -1 };
+    } else if (opts?.sort === 'score_desc') {
+      sortObj = { 'validation_report.score': -1, created_at: -1 };
+    } else if (opts?.sort === 'created_at_asc') {
+      sortObj = { created_at: 1 };
+    }
+
+    let query = this.knowledgeModel.find(filter).sort(sortObj);
+    
+    if (opts?.skip) query = query.skip(opts.skip);
+    if (opts?.limit) query = query.limit(opts.limit);
+
+    return query.lean().exec();
   }
 
   async findOne(id: string): Promise<KnowledgeSourceDocument> {
