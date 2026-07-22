@@ -198,6 +198,10 @@ export class ChatService {
         responseContent =
           'Nội dung câu hỏi chứa các thuật ngữ chưa phù hợp để tư vấn nông nghiệp. Bà con vui lòng đặt câu hỏi rõ ràng hơn về kỹ thuật cây trồng nhé!';
         isSafetyBlocked = true;
+      } else {
+        // Forcefully strip out markdown asterisks and hashtags because the LLM 
+        // often ignores the "no markdown" system instruction when generating lists.
+        responseContent = responseContent.replace(/[*#]/g, '');
       }
     }
 
