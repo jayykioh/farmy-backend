@@ -15,6 +15,7 @@ export interface Citation {
   title: string;
   score: number;
   date?: string;
+  source_url?: string;
 }
 
 export interface RAGContext {
@@ -68,12 +69,15 @@ export class RAGService {
         if (hit.source_type === 'knowledge_source') {
           const doc = await this.knowledgeModel.findById(hit.source_id).exec();
           if (doc) {
-            contextTexts.push(`[Tài liệu: ${doc.title}] ${doc.content}`);
+            contextTexts.push(
+              `[Tài liệu: ${doc.title}${doc.source_url ? ` | Nguồn: ${doc.source_url}` : ''}] ${hit.text}`,
+            );
             citations.push({
               source_id: doc._id.toString(),
               source_type: 'knowledge_doc',
               title: doc.title,
               score: hit.score,
+              source_url: doc.source_url,
             });
           }
         } else if (hit.source_type === 'diary_log') {
